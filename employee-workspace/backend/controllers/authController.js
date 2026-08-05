@@ -3,23 +3,61 @@ import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 
 const generateToken = (userId) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET is not configured");
+  }
+
   return jwt.sign(
-    { id: userId },
+    {
+      id: userId,
+    },
     process.env.JWT_SECRET,
-    { expiresIn: "7d" }
+    {
+      expiresIn: "7d",
+    },
   );
 };
+
+const getCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+});
 
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    if (!email?.trim() || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+    }).select("+passwordHash");
 
     if (!user) {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
+      });
+    }
+
+    if (!user.passwordHash) {
+      console.error(
+        `LOGIN ERROR: User ${user._id} does not have a passwordHash`,
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "This account does not have a valid password configured. Please contact admin.",
       });
     }
 
@@ -41,14 +79,9 @@ export const loginUser = async (req, res) => {
 
     const token = generateToken(user._id);
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie("token", token, getCookieOptions());
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Login successful",
       user: {
@@ -60,17 +93,25 @@ export const loginUser = async (req, res) => {
         role: user.role,
         employeeId: user.employeeId,
         designation: user.designation,
-        department: user.department,
         subcategoryId: user.subcategoryId,
+        teamId: user.teamId,
+        managerId: user.managerId,
+        hrId: user.hrId,
+        teamLeaderId: user.teamLeaderId,
         phone: user.phone,
         dateOfJoining: user.dateOfJoining,
+        dateOfBirth: user.dateOfBirth,
+        profilePhoto: user.profilePhoto,
+        isActive: user.isActive,
         mustChangePassword: user.mustChangePassword,
       },
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("LOGIN ERROR:", error);
+
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Unable to sign in",
     });
   }
 };
@@ -83,35 +124,58 @@ export const logoutUser = async (req, res) => {
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Logout successful",
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("LOGOUT ERROR:", error);
+
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Unable to log out",
     });
   }
 };
-;
+
 export const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
+      .select("-passwordHash")
       .populate("subcategoryId", "name")
-      .select("-passwordHash");
+      .populate("teamId", "name departmentId")
+      .populate(
+        "managerId",
+        "name email employeeId designation role profilePhoto",
+      )
+      .populate("hrId", "name email employeeId designation role profilePhoto")
+      .populate(
+        "teamLeaderId",
+        "name email employeeId designation role profilePhoto",
+      )
+      .populate("assignedTeamIds", "name departmentId");
 
-    res.status(200).json({
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
       success: true,
       user,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("GET ME ERROR:", error);
+
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Unable to retrieve profile",
     });
   }
 };
+
 export const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -130,7 +194,14 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    const user = await User.findById(req.user._id);
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be different from the current password",
+      });
+    }
+
+    const user = await User.findById(req.user._id).select("+passwordHash");
 
     if (!user) {
       return res.status(404).json({
@@ -139,10 +210,14 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    const isMatch = await bcrypt.compare(
-      currentPassword,
-      user.passwordHash
-    );
+    if (!user.passwordHash) {
+      return res.status(500).json({
+        success: false,
+        message: "This account does not have a valid password configured",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
 
     if (!isMatch) {
       return res.status(400).json({
@@ -152,18 +227,21 @@ export const changePassword = async (req, res) => {
     }
 
     user.passwordHash = await bcrypt.hash(newPassword, 10);
+
     user.mustChangePassword = false;
 
     await user.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Password changed successfully",
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("CHANGE PASSWORD ERROR:", error);
+
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Unable to update user",
     });
   }
 };

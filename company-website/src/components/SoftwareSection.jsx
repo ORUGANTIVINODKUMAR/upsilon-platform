@@ -108,7 +108,7 @@ function SoftwareSection() {
             ))}
           </div>
         </div>
-
+{/* Temporarily hidden
         <div className="software-benefits" data-aos="fade-up">
           {benefits.map((benefit) => (
             <div className="software-benefit" key={benefit}>
@@ -125,6 +125,7 @@ function SoftwareSection() {
           Don&apos;t see your platform listed? Our team can adapt to many
           accounting, tax, payroll, practice-management, and document systems.
         </p>
+        */}
       </div>
     </section>
   );

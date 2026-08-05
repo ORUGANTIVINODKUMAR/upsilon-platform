@@ -2,16 +2,20 @@ import express from "express";
 
 import {
   createLeaveRequest,
+  updateMyLeaveRequest,
   getMyLeaveRequests,
 
   getPendingTLRequests,
   approveLeaveByTL,
   rejectLeaveByTL,
+  getTLApprovalHistory,
+  getAllManagerLeaveRequests,
   getManagerApprovalHistory,
   getPendingManagerRequests,
   approveLeaveByManager,
   rejectLeaveByManager,
-  getTLApprovalHistory,
+  changeLeaveStatus,
+
   getFinanceLeaves,
   getApprovedLeaveCalendar,
   getTodayLeaves,
@@ -22,6 +26,12 @@ import upload from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
+/*
+|--------------------------------------------------------------------------
+| Employee / Team Leader Own Leave Routes
+|--------------------------------------------------------------------------
+*/
+
 router.post(
   "/request",
   protect,
@@ -29,21 +39,39 @@ router.post(
   createLeaveRequest
 );
 router.get(
-  "/tl/history",
+  "/manager-all",
   protect,
-  getTLApprovalHistory
+  getAllManagerLeaveRequests
 );
+router.put(
+  "/request/:id",
+  protect,
+  upload.single("proofFile"),
+  updateMyLeaveRequest
+);
+
 router.get(
   "/my-requests",
   protect,
   getMyLeaveRequests
 );
 
-/* Team Leader Approval Routes */
+/*
+|--------------------------------------------------------------------------
+| Team Leader Approval Routes
+|--------------------------------------------------------------------------
+*/
+
 router.get(
   "/tl-pending",
   protect,
   getPendingTLRequests
+);
+
+router.get(
+  "/tl/history",
+  protect,
+  getTLApprovalHistory
 );
 
 router.put(
@@ -57,16 +85,23 @@ router.put(
   protect,
   rejectLeaveByTL
 );
-router.get(
-  "/manager-history",
-  protect,
-  getManagerApprovalHistory
-);
-/* Manager / HR Final Approval Routes */
+
+/*
+|--------------------------------------------------------------------------
+| Manager / HR Final Approval Routes
+|--------------------------------------------------------------------------
+*/
+
 router.get(
   "/manager-pending",
   protect,
   getPendingManagerRequests
+);
+
+router.get(
+  "/manager-history",
+  protect,
+  getManagerApprovalHistory
 );
 
 router.put(
@@ -80,6 +115,18 @@ router.put(
   protect,
   rejectLeaveByManager
 );
+
+router.put(
+  "/status/:id",
+  protect,
+  changeLeaveStatus
+);
+
+/*
+|--------------------------------------------------------------------------
+| Finance / Calendar / Today Leave Routes
+|--------------------------------------------------------------------------
+*/
 
 router.get(
   "/finance",

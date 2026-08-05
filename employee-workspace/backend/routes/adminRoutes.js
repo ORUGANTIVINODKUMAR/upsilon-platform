@@ -21,6 +21,12 @@ import { authorizeRoles } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
+/*
+|--------------------------------------------------------------------------
+| Department routes
+|--------------------------------------------------------------------------
+*/
+
 router.post(
   "/subcategories",
   protect,
@@ -34,6 +40,19 @@ router.get(
   authorizeRoles("Admin"),
   getSubcategories
 );
+
+router.delete(
+  "/subcategories/:id",
+  protect,
+  authorizeRoles("Admin"),
+  deleteSubcategory
+);
+
+/*
+|--------------------------------------------------------------------------
+| Team routes
+|--------------------------------------------------------------------------
+*/
 
 router.post(
   "/teams",
@@ -49,6 +68,20 @@ router.get(
   getTeams
 );
 
+router.put(
+  "/teams/:id",
+  protect,
+  authorizeRoles("Admin"),
+  updateTeam
+);
+
+router.patch(
+  "/teams/:id",
+  protect,
+  authorizeRoles("Admin"),
+  updateTeam
+);
+
 router.delete(
   "/teams/:id",
   protect,
@@ -56,30 +89,24 @@ router.delete(
   deleteTeam
 );
 
+/*
+|--------------------------------------------------------------------------
+| User routes
+|--------------------------------------------------------------------------
+*/
+
 router.post(
   "/users",
   protect,
   authorizeRoles("Admin"),
   createUser
 );
-router.put(
-  "/teams/:id",
-  protect,
-  authorizeRoles("Admin"),
-  updateTeam
-);
+
 router.get(
   "/users",
   protect,
   authorizeRoles("Admin"),
   getUsers
-);
-
-router.delete(
-  "/users/:id",
-  protect,
-  authorizeRoles("Admin"),
-  deleteUser
 );
 
 router.put(
@@ -89,12 +116,25 @@ router.put(
   updateUser
 );
 
-router.delete(
-  "/subcategories/:id",
+router.patch(
+  "/users/:id",
   protect,
   authorizeRoles("Admin"),
-  deleteSubcategory
+  updateUser
 );
+
+router.delete(
+  "/users/:id",
+  protect,
+  authorizeRoles("Admin"),
+  deleteUser
+);
+
+/*
+|--------------------------------------------------------------------------
+| Admin report routes
+|--------------------------------------------------------------------------
+*/
 
 router.get(
   "/leave-reports",
@@ -110,6 +150,4 @@ router.get(
   getAllReimbursementReports
 );
 
-
 export default router;
-

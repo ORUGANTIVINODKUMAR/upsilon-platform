@@ -1,6 +1,28 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
+const profilePhotoSchema = new mongoose.Schema(
+  {
+    url: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    publicId: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    uploadedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -8,34 +30,55 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+
     firstName: {
       type: String,
       trim: true,
+      default: "",
     },
+
     lastName: {
       type: String,
       trim: true,
+      default: "",
     },
+
     employeeId: {
       type: String,
       unique: true,
       sparse: true,
       trim: true,
+      default: null,
     },
+
+    department: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     designation: {
       type: String,
       trim: true,
+      default: "",
     },
+
     phone: {
       type: String,
       trim: true,
+      default: "",
     },
+
     dateOfJoining: {
       type: Date,
+      default: null,
     },
+
     dateOfBirth: {
       type: Date,
+      default: null,
     },
+
     email: {
       type: String,
       required: true,
@@ -43,10 +86,13 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+
     passwordHash: {
       type: String,
       required: true,
+      select: false,
     },
+
     role: {
       type: String,
       enum: [
@@ -59,11 +105,27 @@ const userSchema = new mongoose.Schema(
       ],
       default: "Employee",
     },
+
+    employmentStatus: {
+      type: String,
+      enum: [
+        "Active",
+        "Inactive",
+        "On Leave",
+        "Probation",
+        "Notice Period",
+        "Terminated",
+        "Resigned",
+      ],
+      default: "Active",
+    },
+
     subcategoryId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Subcategory",
       default: null,
     },
+
     teamId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Team",
@@ -75,11 +137,13 @@ const userSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+
     hrId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
     },
+
     teamLeaderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -92,21 +156,64 @@ const userSchema = new mongoose.Schema(
         ref: "Team",
       },
     ],
+
+    profilePhoto: {
+      type: profilePhotoSchema,
+      default: () => ({
+        url: "",
+        publicId: "",
+        uploadedAt: null,
+      }),
+    },
+
+    additionalInformation: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+
     mustChangePassword: {
       type: Boolean,
       default: true,
     },
+
     isActive: {
       type: Boolean,
       default: true,
     },
+
     signatureFile: {
       type: String,
       default: "",
     },
+
+    lastUpdatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
+
+userSchema.pre("validate", function () {
+  if (this.email) {
+    this.email = this.email.toLowerCase().trim();
+  }
+
+  if (this.employeeId) {
+    this.employeeId = this.employeeId.trim();
+  }
+
+  if (!this.name && (this.firstName || this.lastName)) {
+    this.name = `${this.firstName || ""} ${
+      this.lastName || ""
+    }`
+      .trim()
+      .replace(/\s+/g, " ");
+  }
+});
 
 userSchema.methods.matchPassword = async function (password) {
   return bcrypt.compare(password, this.passwordHash);

@@ -2,605 +2,2486 @@ import LeaveRequest from "../models/LeaveRequest.js";
 import User from "../models/User.js";
 import Holiday from "../models/Holiday.js";
 import Team from "../models/Team.js";
-import { createNotification } from "../services/notificationService.js";
+
+import {
+  createNotification,
+} from "../services/notificationService.js";
+
 import {
   sendDecisionEmail,
   sendFinanceLeaveEmail,
   sendLeaveRequestEmail,
 } from "../services/emailService.js";
 
-const calculateWorkingDays = async (startDate, endDate) => {
-  const holidays = await Holiday.find({});
+const APPROVED_LEAVE_STATUSES = [
+  "Approved by Manager",
+  "Approved by HR",
+];
 
-  const holidayDates = holidays.map((holiday) =>
-    new Date(holiday.holidayDate).toISOString().split("T")[0]
+const REJECTED_LEAVE_STATUSES = [
+  "Rejected by Manager",
+  "Rejected by HR",
+];
+
+const PENDING_LEAVE_STATUSES = [
+  "Pending Final Approval",
+  "Pending Reapproval",
+];
+
+const EDITABLE_LEAVE_TYPES = [
+  "Sick",
+  "Vacation",
+  "Personal",
+  "Travel",
+  "Casual",
+  "Earned",
+  "Emergency",
+];
+
+const calculateWorkingDays = async (
+  startDate,
+  endDate
+) => {
+  const holidays = await Holiday.find({}).select(
+    "holidayDate"
+  );
+
+  const holidayDates = new Set(
+    holidays.map((holiday) =>
+      new Date(holiday.holidayDate)
+        .toISOString()
+        .split("T")[0]
+    )
   );
 
   let count = 0;
+
   const current = new Date(startDate);
   const end = new Date(endDate);
 
+  current.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+
   while (current <= end) {
     const day = current.getDay();
-    const formattedDate = current.toISOString().split("T")[0];
 
-    const isWeekend = day === 0 || day === 6;
-    const isHoliday = holidayDates.includes(formattedDate);
+    const formattedDate = current
+      .toISOString()
+      .split("T")[0];
+
+    const isWeekend =
+      day === 0 || day === 6;
+
+    const isHoliday =
+      holidayDates.has(formattedDate);
 
     if (!isWeekend && !isHoliday) {
-      count++;
+      count += 1;
     }
 
-    current.setDate(current.getDate() + 1);
+    current.setDate(
+      current.getDate() + 1
+    );
   }
 
   return count;
 };
 
-export const createLeaveRequest = async (req, res) => {
-  try {
-    const { leaveType, startDate, endDate, reason, leaveExplanation } =
-      req.body;
+const normalizeDateForComparison = (
+  value
+) => {
+  if (!value) {
+    return "";
+  }
 
-    if (!req.user.subcategoryId) {
+  return new Date(value)
+    .toISOString()
+    .split("T")[0];
+};
+
+const getLeaveSnapshot = (
+  leaveRequest
+) => ({
+  leaveType:
+    leaveRequest.leaveType || "",
+
+  startDate:
+    leaveRequest.startDate || null,
+
+  endDate:
+    leaveRequest.endDate || null,
+
+  reason:
+    leaveRequest.reason || "",
+
+  leaveExplanation:
+    leaveRequest.leaveExplanation || "",
+
+  workingDays:
+    leaveRequest.workingDays || 0,
+
+  proofFile:
+    leaveRequest.proofFile || "",
+
+  finalStatus:
+    leaveRequest.finalStatus || "",
+});
+
+const getChangedLeaveFields = (
+  previousValues,
+  updatedValues
+) => {
+  const changedFields = [];
+
+  if (
+    previousValues.leaveType !==
+    updatedValues.leaveType
+  ) {
+    changedFields.push("leaveType");
+  }
+
+  if (
+    normalizeDateForComparison(
+      previousValues.startDate
+    ) !==
+    normalizeDateForComparison(
+      updatedValues.startDate
+    )
+  ) {
+    changedFields.push("startDate");
+  }
+
+  if (
+    normalizeDateForComparison(
+      previousValues.endDate
+    ) !==
+    normalizeDateForComparison(
+      updatedValues.endDate
+    )
+  ) {
+    changedFields.push("endDate");
+  }
+
+  if (
+    previousValues.reason !==
+    updatedValues.reason
+  ) {
+    changedFields.push("reason");
+  }
+
+  if (
+    previousValues.leaveExplanation !==
+    updatedValues.leaveExplanation
+  ) {
+    changedFields.push(
+      "leaveExplanation"
+    );
+  }
+
+  if (
+    Number(
+      previousValues.workingDays
+    ) !==
+    Number(
+      updatedValues.workingDays
+    )
+  ) {
+    changedFields.push(
+      "workingDays"
+    );
+  }
+
+  if (
+    previousValues.proofFile !==
+    updatedValues.proofFile
+  ) {
+    changedFields.push("proofFile");
+  }
+
+  return changedFields;
+};
+
+const getUniqueUserIds = (
+  values
+) => {
+  return [
+    ...new Set(
+      values
+        .filter(Boolean)
+        .map((value) =>
+          value.toString()
+        )
+    ),
+  ];
+};
+
+export const createLeaveRequest = async (
+  req,
+  res
+) => {
+  try {
+    const {
+      leaveType,
+      startDate,
+      endDate,
+      reason,
+      leaveExplanation,
+    } = req.body;
+
+    if (
+      !EDITABLE_LEAVE_TYPES.includes(
+        leaveType
+      )
+    ) {
       return res.status(400).json({
         success: false,
-        message: "User is not assigned to any department",
+        message: "Invalid leave type",
       });
     }
 
-    const employee = await User.findById(req.user._id);
+    if (
+      !startDate ||
+      !endDate ||
+      !reason?.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Leave type, dates, and reason are required",
+      });
+    }
+
+    const employee =
+      await User.findById(
+        req.user._id
+      );
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (!employee.subcategoryId) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "User is not assigned to any department",
+      });
+    }
 
     const team = employee.teamId
-      ? await Team.findById(employee.teamId)
-        .populate("teamLeaderId", "name email role")
-        .populate("managerIds", "name email role")
-        .populate("hrIds", "name email role")
+      ? await Team.findById(
+          employee.teamId
+        )
+          .populate(
+            "teamLeaderId",
+            "name email role isActive"
+          )
+          .populate(
+            "managerIds",
+            "name email role isActive"
+          )
+          .populate(
+            "hrIds",
+            "name email role isActive"
+          )
       : null;
 
     if (!team) {
       return res.status(400).json({
         success: false,
-        message: "User is not assigned to any team",
+        message:
+          "User is not assigned to any team",
       });
     }
 
+    const isTeamLeader =
+      employee.role === "TeamLeader";
+
     const assignedTeamLeader =
-      req.user.role === "TeamLeader" ? null : team.teamLeaderId;
+      isTeamLeader
+        ? null
+        : team.teamLeaderId;
 
     const assignedManager =
-      team.managerIds?.length > 0 ? team.managerIds[0] : null;
+      team.managerIds?.find(
+        (manager) =>
+          manager.isActive !== false
+      ) || null;
 
-    if (req.user.role !== "TeamLeader" && !assignedTeamLeader) {
+    if (
+      !isTeamLeader &&
+      !assignedTeamLeader
+    ) {
       return res.status(400).json({
         success: false,
-        message: "No Team Leader assigned for this team",
+        message:
+          "No Team Leader assigned for this team",
       });
     }
 
     if (!assignedManager) {
       return res.status(400).json({
         success: false,
-        message: "No Manager assigned for this team",
+        message:
+          "No Manager assigned for this team",
       });
     }
 
-    const workingDays = await calculateWorkingDays(startDate, endDate);
+    const parsedStartDate =
+      new Date(startDate);
+
+    const parsedEndDate =
+      new Date(endDate);
+
+    if (
+      Number.isNaN(
+        parsedStartDate.getTime()
+      ) ||
+      Number.isNaN(
+        parsedEndDate.getTime()
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid leave dates",
+      });
+    }
+
+    if (
+      parsedEndDate <
+      parsedStartDate
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "End date cannot be earlier than start date",
+      });
+    }
+
+    const workingDays =
+      await calculateWorkingDays(
+        parsedStartDate,
+        parsedEndDate
+      );
 
     if (workingDays <= 0) {
       return res.status(400).json({
         success: false,
-        message: "Leave cannot be applied only on weekends or holidays.",
+        message:
+          "Leave cannot be applied only on weekends or holidays.",
       });
     }
-    console.log("Assigned Team Leader:", assignedTeamLeader?._id);
-    console.log("Assigned Manager:", assignedManager?._id);
-    console.log("Team:", team.name);
 
-    const leaveRequest = await LeaveRequest.create({
-      employeeId: req.user._id,
-      subcategoryId: req.user.subcategoryId,
-      teamId: req.user.teamId || null,
-      teamLeaderId:
-        req.user.role === "TeamLeader"
-          ? null
-          : assignedTeamLeader?._id,
+    const leaveRequest =
+      await LeaveRequest.create({
+        employeeId:
+          employee._id,
 
-      managerId: assignedManager?._id || null,
-      leaveType,
-      startDate,
-      endDate,
-      reason,
-      leaveExplanation: leaveExplanation || "",
-      workingDays,
-      proofFile: req.file ? req.file.path : "",
-      tlStatus:
-        req.user.role === "TeamLeader"
-          ? "Approved"
-          : "Pending",
-      managerStatus: "Pending",
-      hrStatus: "Pending",
-      finalStatus: "Pending Final Approval",
-      approvalHistory: [
-        {
-          level: "TeamLeader",
-          action: "Submitted",
-          actedBy: req.user._id,
-          remarks: "Leave request submitted",
-        },
-      ],
-    });
-    const hrUsers = await User.find({
-      role: "HR",
-      isActive: true,
-    });
+        subcategoryId:
+          employee.subcategoryId,
 
-    const notificationUsers = [
-      assignedTeamLeader,
-      assignedManager,
-      ...hrUsers,
-    ].filter(Boolean);
+        teamId:
+          employee.teamId || null,
+
+        teamLeaderId:
+          isTeamLeader
+            ? null
+            : assignedTeamLeader?._id ||
+              null,
+
+        managerId:
+          assignedManager._id,
+
+        leaveType,
+
+        startDate:
+          parsedStartDate,
+
+        endDate:
+          parsedEndDate,
+
+        reason:
+          reason.trim(),
+
+        leaveExplanation:
+          leaveExplanation?.trim() ||
+          "",
+
+        workingDays,
+
+        proofFile:
+          req.file?.path || "",
+
+        tlStatus:
+          isTeamLeader
+            ? "Not Required"
+            : "Pending",
+
+        managerStatus:
+          "Pending",
+
+        hrStatus:
+          "Pending",
+
+        finalStatus:
+          "Pending Final Approval",
+
+        requiresReapproval:
+          false,
+
+        approvalHistory: [
+          {
+            level:
+              isTeamLeader
+                ? "Manager"
+                : "TeamLeader",
+
+            action: "Submitted",
+
+            actedBy:
+              employee._id,
+
+            remarks:
+              "Leave request submitted",
+          },
+        ],
+      });
+
+    const hrUsers =
+      await User.find({
+        role: "HR",
+        isActive: true,
+      }).select(
+        "_id name email role"
+      );
+
+    const notificationUsers =
+      isTeamLeader
+        ? [
+            assignedManager,
+            ...hrUsers,
+          ]
+        : [
+            assignedTeamLeader,
+            assignedManager,
+            ...hrUsers,
+          ];
+
+    const uniqueNotificationUsers =
+      [
+        ...new Map(
+          notificationUsers
+            .filter(Boolean)
+            .map((approver) => [
+              approver._id.toString(),
+              approver,
+            ])
+        ).values(),
+      ];
 
     await Promise.all(
-      notificationUsers.map((approver) =>
-        createNotification({
-          recipientId: approver._id,
-          title: "New Leave Request",
-          message: `${req.user.name} submitted a ${leaveType} leave request.`,
-          link: "/dashboard",
-        })
+      uniqueNotificationUsers.map(
+        (approver) =>
+          createNotification({
+            recipientId:
+              approver._id,
+
+            title:
+              "New Leave Request",
+
+            message:
+              `${employee.name} submitted a ${leaveType} leave request.`,
+
+            link:
+              "/dashboard",
+          })
       )
     );
 
     Promise.all(
-      notificationUsers
-        .filter((approver) => approver.email)
+      uniqueNotificationUsers
+        .filter(
+          (approver) =>
+            approver.email
+        )
         .map((approver) =>
           sendLeaveRequestEmail({
             to: approver.email,
-            employeeName: req.user.name,
+
+            employeeName:
+              employee.name,
+
             leaveType,
-            startDate,
-            endDate,
+
+            startDate:
+              parsedStartDate,
+
+            endDate:
+              parsedEndDate,
+
             workingDays,
           })
         )
     ).catch((emailError) => {
-      console.log("Leave request email failed:", emailError.message);
+      console.log(
+        "Leave request email failed:",
+        emailError.message
+      );
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
+      message:
+        "Leave request submitted successfully",
       leaveRequest,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-export const getMyLeaveRequests = async (req, res) => {
-  try {
-    const leaveRequests = await LeaveRequest.find({
-      employeeId: req.user._id,
-    })
-      .populate("teamLeaderId", "name email role")
-      .populate("managerId", "name email role")
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      leaveRequests,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-export const getManagerApprovalHistory = async (req, res) => {
-  try {
-    const filter =
-      req.user.role === "HR"
-        ? {
-          finalStatus: {
-            $in: [
-              "Approved by Manager",
-              "Approved by HR",
-              "Rejected by Manager",
-              "Rejected by HR",
-            ],
-          },
-        }
-        : {
-          managerId: req.user._id,
-          finalStatus: {
-            $in: [
-              "Approved by Manager",
-              "Approved by HR",
-              "Rejected by Manager",
-              "Rejected by HR",
-            ],
-          },
-        };
-
-    const leaveRequests = await LeaveRequest.find(filter)
-      .populate(
-        "employeeId",
-        "name email employeeId designation"
-      )
-      .populate("subcategoryId", "name")
-      .sort({ updatedAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      leaveRequests,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-export const getPendingTLRequests = async (req, res) => {
-  try {
-    if (req.user.role !== "TeamLeader") {
-      return res.status(403).json({
-        success: false,
-        message: "Only Team Leaders can view these requests",
-      });
-    }
-
-    const leaveRequests = await LeaveRequest.find({
-      teamLeaderId: req.user._id,
-      finalStatus: "Pending Final Approval",
-      tlStatus: "Pending",
-    })
-      .populate("employeeId", "name email employeeId designation")
-      .populate("subcategoryId", "name")
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      leaveRequests,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-export const getTLApprovalHistory = async (req, res) => {
-  try {
-    if (req.user.role !== "TeamLeader") {
-      return res.status(403).json({
-        success: false,
-        message: "Only Team Leaders can view history",
-      });
-    }
-
-    const leaveRequests = await LeaveRequest.find({
-      teamLeaderId: req.user._id,
-    })
-      .populate("employeeId", "name email employeeId designation")
-      .populate("subcategoryId", "name")
-      .populate("managerApprovedBy", "name")
-      .populate("hrApprovedBy", "name")
-      .sort({ updatedAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      leaveRequests,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-export const approveLeaveByTL = async (req, res) => {
-  try {
-    const leaveRequest = await LeaveRequest.findById(req.params.id).populate(
-      "employeeId",
-      "name email"
+    console.error(
+      "CREATE LEAVE REQUEST ERROR:",
+      error
     );
 
-    if (!leaveRequest) {
-      return res.status(404).json({
-        success: false,
-        message: "Leave request not found",
-      });
-    }
-
-    if (leaveRequest.teamLeaderId?.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "You are not assigned as TL for this leave request",
-      });
-    }
-
-
-    leaveRequest.tlStatus = "Approved";
-    leaveRequest.tlApprovedBy = req.user._id;
-    leaveRequest.tlApprovedAt = new Date();
-
-    leaveRequest.approvalHistory.push({
-      level: "TeamLeader",
-      action: "Approved",
-      actedBy: req.user._id,
-      remarks: "Approved by Team Leader",
-    });
-
-    await leaveRequest.save();
-
-    await createNotification({
-      recipientId: leaveRequest.employeeId._id,
-      title: "Leave Approved by Team Leader",
-      message:
-        "Your leave has been approved by Team Leader and is pending Manager/HR approval.",
-      link: "/dashboard",
-    });
-
-    if (leaveRequest.managerId) {
-      await createNotification({
-        recipientId: leaveRequest.managerId,
-        title: "Leave Pending Final Approval",
-        message: `${leaveRequest.employeeId.name}'s leave was approved by TL and needs your final review.`,
-        link: "/dashboard",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Leave approved by Team Leader",
-      leaveRequest,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-export const rejectLeaveByTL = async (req, res) => {
-  try {
-    const { rejectionReason } = req.body;
-
-    if (!rejectionReason?.trim()) {
+    if (
+      error.name ===
+      "ValidationError"
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Rejection reason is required",
+        message:
+          Object.values(
+            error.errors
+          )
+            .map(
+              (item) =>
+                item.message
+            )
+            .join(", ") ||
+          "Leave request validation failed",
       });
     }
 
-    const leaveRequest = await LeaveRequest.findById(req.params.id).populate(
-      "employeeId",
-      "name email"
-    );
+    return res.status(500).json({
+      success: false,
+      message:
+        error.message ||
+        "Unable to create leave request",
+    });
+  }
+};
+export const updateMyLeaveRequest = async (
+  req,
+  res
+) => {
+  try {
+    const {
+      leaveType,
+      startDate,
+      endDate,
+      reason,
+      leaveExplanation,
+      editRemarks,
+    } = req.body;
+
+    const leaveRequest =
+      await LeaveRequest.findById(
+        req.params.id
+      );
 
     if (!leaveRequest) {
       return res.status(404).json({
         success: false,
-        message: "Leave request not found",
-      });
-    }
-
-    if (leaveRequest.teamLeaderId?.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "You are not assigned as TL for this leave request",
-      });
-    }
-
-    leaveRequest.tlStatus = "Rejected";
-    leaveRequest.tlRejectionReason = rejectionReason.trim();
-
-
-    leaveRequest.approvalHistory.push({
-      level: "TeamLeader",
-      action: "Rejected",
-      actedBy: req.user._id,
-      remarks: rejectionReason.trim(),
-    });
-
-    await leaveRequest.save();
-
-    await createNotification({
-      recipientId: leaveRequest.employeeId._id,
-      title: "Leave Rejected by Team Leader",
-      message: `Your leave was rejected by Team Leader. Reason: ${rejectionReason}`,
-      link: "/dashboard",
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Leave rejected by Team Leader",
-      leaveRequest,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-export const getPendingManagerRequests = async (req, res) => {
-  try {
-    if (!["Manager", "HR"].includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: "Only Manager or HR can view these requests",
-      });
-    }
-
-    const filter =
-      req.user.role === "HR"
-        ? {
-          finalStatus: "Pending Final Approval",
-        }
-        : {
-          finalStatus: "Pending Final Approval",
-          managerId: req.user._id,
-        };
-    const leaveRequests = await LeaveRequest.find(filter)
-      .populate("employeeId", "name email employeeId designation")
-      .populate("subcategoryId", "name")
-      .populate("tlApprovedBy", "name")
-      .populate("teamLeaderId", "name email role")
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      leaveRequests,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-export const approveLeaveByManager = async (req, res) => {
-  try {
-    if (!["Manager", "HR"].includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: "Only Manager or HR can approve leave",
-      });
-    }
-
-    const leaveRequest = await LeaveRequest.findById(req.params.id).populate(
-      "employeeId",
-      "name email"
-    );
-
-    if (!leaveRequest) {
-      return res.status(404).json({
-        success: false,
-        message: "Leave request not found",
+        message:
+          "Leave request not found",
       });
     }
 
     if (
-      req.user.role === "Manager" &&
-      leaveRequest.managerId?.toString() !== req.user._id.toString()
+      leaveRequest.employeeId.toString() !==
+      req.user._id.toString()
     ) {
       return res.status(403).json({
         success: false,
-        message: "You are not assigned as manager for this leave request",
+        message:
+          "You can edit only your own leave request",
       });
     }
 
-    if (req.user.role === "Manager") {
-      leaveRequest.managerStatus = "Approved";
-      leaveRequest.managerApprovedBy = req.user._id;
-      leaveRequest.managerApprovedAt = new Date();
-      leaveRequest.finalStatus = "Approved by Manager";
+    if (
+      REJECTED_LEAVE_STATUSES.includes(
+        leaveRequest.finalStatus
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Rejected leave requests cannot be edited",
+      });
     }
 
-    if (req.user.role === "HR") {
-      leaveRequest.hrStatus = "Approved";
-      leaveRequest.hrApprovedBy = req.user._id;
-      leaveRequest.hrApprovedAt = new Date();
-      leaveRequest.finalStatus = "Approved by HR";
+    const normalizedLeaveType =
+      leaveType?.trim() ||
+      leaveRequest.leaveType;
+
+    const normalizedReason =
+      reason !== undefined
+        ? reason.trim()
+        : leaveRequest.reason;
+
+    const normalizedExplanation =
+      leaveExplanation !== undefined
+        ? leaveExplanation.trim()
+        : leaveRequest.leaveExplanation ||
+          "";
+
+    const normalizedStartDate =
+      startDate !== undefined
+        ? startDate
+        : leaveRequest.startDate;
+
+    const normalizedEndDate =
+      endDate !== undefined
+        ? endDate
+        : leaveRequest.endDate;
+
+    if (
+      !EDITABLE_LEAVE_TYPES.includes(
+        normalizedLeaveType
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid leave type",
+      });
     }
-    leaveRequest.rejectionReason = "";
+
+    if (!normalizedReason) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Leave reason is required",
+      });
+    }
+
+    if (
+      !normalizedStartDate ||
+      !normalizedEndDate
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Start date and end date are required",
+      });
+    }
+
+    const parsedStartDate =
+      new Date(
+        normalizedStartDate
+      );
+
+    const parsedEndDate =
+      new Date(
+        normalizedEndDate
+      );
+
+    if (
+      Number.isNaN(
+        parsedStartDate.getTime()
+      ) ||
+      Number.isNaN(
+        parsedEndDate.getTime()
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid leave date",
+      });
+    }
+
+    if (
+      parsedEndDate <
+      parsedStartDate
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "End date cannot be earlier than start date",
+      });
+    }
+
+    const updatedWorkingDays =
+      await calculateWorkingDays(
+        parsedStartDate,
+        parsedEndDate
+      );
+
+    if (updatedWorkingDays <= 0) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Leave cannot be applied only on weekends or holidays.",
+      });
+    }
+
+    const previousValues =
+      getLeaveSnapshot(
+        leaveRequest
+      );
+
+    const updatedValues = {
+      leaveType:
+        normalizedLeaveType,
+
+      startDate:
+        parsedStartDate,
+
+      endDate:
+        parsedEndDate,
+
+      reason:
+        normalizedReason,
+
+      leaveExplanation:
+        normalizedExplanation,
+
+      workingDays:
+        updatedWorkingDays,
+
+      proofFile:
+        req.file?.path ||
+        leaveRequest.proofFile ||
+        "",
+
+      finalStatus:
+        leaveRequest.finalStatus,
+    };
+
+    const changedFields =
+      getChangedLeaveFields(
+        previousValues,
+        updatedValues
+      );
+
+    if (
+      changedFields.length === 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "No leave details were changed",
+      });
+    }
+
+    const wasApproved =
+      APPROVED_LEAVE_STATUSES.includes(
+        leaveRequest.finalStatus
+      );
+
+    const wasPending =
+      PENDING_LEAVE_STATUSES.includes(
+        leaveRequest.finalStatus
+      );
+
+    if (
+      !wasApproved &&
+      !wasPending
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This leave request cannot be edited in its current status",
+      });
+    }
+
+    leaveRequest.leaveType =
+      updatedValues.leaveType;
+
+    leaveRequest.startDate =
+      updatedValues.startDate;
+
+    leaveRequest.endDate =
+      updatedValues.endDate;
+
+    leaveRequest.reason =
+      updatedValues.reason;
+
+    leaveRequest.leaveExplanation =
+      updatedValues.leaveExplanation;
+
+    leaveRequest.workingDays =
+      updatedValues.workingDays;
+
+    leaveRequest.proofFile =
+      updatedValues.proofFile;
+
+    let requiredReapproval = false;
+
+    if (wasApproved) {
+      requiredReapproval = true;
+
+      leaveRequest.finalStatus =
+        "Pending Reapproval";
+
+      leaveRequest.requiresReapproval =
+        true;
+
+      leaveRequest.reapprovalCount =
+        (leaveRequest.reapprovalCount ||
+          0) + 1;
+
+      leaveRequest.managerStatus =
+        "Pending";
+
+      leaveRequest.managerApprovedBy =
+        null;
+
+      leaveRequest.managerApprovedAt =
+        null;
+
+      leaveRequest.managerRejectionReason =
+        "";
+
+      leaveRequest.hrStatus =
+        "Pending";
+
+      leaveRequest.hrApprovedBy =
+        null;
+
+      leaveRequest.hrApprovedAt =
+        null;
+
+      leaveRequest.hrRejectionReason =
+        "";
+
+      leaveRequest.rejectionReason =
+        "";
+
+      if (
+        leaveRequest.tlStatus !==
+        "Not Required"
+      ) {
+        leaveRequest.tlStatus =
+          "Pending";
+
+        leaveRequest.tlApprovedBy =
+          null;
+
+        leaveRequest.tlApprovedAt =
+          null;
+
+        leaveRequest.tlRejectionReason =
+          "";
+      }
+    } else {
+      leaveRequest.requiresReapproval =
+        leaveRequest.finalStatus ===
+        "Pending Reapproval";
+    }
+
+    updatedValues.finalStatus =
+      leaveRequest.finalStatus;
+
+    const now = new Date();
+
+    leaveRequest.lastEditedBy =
+      req.user._id;
+
+    leaveRequest.lastEditedAt =
+      now;
+
+    leaveRequest.editHistory.push({
+      editedBy:
+        req.user._id,
+
+      editedAt:
+        now,
+
+      previousValues,
+
+      updatedValues,
+
+      changedFields,
+
+      requiredReapproval,
+
+      remarks:
+        editRemarks?.trim() ||
+        (requiredReapproval
+          ? "Approved leave edited and sent for reapproval"
+          : "Pending leave request updated"),
+    });
 
     leaveRequest.approvalHistory.push({
-      level: "Manager",
-      action: "Approved",
-      actedBy: req.user._id,
-      remarks: `Approved by ${req.user.role}`,
+      level:
+        req.user.role ===
+        "TeamLeader"
+          ? "TeamLeader"
+          : "Employee",
+
+      action:
+        "Edited",
+
+      actedBy:
+        req.user._id,
+
+      remarks:
+        `Updated fields: ${changedFields.join(
+          ", "
+        )}`,
+    });
+
+    if (requiredReapproval) {
+      leaveRequest.approvalHistory.push({
+        level:
+          req.user.role ===
+          "TeamLeader"
+            ? "Manager"
+            : "TeamLeader",
+
+        action:
+          "Sent for Reapproval",
+
+        actedBy:
+          req.user._id,
+
+        remarks:
+          "Leave request was edited after approval and requires fresh approval",
+      });
+    }
+
+    await leaveRequest.save();
+
+    const hrUsers =
+      await User.find({
+        role: "HR",
+        isActive: true,
+      }).select(
+        "_id email"
+      );
+
+    const recipientIds =
+      getUniqueUserIds([
+        leaveRequest.managerId,
+        leaveRequest.teamLeaderId,
+        ...hrUsers.map(
+          (hr) => hr._id
+        ),
+      ]);
+
+    const notificationTitle =
+      requiredReapproval
+        ? "Leave Request Updated for Reapproval"
+        : "Leave Request Updated";
+
+    const notificationMessage =
+      requiredReapproval
+        ? `${req.user.name} updated an approved ${leaveRequest.leaveType} leave request. Fresh approval is required.`
+        : `${req.user.name} updated their ${leaveRequest.leaveType} leave request.`;
+
+    await Promise.all(
+      recipientIds.map(
+        (recipientId) =>
+          createNotification({
+            recipientId,
+
+            title:
+              notificationTitle,
+
+            message:
+              notificationMessage,
+
+            link:
+              "/dashboard",
+          })
+      )
+    );
+
+    const updatedLeaveRequest =
+      await LeaveRequest.findById(
+        leaveRequest._id
+      )
+        .populate(
+          "employeeId",
+          "name email employeeId designation role profilePhoto"
+        )
+        .populate(
+          "subcategoryId",
+          "name"
+        )
+        .populate(
+          "teamId",
+          "name"
+        )
+        .populate(
+          "teamLeaderId",
+          "name email role"
+        )
+        .populate(
+          "managerId",
+          "name email role"
+        )
+        .populate(
+          "lastEditedBy",
+          "name email role"
+        )
+        .populate(
+          "editHistory.editedBy",
+          "name email role"
+        );
+
+    return res.status(200).json({
+      success: true,
+
+      message:
+        requiredReapproval
+          ? "Leave request updated and sent for reapproval"
+          : "Leave request updated successfully",
+
+      leaveRequest:
+        updatedLeaveRequest,
+
+      requiredReapproval,
+    });
+  } catch (error) {
+    console.error(
+      "UPDATE LEAVE REQUEST ERROR:",
+      error
+    );
+
+    if (
+      error.name ===
+      "CastError"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid leave request ID",
+      });
+    }
+
+    if (
+      error.name ===
+      "ValidationError"
+    ) {
+      return res.status(400).json({
+        success: false,
+
+        message:
+          Object.values(
+            error.errors
+          )
+            .map(
+              (item) =>
+                item.message
+            )
+            .join(", ") ||
+          "Leave request validation failed",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+
+      message:
+        error.message ||
+        "Unable to update leave request",
+    });
+  }
+};
+
+export const getMyLeaveRequests = async (
+  req,
+  res
+) => {
+  try {
+    const leaveRequests =
+      await LeaveRequest.find({
+        employeeId:
+          req.user._id,
+      })
+        .populate(
+          "teamLeaderId",
+          "name email role"
+        )
+        .populate(
+          "managerId",
+          "name email role"
+        )
+        .populate(
+          "lastEditedBy",
+          "name email role"
+        )
+        .populate(
+          "editHistory.editedBy",
+          "name email role"
+        )
+        .sort({
+          createdAt: -1,
+        });
+
+    return res.status(200).json({
+      success: true,
+      leaveRequests,
+    });
+  } catch (error) {
+    console.error(
+      "GET MY LEAVE REQUESTS ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Unable to retrieve leave requests",
+    });
+  }
+};
+export const getPendingTLRequests = async (
+  req,
+  res
+) => {
+  try {
+    if (
+      req.user.role !==
+      "TeamLeader"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Only Team Leaders can view these requests",
+      });
+    }
+
+    const leaveRequests =
+      await LeaveRequest.find({
+        teamLeaderId:
+          req.user._id,
+
+        finalStatus: {
+          $in: [
+            "Pending Final Approval",
+            "Pending Reapproval",
+          ],
+        },
+
+        tlStatus:
+          "Pending",
+      })
+        .populate(
+          "employeeId",
+          "name email employeeId designation role profilePhoto"
+        )
+        .populate(
+          "subcategoryId",
+          "name"
+        )
+        .populate(
+          "teamId",
+          "name"
+        )
+        .populate(
+          "managerId",
+          "name email role"
+        )
+        .populate(
+          "lastEditedBy",
+          "name email role"
+        )
+        .populate(
+          "editHistory.editedBy",
+          "name email role"
+        )
+        .sort({
+          updatedAt: -1,
+        });
+
+    return res.status(200).json({
+      success: true,
+      leaveRequests,
+    });
+  } catch (error) {
+    console.error(
+      "GET PENDING TL REQUESTS ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Unable to retrieve pending Team Leader requests",
+    });
+  }
+};
+
+export const getTLApprovalHistory = async (
+  req,
+  res
+) => {
+  try {
+    if (
+      req.user.role !==
+      "TeamLeader"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Only Team Leaders can view history",
+      });
+    }
+
+    const leaveRequests =
+      await LeaveRequest.find({
+        teamLeaderId:
+          req.user._id,
+      })
+        .populate(
+          "employeeId",
+          "name email employeeId designation role profilePhoto"
+        )
+        .populate(
+          "subcategoryId",
+          "name"
+        )
+        .populate(
+          "teamId",
+          "name"
+        )
+        .populate(
+          "managerApprovedBy",
+          "name email role"
+        )
+        .populate(
+          "hrApprovedBy",
+          "name email role"
+        )
+        .populate(
+          "tlApprovedBy",
+          "name email role"
+        )
+        .populate(
+          "lastEditedBy",
+          "name email role"
+        )
+        .populate(
+          "editHistory.editedBy",
+          "name email role"
+        )
+        .sort({
+          updatedAt: -1,
+        });
+
+    return res.status(200).json({
+      success: true,
+      leaveRequests,
+    });
+  } catch (error) {
+    console.error(
+      "GET TL APPROVAL HISTORY ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Unable to retrieve Team Leader approval history",
+    });
+  }
+};
+
+export const approveLeaveByTL = async (
+  req,
+  res
+) => {
+  try {
+    if (
+      req.user.role !==
+      "TeamLeader"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Only Team Leaders can approve leave requests",
+      });
+    }
+
+    const leaveRequest =
+      await LeaveRequest.findById(
+        req.params.id
+      ).populate(
+        "employeeId",
+        "name email role"
+      );
+
+    if (!leaveRequest) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Leave request not found",
+      });
+    }
+
+    if (
+      !leaveRequest.teamLeaderId ||
+      leaveRequest.teamLeaderId.toString() !==
+        req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "You are not assigned as Team Leader for this leave request",
+      });
+    }
+
+    if (
+      leaveRequest.tlStatus !==
+      "Pending"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This leave request has already been reviewed by the Team Leader",
+      });
+    }
+
+    if (
+      !PENDING_LEAVE_STATUSES.includes(
+        leaveRequest.finalStatus
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This leave request is not awaiting approval",
+      });
+    }
+
+    leaveRequest.tlStatus =
+      "Approved";
+
+    leaveRequest.tlApprovedBy =
+      req.user._id;
+
+    leaveRequest.tlApprovedAt =
+      new Date();
+
+    leaveRequest.tlRejectionReason =
+      "";
+
+    leaveRequest.approvalHistory.push({
+      level:
+        "TeamLeader",
+
+      action:
+        "Approved",
+
+      actedBy:
+        req.user._id,
+
+      remarks:
+        leaveRequest.finalStatus ===
+        "Pending Reapproval"
+          ? "Edited leave request approved again by Team Leader"
+          : "Approved by Team Leader",
     });
 
     await leaveRequest.save();
 
     await createNotification({
-      recipientId: leaveRequest.employeeId._id,
-      title: "Leave Approved",
-      message: "Your leave request has been finally approved.",
-      link: "/dashboard",
+      recipientId:
+        leaveRequest.employeeId._id,
+
+      title:
+        leaveRequest.finalStatus ===
+        "Pending Reapproval"
+          ? "Updated Leave Approved by Team Leader"
+          : "Leave Approved by Team Leader",
+
+      message:
+        leaveRequest.finalStatus ===
+        "Pending Reapproval"
+          ? "Your updated leave request was approved by the Team Leader and is awaiting Manager or HR reapproval."
+          : "Your leave was approved by the Team Leader and is awaiting Manager or HR approval.",
+
+      link:
+        "/dashboard",
     });
 
-    const financeUsers = await User.find({
-      role: "Finance",
-      isActive: true,
-    });
+    const hrUsers =
+      await User.find({
+        role: "HR",
+        isActive: true,
+      }).select(
+        "_id"
+      );
+
+    const finalApproverIds =
+      getUniqueUserIds([
+        leaveRequest.managerId,
+        ...hrUsers.map(
+          (hr) => hr._id
+        ),
+      ]);
 
     await Promise.all(
-      financeUsers.map((finance) =>
-        createNotification({
-          recipientId: finance._id,
-          title: "Approved Leave Details",
-          message: `${leaveRequest.employeeId.name} has an approved ${leaveRequest.leaveType} leave request.`,
-          link: "/dashboard",
-        })
+      finalApproverIds.map(
+        (recipientId) =>
+          createNotification({
+            recipientId,
+
+            title:
+              leaveRequest.finalStatus ===
+              "Pending Reapproval"
+                ? "Updated Leave Pending Reapproval"
+                : "Leave Pending Final Approval",
+
+            message:
+              `${leaveRequest.employeeId.name}'s leave request was approved by the Team Leader and requires your review.`,
+
+            link:
+              "/dashboard",
+          })
+      )
+    );
+
+    return res.status(200).json({
+      success: true,
+
+      message:
+        leaveRequest.finalStatus ===
+        "Pending Reapproval"
+          ? "Updated leave approved by Team Leader"
+          : "Leave approved by Team Leader",
+
+      leaveRequest,
+    });
+  } catch (error) {
+    console.error(
+      "APPROVE LEAVE BY TL ERROR:",
+      error
+    );
+
+    if (
+      error.name ===
+      "CastError"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid leave request ID",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message:
+        error.message ||
+        "Unable to approve leave request",
+    });
+  }
+};
+
+export const rejectLeaveByTL = async (
+  req,
+  res
+) => {
+  try {
+    if (
+      req.user.role !==
+      "TeamLeader"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Only Team Leaders can reject leave requests",
+      });
+    }
+
+    const {
+      rejectionReason,
+    } = req.body;
+
+    if (
+      !rejectionReason?.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Rejection reason is required",
+      });
+    }
+
+    const leaveRequest =
+      await LeaveRequest.findById(
+        req.params.id
+      ).populate(
+        "employeeId",
+        "name email role"
+      );
+
+    if (!leaveRequest) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Leave request not found",
+      });
+    }
+
+    if (
+      !leaveRequest.teamLeaderId ||
+      leaveRequest.teamLeaderId.toString() !==
+        req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "You are not assigned as Team Leader for this leave request",
+      });
+    }
+
+    if (
+      leaveRequest.tlStatus !==
+      "Pending"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This leave request has already been reviewed by the Team Leader",
+      });
+    }
+
+    if (
+      !PENDING_LEAVE_STATUSES.includes(
+        leaveRequest.finalStatus
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This leave request is not awaiting approval",
+      });
+    }
+
+    const trimmedReason =
+      rejectionReason.trim();
+
+    leaveRequest.tlStatus =
+      "Rejected";
+
+    leaveRequest.tlRejectionReason =
+      trimmedReason;
+
+    /*
+     * TL rejection remains advisory in your existing workflow.
+     * Manager or HR can still make the final decision.
+     */
+    leaveRequest.approvalHistory.push({
+      level:
+        "TeamLeader",
+
+      action:
+        "Rejected",
+
+      actedBy:
+        req.user._id,
+
+      remarks:
+        trimmedReason,
+    });
+
+    await leaveRequest.save();
+
+    await createNotification({
+      recipientId:
+        leaveRequest.employeeId._id,
+
+      title:
+        leaveRequest.finalStatus ===
+        "Pending Reapproval"
+          ? "Updated Leave Not Recommended by Team Leader"
+          : "Leave Not Recommended by Team Leader",
+
+      message:
+        `Your leave request was not recommended by the Team Leader. Reason: ${trimmedReason}. Manager or HR will make the final decision.`,
+
+      link:
+        "/dashboard",
+    });
+
+    const hrUsers =
+      await User.find({
+        role: "HR",
+        isActive: true,
+      }).select(
+        "_id"
+      );
+
+    const finalApproverIds =
+      getUniqueUserIds([
+        leaveRequest.managerId,
+        ...hrUsers.map(
+          (hr) => hr._id
+        ),
+      ]);
+
+    await Promise.all(
+      finalApproverIds.map(
+        (recipientId) =>
+          createNotification({
+            recipientId,
+
+            title:
+              leaveRequest.finalStatus ===
+              "Pending Reapproval"
+                ? "Updated Leave Requires Final Review"
+                : "Leave Requires Final Review",
+
+            message:
+              `${leaveRequest.employeeId.name}'s leave request was not recommended by the Team Leader. Final review is still required.`,
+
+            link:
+              "/dashboard",
+          })
+      )
+    );
+
+    return res.status(200).json({
+      success: true,
+
+      message:
+        "Team Leader review recorded successfully",
+
+      leaveRequest,
+    });
+  } catch (error) {
+    console.error(
+      "REJECT LEAVE BY TL ERROR:",
+      error
+    );
+
+    if (
+      error.name ===
+      "CastError"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid leave request ID",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message:
+        error.message ||
+        "Unable to reject leave request",
+    });
+  }
+};
+export const getPendingManagerRequests = async (
+  req,
+  res
+) => {
+  try {
+    if (
+      !["Manager", "HR"].includes(
+        req.user.role
+      )
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Only Manager or HR can view these requests",
+      });
+    }
+
+    const pendingStatuses = [
+      "Pending Final Approval",
+      "Pending Reapproval",
+    ];
+
+    const filter =
+      req.user.role === "HR"
+        ? {
+            finalStatus: {
+              $in: pendingStatuses,
+            },
+          }
+        : {
+            managerId: req.user._id,
+
+            finalStatus: {
+              $in: pendingStatuses,
+            },
+          };
+
+    const leaveRequests =
+      await LeaveRequest.find(
+        filter
+      )
+        .populate(
+          "employeeId",
+          "name email employeeId designation role profilePhoto"
+        )
+        .populate(
+          "subcategoryId",
+          "name"
+        )
+        .populate(
+          "teamId",
+          "name"
+        )
+        .populate(
+          "teamLeaderId",
+          "name email role"
+        )
+        .populate(
+          "tlApprovedBy",
+          "name email role"
+        )
+        .populate(
+          "lastEditedBy",
+          "name email role"
+        )
+        .populate(
+          "editHistory.editedBy",
+          "name email role"
+        )
+        .sort({
+          updatedAt: -1,
+        });
+
+    return res.status(200).json({
+      success: true,
+      leaveRequests,
+    });
+  } catch (error) {
+    console.error(
+      "GET PENDING MANAGER REQUESTS ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Unable to retrieve pending leave requests",
+    });
+  }
+};
+
+export const getManagerApprovalHistory = async (
+  req,
+  res
+) => {
+  try {
+    if (
+      !["Manager", "HR"].includes(
+        req.user.role
+      )
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Only Manager or HR can view approval history",
+      });
+    }
+
+    const completedStatuses = [
+      "Approved by Manager",
+      "Approved by HR",
+      "Rejected by Manager",
+      "Rejected by HR",
+    ];
+
+    const filter =
+      req.user.role === "HR"
+        ? {
+            finalStatus: {
+              $in: completedStatuses,
+            },
+          }
+        : {
+            managerId: req.user._id,
+
+            finalStatus: {
+              $in: completedStatuses,
+            },
+          };
+
+    const leaveRequests =
+      await LeaveRequest.find(
+        filter
+      )
+        .populate(
+          "employeeId",
+          "name email employeeId designation role profilePhoto"
+        )
+        .populate(
+          "subcategoryId",
+          "name"
+        )
+        .populate(
+          "teamId",
+          "name"
+        )
+        .populate(
+          "teamLeaderId",
+          "name email role"
+        )
+        .populate(
+          "managerApprovedBy",
+          "name email role"
+        )
+        .populate(
+          "hrApprovedBy",
+          "name email role"
+        )
+        .populate(
+          "lastEditedBy",
+          "name email role"
+        )
+        .populate(
+          "editHistory.editedBy",
+          "name email role"
+        )
+        .sort({
+          updatedAt: -1,
+        });
+
+    return res.status(200).json({
+      success: true,
+      leaveRequests,
+    });
+  } catch (error) {
+    console.error(
+      "GET MANAGER APPROVAL HISTORY ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Unable to retrieve approval history",
+    });
+  }
+};
+
+export const approveLeaveByManager = async (
+  req,
+  res
+) => {
+  try {
+    if (
+      !["Manager", "HR"].includes(
+        req.user.role
+      )
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Only Manager or HR can approve leave",
+      });
+    }
+
+    const leaveRequest =
+      await LeaveRequest.findById(
+        req.params.id
+      ).populate(
+        "employeeId",
+        "name email employeeId role"
+      );
+
+    if (!leaveRequest) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Leave request not found",
+      });
+    }
+
+    if (
+      !PENDING_LEAVE_STATUSES.includes(
+        leaveRequest.finalStatus
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This leave request is not awaiting approval",
+      });
+    }
+
+    if (
+      req.user.role ===
+        "Manager" &&
+      leaveRequest.managerId?.toString() !==
+        req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "You are not assigned as Manager for this leave request",
+      });
+    }
+
+    const wasReapproval =
+      leaveRequest.finalStatus ===
+      "Pending Reapproval";
+
+    if (
+      req.user.role ===
+      "Manager"
+    ) {
+      leaveRequest.managerStatus =
+        "Approved";
+
+      leaveRequest.managerApprovedBy =
+        req.user._id;
+
+      leaveRequest.managerApprovedAt =
+        new Date();
+
+      leaveRequest.managerRejectionReason =
+        "";
+
+      leaveRequest.finalStatus =
+        "Approved by Manager";
+    }
+
+    if (
+      req.user.role === "HR"
+    ) {
+      leaveRequest.hrStatus =
+        "Approved";
+
+      leaveRequest.hrApprovedBy =
+        req.user._id;
+
+      leaveRequest.hrApprovedAt =
+        new Date();
+
+      leaveRequest.hrRejectionReason =
+        "";
+
+      leaveRequest.finalStatus =
+        "Approved by HR";
+    }
+
+    leaveRequest.rejectionReason =
+      "";
+
+    leaveRequest.requiresReapproval =
+      false;
+
+    leaveRequest.approvalHistory.push({
+      level:
+        req.user.role,
+
+      action:
+        "Approved",
+
+      actedBy:
+        req.user._id,
+
+      remarks:
+        wasReapproval
+          ? `Reapproved by ${req.user.role}`
+          : `Approved by ${req.user.role}`,
+    });
+
+    await leaveRequest.save();
+
+    await createNotification({
+      recipientId:
+        leaveRequest.employeeId._id,
+
+      title:
+        wasReapproval
+          ? "Updated Leave Reapproved"
+          : "Leave Approved",
+
+      message:
+        wasReapproval
+          ? `Your updated leave request was reapproved by ${req.user.role}.`
+          : `Your leave request was approved by ${req.user.role}.`,
+
+      link:
+        "/dashboard",
+    });
+
+    const financeUsers =
+      await User.find({
+        role: "Finance",
+        isActive: true,
+      }).select(
+        "_id email"
+      );
+
+    await Promise.all(
+      financeUsers.map(
+        (financeUser) =>
+          createNotification({
+            recipientId:
+              financeUser._id,
+
+            title:
+              wasReapproval
+                ? "Reapproved Leave Details"
+                : "Approved Leave Details",
+
+            message:
+              `${leaveRequest.employeeId.name} has an approved ${leaveRequest.leaveType} leave request.`,
+
+            link:
+              "/dashboard",
+          })
       )
     );
 
     Promise.all(
-      financeUsers.map((finance) =>
-        sendFinanceLeaveEmail({
-          to: finance.email,
-          employeeName: leaveRequest.employeeId.name,
-          leaveType: leaveRequest.leaveType,
-          startDate: leaveRequest.startDate,
-          endDate: leaveRequest.endDate,
-          workingDays: leaveRequest.workingDays,
-          status: leaveRequest.finalStatus,
-        })
-      )
-    ).catch((emailError) =>
-      console.log("Finance leave email failed:", emailError.message)
-    );
+      financeUsers
+        .filter(
+          (financeUser) =>
+            financeUser.email
+        )
+        .map(
+          (financeUser) =>
+            sendFinanceLeaveEmail({
+              to:
+                financeUser.email,
 
-    res.status(200).json({
+              employeeName:
+                leaveRequest
+                  .employeeId.name,
+
+              leaveType:
+                leaveRequest.leaveType,
+
+              startDate:
+                leaveRequest.startDate,
+
+              endDate:
+                leaveRequest.endDate,
+
+              workingDays:
+                leaveRequest.workingDays,
+
+              status:
+                leaveRequest.finalStatus,
+            })
+        )
+    ).catch((emailError) => {
+      console.log(
+        "Finance leave email failed:",
+        emailError.message
+      );
+    });
+
+    const updatedLeaveRequest =
+      await LeaveRequest.findById(
+        leaveRequest._id
+      )
+        .populate(
+          "employeeId",
+          "name email employeeId designation role profilePhoto"
+        )
+        .populate(
+          "subcategoryId",
+          "name"
+        )
+        .populate(
+          "teamId",
+          "name"
+        )
+        .populate(
+          "teamLeaderId",
+          "name email role"
+        )
+        .populate(
+          "managerApprovedBy",
+          "name email role"
+        )
+        .populate(
+          "hrApprovedBy",
+          "name email role"
+        )
+        .populate(
+          "lastEditedBy",
+          "name email role"
+        );
+
+    return res.status(200).json({
       success: true,
-      message: "Leave approved successfully",
-      leaveRequest,
+
+      message:
+        wasReapproval
+          ? "Leave reapproved successfully"
+          : "Leave approved successfully",
+
+      leaveRequest:
+        updatedLeaveRequest,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error(
+      "APPROVE LEAVE BY MANAGER OR HR ERROR:",
+      error
+    );
+
+    if (
+      error.name ===
+      "CastError"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid leave request ID",
+      });
+    }
+
+    if (
+      error.name ===
+      "ValidationError"
+    ) {
+      return res.status(400).json({
+        success: false,
+
+        message:
+          Object.values(
+            error.errors
+          )
+            .map(
+              (item) =>
+                item.message
+            )
+            .join(", ") ||
+          "Leave request validation failed",
+      });
+    }
+
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message:
+        error.message ||
+        "Unable to approve leave request",
     });
   }
 };
 
-export const rejectLeaveByManager = async (req, res) => {
+export const rejectLeaveByManager = async (
+  req,
+  res
+) => {
   try {
-    const { rejectionReason } = req.body;
+    if (
+      !["Manager", "HR"].includes(
+        req.user.role
+      )
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Only Manager or HR can reject leave",
+      });
+    }
 
+    const {
+      rejectionReason,
+    } = req.body;
+
+    if (
+      !rejectionReason?.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Rejection reason is required",
+      });
+    }
+
+    const leaveRequest =
+      await LeaveRequest.findById(
+        req.params.id
+      ).populate(
+        "employeeId",
+        "name email employeeId role"
+      );
+
+    if (!leaveRequest) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Leave request not found",
+      });
+    }
+
+    if (
+      !PENDING_LEAVE_STATUSES.includes(
+        leaveRequest.finalStatus
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This leave request is not awaiting approval",
+      });
+    }
+
+    if (
+      req.user.role ===
+        "Manager" &&
+      leaveRequest.managerId?.toString() !==
+        req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "You are not assigned as Manager for this leave request",
+      });
+    }
+
+    const wasReapproval =
+      leaveRequest.finalStatus ===
+      "Pending Reapproval";
+
+    const trimmedReason =
+      rejectionReason.trim();
+
+    if (
+      req.user.role ===
+      "Manager"
+    ) {
+      leaveRequest.managerStatus =
+        "Rejected";
+
+      leaveRequest.managerRejectionReason =
+        trimmedReason;
+
+      leaveRequest.finalStatus =
+        "Rejected by Manager";
+    }
+
+    if (
+      req.user.role === "HR"
+    ) {
+      leaveRequest.hrStatus =
+        "Rejected";
+
+      leaveRequest.hrRejectionReason =
+        trimmedReason;
+
+      leaveRequest.finalStatus =
+        "Rejected by HR";
+    }
+
+    leaveRequest.rejectionReason =
+      trimmedReason;
+
+    leaveRequest.requiresReapproval =
+      false;
+
+    leaveRequest.approvalHistory.push({
+      level:
+        req.user.role,
+
+      action:
+        "Rejected",
+
+      actedBy:
+        req.user._id,
+
+      remarks:
+        wasReapproval
+          ? `Updated leave rejected by ${req.user.role}: ${trimmedReason}`
+          : trimmedReason,
+    });
+
+    await leaveRequest.save();
+
+    await createNotification({
+      recipientId:
+        leaveRequest.employeeId._id,
+
+      title:
+        wasReapproval
+          ? "Updated Leave Rejected"
+          : "Leave Rejected",
+
+      message:
+        wasReapproval
+          ? `Your updated leave request was rejected by ${req.user.role}. Reason: ${trimmedReason}`
+          : `Your leave request was rejected by ${req.user.role}. Reason: ${trimmedReason}`,
+
+      link:
+        "/dashboard",
+    });
+
+    if (
+      leaveRequest.employeeId.email
+    ) {
+      sendDecisionEmail({
+        to:
+          leaveRequest.employeeId.email,
+
+        subject:
+          wasReapproval
+            ? "Updated Leave Request Rejected"
+            : "Leave Request Rejected",
+
+        title:
+          wasReapproval
+            ? "Updated Leave Request Rejected"
+            : "Leave Request Rejected",
+
+        employeeName:
+          leaveRequest.employeeId.name,
+
+        requestType:
+          "Leave",
+
+        status:
+          "Rejected",
+
+        rejectionReason:
+          trimmedReason,
+      }).catch(
+        (emailError) => {
+          console.log(
+            "Leave rejection email failed:",
+            emailError.message
+          );
+        }
+      );
+    }
+
+    const updatedLeaveRequest =
+      await LeaveRequest.findById(
+        leaveRequest._id
+      )
+        .populate(
+          "employeeId",
+          "name email employeeId designation role profilePhoto"
+        )
+        .populate(
+          "subcategoryId",
+          "name"
+        )
+        .populate(
+          "teamId",
+          "name"
+        )
+        .populate(
+          "teamLeaderId",
+          "name email role"
+        )
+        .populate(
+          "managerApprovedBy",
+          "name email role"
+        )
+        .populate(
+          "hrApprovedBy",
+          "name email role"
+        )
+        .populate(
+          "lastEditedBy",
+          "name email role"
+        );
+
+    return res.status(200).json({
+      success: true,
+
+      message:
+        wasReapproval
+          ? "Updated leave rejected successfully"
+          : "Leave rejected successfully",
+
+      leaveRequest:
+        updatedLeaveRequest,
+    });
+  } catch (error) {
+    console.error(
+      "REJECT LEAVE BY MANAGER OR HR ERROR:",
+      error
+    );
+
+    if (
+      error.name ===
+      "CastError"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid leave request ID",
+      });
+    }
+
+    if (
+      error.name ===
+      "ValidationError"
+    ) {
+      return res.status(400).json({
+        success: false,
+
+        message:
+          Object.values(
+            error.errors
+          )
+            .map(
+              (item) =>
+                item.message
+            )
+            .join(", ") ||
+          "Leave request validation failed",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message:
+        error.message ||
+        "Unable to reject leave request",
+    });
+  }
+};
+export const changeLeaveStatus = async (req, res) => {
+  try {
     if (!["Manager", "HR"].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: "Only Manager or HR can reject leave",
+        message: "Only Manager or HR can change leave status",
       });
     }
 
-    if (!rejectionReason?.trim()) {
+    const { status, remarks } = req.body;
+
+    if (!status || !remarks?.trim()) {
       return res.status(400).json({
         success: false,
-        message: "Rejection reason is required",
+        message: "Status and remarks are required",
       });
     }
 
-    const leaveRequest = await LeaveRequest.findById(req.params.id).populate(
-      "employeeId",
-      "name email"
-    );
+    const allowedStatuses = [
+      "Pending Final Approval",
+      "On Hold",
+      "Approved by Manager",
+      "Approved by HR",
+      "Rejected by Manager",
+      "Rejected by HR",
+    ];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status",
+      });
+    }
+
+    const leaveRequest = await LeaveRequest.findById(req.params.id)
+      .populate("employeeId", "name email");
 
     if (!leaveRequest) {
       return res.status(404).json({
@@ -615,172 +2496,413 @@ export const rejectLeaveByManager = async (req, res) => {
     ) {
       return res.status(403).json({
         success: false,
-        message: "You are not assigned as manager for this leave request",
+        message: "You are not assigned to this leave request",
       });
     }
 
-    if (req.user.role === "Manager") {
-      leaveRequest.managerStatus = "Rejected";
-      leaveRequest.managerRejectionReason = rejectionReason.trim();
-      leaveRequest.finalStatus = "Rejected by Manager";
-    }
+    const previousStatus = leaveRequest.finalStatus;
 
-    if (req.user.role === "HR") {
-      leaveRequest.hrStatus = "Rejected";
-      leaveRequest.hrRejectionReason = rejectionReason.trim();
-      leaveRequest.finalStatus = "Rejected by HR";
-    }
-    leaveRequest.rejectionReason = rejectionReason.trim();
+    leaveRequest.finalStatus = status;
+
+    leaveRequest.lastStatusChangedBy = req.user._id;
+    leaveRequest.lastStatusChangedAt = new Date();
+
+    leaveRequest.statusHistory.push({
+      previousStatus,
+      newStatus: status,
+      changedBy: req.user._id,
+      remarks: remarks.trim(),
+    });
 
     leaveRequest.approvalHistory.push({
-      level: "Manager",
-      action: "Rejected",
+      level: req.user.role,
+      action: "Status Changed",
       actedBy: req.user._id,
-      remarks: rejectionReason.trim(),
+      remarks: `${previousStatus} → ${status} | ${remarks}`,
     });
+
+    if (status === "Pending Final Approval") {
+      leaveRequest.managerStatus = "Pending";
+      leaveRequest.hrStatus = "Pending";
+      leaveRequest.requiresReapproval = false;
+    }
+
+    if (status === "On Hold") {
+      leaveRequest.requiresReapproval = false;
+    }
+
+    if (
+      status === "Approved by Manager" ||
+      status === "Approved by HR"
+    ) {
+      leaveRequest.requiresReapproval = false;
+    }
+
+    if (
+      status === "Rejected by Manager" ||
+      status === "Rejected by HR"
+    ) {
+      leaveRequest.rejectionReason = remarks.trim();
+      leaveRequest.requiresReapproval = false;
+    }
 
     await leaveRequest.save();
 
     await createNotification({
       recipientId: leaveRequest.employeeId._id,
-      title: "Leave Rejected",
-      message: `Your leave request was rejected. Reason: ${rejectionReason}`,
+      title: "Leave Status Updated",
+      message: `Your leave status has been changed to "${status}".`,
       link: "/dashboard",
     });
 
-    sendDecisionEmail({
-      to: leaveRequest.employeeId.email,
-      subject: "Leave Request Rejected",
-      title: "Leave Request Rejected",
-      employeeName: leaveRequest.employeeId.name,
-      requestType: "Leave",
-      status: "Rejected",
-      rejectionReason: rejectionReason.trim(),
-    }).catch((emailError) =>
-      console.log("Leave rejection email failed:", emailError.message)
-    );
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Leave rejected successfully",
+      message: "Leave status updated successfully.",
       leaveRequest,
     });
+
   } catch (error) {
-    res.status(500).json({
+    console.error("CHANGE LEAVE STATUS ERROR:", error);
+
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
-
-export const getFinanceLeaves = async (req, res) => {
+export const getFinanceLeaves = async (
+  req,
+  res
+) => {
   try {
-    if (req.user.role !== "Finance") {
+    if (
+      req.user.role !== "Finance"
+    ) {
       return res.status(403).json({
         success: false,
-        message: "Only Finance can view approved leave details",
+        message:
+          "Only Finance can view approved leave details",
       });
     }
 
-    const leaveRequests = await LeaveRequest.find({
-      finalStatus: {
-        $in: ["Approved by Manager", "Approved by HR"],
-      }
-    })
-      .populate("employeeId", "name email employeeId designation")
-      .populate("subcategoryId", "name")
-      .sort({ updatedAt: -1 });
+    const leaveRequests =
+      await LeaveRequest.find({
+        finalStatus: {
+          $in: [
+            "Approved by Manager",
+            "Approved by HR",
+          ],
+        },
+      })
+        .populate(
+          "employeeId",
+          "name email employeeId designation role profilePhoto"
+        )
+        .populate(
+          "subcategoryId",
+          "name"
+        )
+        .populate(
+          "teamId",
+          "name"
+        )
+        .populate(
+          "managerApprovedBy",
+          "name email role"
+        )
+        .populate(
+          "hrApprovedBy",
+          "name email role"
+        )
+        .populate(
+          "lastEditedBy",
+          "name email role"
+        )
+        .sort({
+          updatedAt: -1,
+        });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       leaveRequests,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error(
+      "GET FINANCE LEAVES ERROR:",
+      error
+    );
+
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message:
+        "Unable to retrieve approved leave details",
     });
   }
 };
 
-export const getApprovedLeaveCalendar = async (req, res) => {
+export const getApprovedLeaveCalendar = async (
+  req,
+  res
+) => {
   try {
-    if (!["Manager", "HR", "Finance", "Admin"].includes(req.user.role)) {
+    if (
+      ![
+        "Manager",
+        "HR",
+        "Finance",
+        "Admin",
+      ].includes(req.user.role)
+    ) {
       return res.status(403).json({
         success: false,
-        message: "Access denied",
+        message:
+          "Access denied",
       });
     }
 
-    const leaveRequests = await LeaveRequest.find({
-      finalStatus: {
-        $in: ["Approved by Manager", "Approved by HR"],
-      }
-    })
-      .populate("employeeId", "name email employeeId designation role")
-      .populate("subcategoryId", "name")
-      .sort({ startDate: 1 });
+    const leaveRequests =
+      await LeaveRequest.find({
+        finalStatus: {
+          $in: [
+            "Approved by Manager",
+            "Approved by HR",
+          ],
+        },
+      })
+        .populate(
+          "employeeId",
+          "name email employeeId designation role profilePhoto"
+        )
+        .populate(
+          "subcategoryId",
+          "name"
+        )
+        .populate(
+          "teamId",
+          "name"
+        )
+        .sort({
+          startDate: 1,
+        });
 
-    const calendarEvents = leaveRequests.map((leave) => ({
-      id: leave._id,
-      title: `${leave.employeeId?.name} | ${leave.leaveType}`,
-      start: leave.startDate,
-      end: leave.endDate,
-      status: leave.finalStatus,
-      leaveType: leave.leaveType,
-      employeeName: leave.employeeId?.name,
-      employeeEmail: leave.employeeId?.email,
-      designation: leave.employeeId?.designation,
-      role: leave.employeeId?.role,
-      department: leave.subcategoryId?.name,
-    }));
+    const calendarEvents =
+      leaveRequests.map(
+        (leave) => ({
+          id:
+            leave._id,
 
-    res.status(200).json({
+          title:
+            `${leave.employeeId?.name || "Employee"} | ${leave.leaveType}`,
+
+          start:
+            leave.startDate,
+
+          end:
+            leave.endDate,
+
+          status:
+            leave.finalStatus,
+
+          leaveType:
+            leave.leaveType,
+
+          employeeName:
+            leave.employeeId?.name,
+
+          employeeEmail:
+            leave.employeeId?.email,
+
+          employeeId:
+            leave.employeeId
+              ?.employeeId,
+
+          designation:
+            leave.employeeId
+              ?.designation,
+
+          role:
+            leave.employeeId?.role,
+
+          profilePhoto:
+            leave.employeeId
+              ?.profilePhoto,
+
+          department:
+            leave.subcategoryId?.name,
+
+          team:
+            leave.teamId?.name,
+
+          workingDays:
+            leave.workingDays,
+
+          reason:
+            leave.reason,
+        })
+      );
+
+    return res.status(200).json({
       success: true,
       calendarEvents,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error(
+      "GET APPROVED LEAVE CALENDAR ERROR:",
+      error
+    );
+
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message:
+        "Unable to retrieve leave calendar",
     });
   }
 };
 
-export const getTodayLeaves = async (req, res) => {
+export const getTodayLeaves = async (
+  req,
+  res
+) => {
   try {
-    if (!["Manager", "HR", "Finance", "Admin"].includes(req.user.role)) {
+    if (
+      ![
+        "Manager",
+        "HR",
+        "Finance",
+        "Admin",
+        "TeamLeader",
+      ].includes(req.user.role)
+    ) {
       return res.status(403).json({
         success: false,
-        message: "Access denied",
+        message:
+          "Access denied",
       });
     }
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
-    const endOfDay = new Date(today);
-    endOfDay.setHours(23, 59, 59, 999);
+    today.setHours(
+      0,
+      0,
+      0,
+      0
+    );
 
-    const leaveRequests = await LeaveRequest.find({
+    const endOfDay =
+      new Date(today);
+
+    endOfDay.setHours(
+      23,
+      59,
+      59,
+      999
+    );
+
+    const filter = {
       finalStatus: {
-        $in: ["Approved by Manager", "Approved by HR"],
+        $in: [
+          "Approved by Manager",
+          "Approved by HR",
+        ],
       },
-      startDate: { $lte: endOfDay },
-      endDate: { $gte: today },
-    })
-      .populate("employeeId", "name email employeeId designation role")
-      .populate("subcategoryId", "name")
-      .sort({ startDate: 1 });
 
-    res.status(200).json({
+      startDate: {
+        $lte: endOfDay,
+      },
+
+      endDate: {
+        $gte: today,
+      },
+    };
+
+    if (
+      req.user.role ===
+      "TeamLeader"
+    ) {
+      filter.teamLeaderId =
+        req.user._id;
+    }
+
+    const leaveRequests =
+      await LeaveRequest.find(
+        filter
+      )
+        .populate(
+          "employeeId",
+          "name email employeeId designation role profilePhoto"
+        )
+        .populate(
+          "subcategoryId",
+          "name"
+        )
+        .populate(
+          "teamId",
+          "name"
+        )
+        .sort({
+          startDate: 1,
+        });
+
+    return res.status(200).json({
       success: true,
       leaveRequests,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error(
+      "GET TODAY LEAVES ERROR:",
+      error
+    );
+
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message:
+        "Unable to retrieve today leave details",
+    });
+  }
+};
+export const getAllManagerLeaveRequests = async (req, res) => {
+  try {
+    if (!["Manager", "HR"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only Manager or HR can view leave requests",
+      });
+    }
+
+    const filter =
+      req.user.role === "HR"
+        ? {}
+        : {
+            managerId: req.user._id,
+          };
+
+    const leaveRequests = await LeaveRequest.find(filter)
+      .populate(
+        "employeeId",
+        "name email employeeId designation role profilePhoto"
+      )
+      .populate("subcategoryId", "name")
+      .populate("teamId", "name")
+      .populate("teamLeaderId", "name email role")
+      .populate("managerApprovedBy", "name email role")
+      .populate("hrApprovedBy", "name email role")
+      .populate("lastEditedBy", "name email role")
+      .populate("editHistory.editedBy", "name email role")
+      .populate("lastStatusChangedBy", "name email role")
+      .populate("statusHistory.changedBy", "name email role")
+      .sort({ updatedAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      leaveRequests,
+    });
+  } catch (error) {
+    console.error("GET ALL MANAGER LEAVES ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to retrieve leave requests",
     });
   }
 };

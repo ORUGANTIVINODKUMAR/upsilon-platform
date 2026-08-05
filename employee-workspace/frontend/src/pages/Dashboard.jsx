@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+
 import {
   LayoutDashboard,
   Users,
@@ -11,12 +12,14 @@ import {
   Wallet,
   Menu,
   X,
+  UserRound,
 } from "lucide-react";
 
-
 import logo from "../assets/logo.png";
+
 import { useAuth } from "../context/AuthContext";
 import api from "../api/api";
+
 import FinanceLeaves from "./FinanceLeaves";
 import FinanceReimbursements from "./FinanceReimbursements";
 import AdminSubcategories from "./AdminSubcategories";
@@ -34,17 +37,25 @@ import EditProfile from "./EditProfile";
 import AdminTeams from "./AdminTeams";
 import TLApprovals from "./TLApprovals";
 import ManagerApprovals from "./ManagerApprovals";
+
 const Dashboard = () => {
   const { user, logout, updateUser } = useAuth();
+
   const [activePage, setActivePage] = useState(
     localStorage.getItem("activePage") || "dashboard"
   );
 
   const [stats, setStats] = useState({});
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showNotifications, setShowNotifications] =
+    useState(false);
+
   const [notifications, setNotifications] = useState([]);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  const [
+    isMobileSidebarOpen,
+    setIsMobileSidebarOpen,
+  ] = useState(false);
+
   const [showPasswordModal, setShowPasswordModal] =
     useState(false);
 
@@ -56,13 +67,18 @@ const Dashboard = () => {
 
   const isAdmin = user?.role === "Admin";
   const isEmployee = user?.role === "Employee";
-
-  const isManagerOrHR =
-    ["Manager", "HR"].includes(user?.role);
-
-  const isTeamLeader =
-    user?.role === "TeamLeader";
+  const isTeamLeader = user?.role === "TeamLeader";
   const isFinance = user?.role === "Finance";
+
+  const isManagerOrHR = ["Manager", "HR"].includes(
+    user?.role
+  );
+
+  const navigateToPage = (page) => {
+    setActivePage(page);
+    localStorage.setItem("activePage", page);
+    setIsMobileSidebarOpen(false);
+  };
 
   useEffect(() => {
     if (
@@ -78,36 +94,84 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const { data } = await api.get("/dashboard/stats");
-        setStats(data.stats);
+        const { data } = await api.get(
+          "/dashboard/stats"
+        );
+
+        setStats(data.stats || {});
+
         if (user?.role !== "Admin") {
-          const notificationRes = await api.get("/notifications");
-          setNotifications(notificationRes.data.notifications || []);
+          const notificationResponse =
+            await api.get("/notifications");
+
+          setNotifications(
+            notificationResponse.data.notifications || []
+          );
         }
 
         localStorage.setItem(
           "leaveBalance",
-          JSON.stringify(data.stats.leaveBalance)
+          JSON.stringify(
+            data.stats?.leaveBalance || {}
+          )
         );
       } catch (error) {
-        console.log(error.response?.data);
+        console.error(
+          "DASHBOARD STATS ERROR:",
+          error.response?.data || error.message
+        );
       }
     };
 
     fetchStats();
-    const interval = setInterval(fetchStats, 30000);
 
-    return () => clearInterval(interval);
-  }, []);
+    const interval = setInterval(
+      fetchStats,
+      30000
+    );
 
-  const menuButton = (key, icon, label) => (
+    return () => {
+      clearInterval(interval);
+    };
+  }, [user?.role]);
+
+  useEffect(() => {
+    const handleProfileUpdated = (event) => {
+      const updatedUser = event.detail;
+
+      if (updatedUser) {
+        updateUser(updatedUser);
+      }
+    };
+
+    window.addEventListener(
+      "profile-updated",
+      handleProfileUpdated
+    );
+
+    return () => {
+      window.removeEventListener(
+        "profile-updated",
+        handleProfileUpdated
+      );
+    };
+  }, [updateUser]);
+
+  const menuButton = (
+    key,
+    icon,
+    label
+  ) => (
     <button
-      className={activePage === key ? "active-menu" : ""}
-      onClick={() => {
-        setActivePage(key);
-        localStorage.setItem("activePage", key);
-        setIsMobileSidebarOpen(false);
-      }}
+      type="button"
+      className={
+        activePage === key
+          ? "active-menu"
+          : ""
+      }
+      onClick={() =>
+        navigateToPage(key)
+      }
     >
       {icon}
       {label}
@@ -115,47 +179,99 @@ const Dashboard = () => {
   );
 
   const handlePasswordChange = async () => {
-    try {
-      if (
-        passwordData.newPassword !==
-        passwordData.confirmPassword
-      ) {
-        alert("Passwords do not match");
-        return;
-      }
+    if (
+      !passwordData.currentPassword ||
+      !passwordData.newPassword ||
+      !passwordData.confirmPassword
+    ) {
+      window.alert(
+        "All password fields are required."
+      );
+      return;
+    }
 
-      await api.put("/auth/change-password", {
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword,
-      });
+    if (
+      passwordData.newPassword !==
+      passwordData.confirmPassword
+    ) {
+      window.alert(
+        "Passwords do not match."
+      );
+      return;
+    }
+
+    if (
+      passwordData.newPassword.length < 8
+    ) {
+      window.alert(
+        "New password must contain at least 8 characters."
+      );
+      return;
+    }
+
+    try {
+      await api.put(
+        "/auth/change-password",
+        {
+          currentPassword:
+            passwordData.currentPassword,
+          newPassword:
+            passwordData.newPassword,
+        }
+      );
 
       updateUser({
         ...user,
         mustChangePassword: false,
       });
 
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+
       setShowPasswordModal(false);
 
-      alert("Password updated successfully");
+      window.alert(
+        "Password updated successfully."
+      );
     } catch (error) {
-      alert(
+      window.alert(
         error.response?.data?.message ||
-        "Unable to update password"
+        "Unable to update password."
       );
     }
+  };
+
+  const handleLogout = (
+    event
+  ) => {
+    event.stopPropagation();
+    logout();
+  };
+
+  const openEditProfile = () => {
+    navigateToPage("editProfile");
   };
 
   return (
     <div className="dashboard-layout portal-redesign">
       <div className="mobile-topbar">
         <button
+          type="button"
           className="mobile-menu-btn"
-          onClick={() => setIsMobileSidebarOpen(true)}
+          onClick={() =>
+            setIsMobileSidebarOpen(true)
+          }
         >
           <Menu size={24} />
         </button>
 
-        <img src={logo} alt="Upsilon" />
+        <img
+          src={logo}
+          alt="Upsilon"
+        />
 
         <span>{user?.role}</span>
       </div>
@@ -163,19 +279,28 @@ const Dashboard = () => {
       {isMobileSidebarOpen && (
         <div
           className="mobile-sidebar-overlay"
-          onClick={() => setIsMobileSidebarOpen(false)}
+          onClick={() =>
+            setIsMobileSidebarOpen(false)
+          }
         />
       )}
+
       <aside
-        className={`sidebar modern-sidebar ${isMobileSidebarOpen ? "mobile-sidebar-open" : ""
+        className={`sidebar modern-sidebar ${isMobileSidebarOpen
+            ? "mobile-sidebar-open"
+            : ""
           }`}
       >
         <button
+          type="button"
           className="mobile-sidebar-close"
-          onClick={() => setIsMobileSidebarOpen(false)}
+          onClick={() =>
+            setIsMobileSidebarOpen(false)
+          }
         >
           <X size={22} />
         </button>
+
         <div>
           <div
             className="brand-block"
@@ -197,25 +322,38 @@ const Dashboard = () => {
           </div>
 
           <div className="sidebar-menu">
+            {menuButton(
+              "dashboard",
+              <LayoutDashboard size={18} />,
+              "Dashboard"
+            )}
 
-            {menuButton("dashboard", <LayoutDashboard size={18} />, "Dashboard")}
             {!isAdmin &&
-              menuButton("notifications", <Bell size={18} />, "Notifications")}
+              menuButton(
+                "notifications",
+                <Bell size={18} />,
+                "Notifications"
+              )}
+
             {isAdmin && (
               <>
-                {menuButton("departments", <Building2 size={18} />, "Departments")}
-                <button
-                  className={activePage === "teams" ? "active-menu" : ""}
-                  onClick={() => {
-                    setActivePage("teams");
-                    localStorage.setItem("activePage", "teams");
-                    setIsMobileSidebarOpen(false);
-                  }}
-                >
-                  <Users size={18} />
-                  Teams
-                </button>
-                {menuButton("users", <Users size={18} />, "User Management")}
+                {menuButton(
+                  "departments",
+                  <Building2 size={18} />,
+                  "Departments"
+                )}
+
+                {menuButton(
+                  "teams",
+                  <Users size={18} />,
+                  "Teams"
+                )}
+
+                {menuButton(
+                  "users",
+                  <Users size={18} />,
+                  "User Management"
+                )}
 
                 {menuButton(
                   "leaveReports",
@@ -231,11 +369,21 @@ const Dashboard = () => {
               </>
             )}
 
-            {(isEmployee || isTeamLeader) &&
-              menuButton("leave", <CalendarCheck size={18} />, "Leaves")}
+            {(isEmployee ||
+              isTeamLeader) &&
+              menuButton(
+                "leave",
+                <CalendarCheck size={18} />,
+                "Leaves"
+              )}
 
-            {(isEmployee || isTeamLeader) &&
-              menuButton("reimbursements", <Receipt size={18} />, "Reimbursements")}
+            {(isEmployee ||
+              isTeamLeader) &&
+              menuButton(
+                "reimbursements",
+                <Receipt size={18} />,
+                "Reimbursements"
+              )}
 
             {isTeamLeader &&
               menuButton(
@@ -243,12 +391,14 @@ const Dashboard = () => {
                 <CalendarCheck size={18} />,
                 "TL Leave Approvals"
               )}
+
             {isTeamLeader &&
               menuButton(
                 "reimbursementApprovals",
                 <Receipt size={18} />,
                 "TL Reimbursement Approvals"
               )}
+
             {isManagerOrHR &&
               menuButton(
                 "managerApprovals",
@@ -262,14 +412,22 @@ const Dashboard = () => {
                 <Receipt size={18} />,
                 "Reimbursement Approvals"
               )}
-            {(isManagerOrHR || isFinance || isAdmin) &&
+
+            {(isManagerOrHR ||
+              isFinance ||
+              isAdmin) &&
               menuButton(
                 "leaveCalendar",
                 <CalendarCheck size={18} />,
                 "Leave Calendar"
               )}
+
             {isFinance &&
-              menuButton("financeLeaves", <CalendarCheck size={18} />, "Finance Leaves")}
+              menuButton(
+                "financeLeaves",
+                <CalendarCheck size={18} />,
+                "Finance Leaves"
+              )}
 
             {isFinance &&
               menuButton(
@@ -283,20 +441,57 @@ const Dashboard = () => {
               <CalendarCheck size={18} />,
               "Holidays"
             )}
+
+            {menuButton(
+              "editProfile",
+              <UserRound size={18} />,
+              "Edit Profile"
+            )}
           </div>
         </div>
-
-        <div className="sidebar-user-box">
+        <div
+          className="sidebar-user-box"
+          onClick={openEditProfile}
+          style={{
+            cursor: "pointer",
+          }}
+        >
           <div className="sidebar-avatar">
-            {user?.name?.charAt(0)?.toUpperCase()}
+            {user?.profilePhoto?.url ? (
+              <img
+                src={user.profilePhoto.url}
+                alt={user?.name || "Profile"}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  borderRadius: "50%",
+                }}
+              />
+            ) : (
+              user?.name
+                ?.charAt(0)
+                ?.toUpperCase() || "U"
+            )}
           </div>
 
           <div>
-            <strong>{user?.name}</strong>
-            <span>{user?.role}</span>
+            <strong>
+              {user?.name || "User"}
+            </strong>
+
+            <span>
+              {user?.role === "TeamLeader"
+                ? "Team Leader"
+                : user?.role}
+            </span>
           </div>
 
-          <button className="logout-btn compact-logout" onClick={logout}>
+          <button
+            type="button"
+            className="logout-btn compact-logout"
+            onClick={handleLogout}
+          >
             <LogOut size={17} />
             Sign out
           </button>
@@ -318,40 +513,78 @@ const Dashboard = () => {
           </span>
 
           <h1>
-            Hello, {user?.firstName || user?.name}
+            Hello,{" "}
+            {user?.firstName ||
+              user?.name ||
+              "User"}
           </h1>
+
           <p>
-
-            Here&apos;s a snapshot of your profile and recent activity.
+            Here&apos;s a snapshot of your
+            profile and recent activity.
           </p>
-          <div className="notification-wrapper">
 
+          <div className="notification-wrapper">
             <button
+              type="button"
               className="notification-bell"
               onClick={() =>
-                setShowNotifications(!showNotifications)
+                setShowNotifications(
+                  (previousValue) =>
+                    !previousValue
+                )
               }
             >
               <Bell size={22} />
 
-              {notifications.filter((n) => !n.isRead).length > 0 && (
-                <span className="notification-count">
-                  {notifications.filter((n) => !n.isRead).length}
-                </span>
-              )}
+              {notifications.filter(
+                (notification) =>
+                  !notification.isRead
+              ).length > 0 && (
+                  <span className="notification-count">
+                    {
+                      notifications.filter(
+                        (notification) =>
+                          !notification.isRead
+                      ).length
+                    }
+                  </span>
+                )}
             </button>
 
             {showNotifications && (
               <div className="notification-dropdown">
-
                 <div className="notification-dropdown-header">
                   <h4>Notifications</h4>
 
                   <button
+                    type="button"
                     onClick={async () => {
-                      await api.put("/notifications/read-all");
-                      setNotifications([]);
-                      setShowNotifications(false);
+                      try {
+                        await api.put(
+                          "/notifications/read-all"
+                        );
+
+                        setNotifications(
+                          (previousNotifications) =>
+                            previousNotifications.map(
+                              (notification) => ({
+                                ...notification,
+                                isRead: true,
+                              })
+                            )
+                        );
+
+                        setShowNotifications(
+                          false
+                        );
+                      } catch (error) {
+                        console.error(
+                          "MARK NOTIFICATIONS READ ERROR:",
+                          error.response?.data ||
+                          error.message
+                        );
+                      }
                     }}
                   >
                     Mark all as read
@@ -359,100 +592,169 @@ const Dashboard = () => {
                 </div>
 
                 <div className="notification-dropdown-body">
-
                   {notifications.length === 0 ? (
                     <p className="empty-notification">
                       No notifications
                     </p>
                   ) : (
-                    notifications.slice(0, 8).map((item) => (
-                      <div
-                        key={item._id}
-                        className={`notification-item ${!item.isRead ? "unread-notification" : ""
-                          }`}
-                      >
-                        <div className="notification-content">
-                          <strong>{item.title}</strong>
-                          <p>{item.message}</p>
-                          <span>{new Date(item.createdAt).toLocaleString()}</span>
-                        </div>
-                      </div>
-                    ))
+                    notifications
+                      .slice(0, 8)
+                      .map(
+                        (notification) => (
+                          <div
+                            key={
+                              notification._id
+                            }
+                            className={`notification-item ${!notification.isRead
+                                ? "unread-notification"
+                                : ""
+                              }`}
+                          >
+                            <div className="notification-content">
+                              <strong>
+                                {
+                                  notification.title
+                                }
+                              </strong>
+
+                              <p>
+                                {
+                                  notification.message
+                                }
+                              </p>
+
+                              <span>
+                                {notification.createdAt
+                                  ? new Date(
+                                    notification.createdAt
+                                  ).toLocaleString()
+                                  : ""}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      )
                   )}
-
                 </div>
-
               </div>
             )}
-
           </div>
         </div>
 
         {activePage === "dashboard" && (
           <>
-
             <div
               className="modern-section-card"
               style={{
-                background: stats.tomorrowHoliday
-                  ? "linear-gradient(135deg, #fff7ed, #ffffff)"
-                  : "linear-gradient(135deg, #ecfdf5, #ffffff)",
-                border: stats.tomorrowHoliday
-                  ? "1px solid #fed7aa"
-                  : "1px solid #bbf7d0",
+                background:
+                  stats.tomorrowHoliday
+                    ? "linear-gradient(135deg, #fff7ed, #ffffff)"
+                    : "linear-gradient(135deg, #ecfdf5, #ffffff)",
+                border:
+                  stats.tomorrowHoliday
+                    ? "1px solid #fed7aa"
+                    : "1px solid #bbf7d0",
               }}
             >
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "space-between",
+                  justifyContent:
+                    "space-between",
                   gap: "16px",
                 }}
               >
                 <div>
                   <span className="eyebrow">
-                    {stats.tomorrowHoliday ? "HOLIDAY ALERT" : "UPCOMING HOLIDAY"}
+                    {stats.tomorrowHoliday
+                      ? "HOLIDAY ALERT"
+                      : "UPCOMING HOLIDAY"}
                   </span>
 
-                  <h3 style={{ marginTop: "6px" }}>
+                  <h3
+                    style={{
+                      marginTop: "6px",
+                    }}
+                  >
                     {stats.tomorrowHoliday
                       ? `Tomorrow is ${stats.tomorrowHoliday.name}`
                       : stats.nearestUpcomingHoliday
-                        ? stats.nearestUpcomingHoliday.name
+                        ? stats
+                          .nearestUpcomingHoliday
+                          .name
                         : "No Upcoming Holiday"}
                   </h3>
 
                   {stats.tomorrowHoliday ? (
                     <>
-                      <p style={{ marginTop: "8px" }}>
+                      <p
+                        style={{
+                          marginTop: "8px",
+                        }}
+                      >
                         📅{" "}
                         {new Date(
-                          stats.tomorrowHoliday.holidayDate
+                          stats.tomorrowHoliday
+                            .holidayDate
                         ).toLocaleDateString()}{" "}
-                        • {stats.tomorrowHoliday.type}
+                        •{" "}
+                        {
+                          stats.tomorrowHoliday
+                            .type
+                        }
                       </p>
 
-                      <p style={{ color: "#92400e", fontWeight: "600" }}>
-                        Office closed / holiday configured.
+                      <p
+                        style={{
+                          color: "#92400e",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Office closed / holiday
+                        configured.
                       </p>
                     </>
                   ) : stats.nearestUpcomingHoliday ? (
                     <>
-                      <p style={{ marginTop: "8px" }}>
+                      <p
+                        style={{
+                          marginTop: "8px",
+                        }}
+                      >
                         📅{" "}
                         {new Date(
-                          stats.nearestUpcomingHoliday.holidayDate
+                          stats
+                            .nearestUpcomingHoliday
+                            .holidayDate
                         ).toLocaleDateString()}{" "}
-                        • {stats.nearestUpcomingHoliday.type}
+                        •{" "}
+                        {
+                          stats
+                            .nearestUpcomingHoliday
+                            .type
+                        }
                       </p>
 
-                      <p style={{ color: "#166534", fontWeight: "600" }}>
-                        Nearest upcoming company holiday.
+                      <p
+                        style={{
+                          color: "#166534",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Nearest upcoming company
+                        holiday.
                       </p>
                     </>
                   ) : (
-                    <p style={{ marginTop: "8px" }}>No upcoming holidays configured.</p>
+                    <p
+                      style={{
+                        marginTop: "8px",
+                      }}
+                    >
+                      No upcoming holidays
+                      configured.
+                    </p>
                   )}
                 </div>
 
@@ -465,172 +767,414 @@ const Dashboard = () => {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    background: stats.tomorrowHoliday ? "#ffedd5" : "#dcfce7",
+                    background:
+                      stats.tomorrowHoliday
+                        ? "#ffedd5"
+                        : "#dcfce7",
                   }}
                 >
-                  {stats.tomorrowHoliday ? "🎉" : "📅"}
+                  {stats.tomorrowHoliday
+                    ? "🎉"
+                    : "📅"}
                 </div>
               </div>
             </div>
-            {stats.todaysBirthdayEmployees?.length > 0 && (
-              <div
-                className="modern-section-card"
-                style={{
-                  background: "linear-gradient(135deg, #fdf2f8, #ffffff)",
-                  border: "1px solid #fbcfe8",
-                }}
-              >
+
+            {stats.todaysBirthdayEmployees
+              ?.length > 0 && (
                 <div
+                  className="modern-section-card"
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: "16px",
+                    background:
+                      "linear-gradient(135deg, #fdf2f8, #ffffff)",
+                    border:
+                      "1px solid #fbcfe8",
                   }}
                 >
-                  <div>
-                    <span className="eyebrow">TODAY'S BIRTHDAYS</span>
-
-                    <h3 style={{ marginTop: "6px" }}>
-                      🎂 Birthday Celebrations
-                    </h3>
-
-                    <div style={{ marginTop: "12px" }}>
-                      {stats.todaysBirthdayEmployees.map((employee) => (
-                        <div
-                          key={employee._id}
-                          style={{
-                            padding: "10px 0",
-                            borderBottom: "1px solid #fce7f3",
-                          }}
-                        >
-                          <strong>{employee.name}</strong>
-
-                          <p style={{ margin: 0, color: "#6b7280" }}>
-                            {employee.designation || employee.role} •{" "}
-                            {employee.employeeId || "N/A"}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
                   <div
                     style={{
-                      fontSize: "42px",
-                      width: "72px",
-                      height: "72px",
-                      borderRadius: "20px",
                       display: "flex",
+                      justifyContent:
+                        "space-between",
                       alignItems: "center",
-                      justifyContent: "center",
-                      background: "#fce7f3",
+                      gap: "16px",
                     }}
                   >
-                    🎂
-                  </div>
-                </div>
-              </div>
-            )}
+                    <div>
+                      <span className="eyebrow">
+                        TODAY&apos;S BIRTHDAYS
+                      </span>
 
-            {["Admin", "HR", "Manager", "TeamLeader"].includes(user?.role) && (
-              <div className="modern-section-card">
-                <h3>Employees On Leave Today</h3>
-
-                {stats.todayLeaves?.length > 0 ? (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "12px",
-                      marginTop: "15px",
-                    }}
-                  >
-                    {stats.todayLeaves.map((leave) => (
-                      <div
-                        key={leave._id}
+                      <h3
                         style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          padding: "16px",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: "12px",
-                          marginBottom: "12px",
-                          background: "#ffffff",
+                          marginTop: "6px",
                         }}
                       >
-                        <div>
-                          <h4
+                        🎂 Birthday Celebrations
+                      </h3>
+
+                      <div
+                        style={{
+                          marginTop: "12px",
+                        }}
+                      >
+                        {stats.todaysBirthdayEmployees.map(
+                          (employee) => (
+                            <div
+                              key={employee._id}
+                              style={{
+                                padding:
+                                  "10px 0",
+                                borderBottom:
+                                  "1px solid #fce7f3",
+                                display:
+                                  "flex",
+                                alignItems:
+                                  "center",
+                                gap: "12px",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: "42px",
+                                  height: "42px",
+                                  borderRadius:
+                                    "50%",
+                                  overflow:
+                                    "hidden",
+                                  background:
+                                    "#fce7f3",
+                                  display:
+                                    "flex",
+                                  alignItems:
+                                    "center",
+                                  justifyContent:
+                                    "center",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {employee
+                                  .profilePhoto
+                                  ?.url ? (
+                                  <img
+                                    src={
+                                      employee
+                                        .profilePhoto
+                                        .url
+                                    }
+                                    alt={
+                                      employee.name ||
+                                      "Employee"
+                                    }
+                                    style={{
+                                      width:
+                                        "100%",
+                                      height:
+                                        "100%",
+                                      objectFit:
+                                        "cover",
+                                    }}
+                                  />
+                                ) : (
+                                  employee.name
+                                    ?.charAt(0)
+                                    ?.toUpperCase() ||
+                                  "U"
+                                )}
+                              </div>
+
+                              <div>
+                                <strong>
+                                  {
+                                    employee.name
+                                  }
+                                </strong>
+
+                                <p
+                                  style={{
+                                    margin: 0,
+                                    color:
+                                      "#6b7280",
+                                  }}
+                                >
+                                  {employee.designation ||
+                                    employee.role}{" "}
+                                  •{" "}
+                                  {employee.employeeId ||
+                                    "N/A"}
+                                </p>
+                              </div>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: "42px",
+                        width: "72px",
+                        height: "72px",
+                        borderRadius: "20px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "#fce7f3",
+                      }}
+                    >
+                      🎂
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            {[
+              "Admin",
+              "HR",
+              "Manager",
+              "TeamLeader",
+            ].includes(user?.role) && (
+                <div className="modern-section-card">
+                  <h3>
+                    Employees On Leave Today
+                  </h3>
+
+                  {stats.todayLeaves?.length >
+                    0 ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection:
+                          "column",
+                        gap: "12px",
+                        marginTop: "15px",
+                      }}
+                    >
+                      {stats.todayLeaves.map(
+                        (leave) => (
+                          <div
+                            key={leave._id}
                             style={{
-                              margin: 0,
-                              fontSize: "16px",
-                              fontWeight: "600",
+                              display:
+                                "flex",
+                              justifyContent:
+                                "space-between",
+                              alignItems:
+                                "center",
+                              padding:
+                                "16px",
+                              border:
+                                "1px solid #e5e7eb",
+                              borderRadius:
+                                "12px",
+                              background:
+                                "#ffffff",
                             }}
                           >
-                            👤 {leave.employeeId?.name}
-                          </h4>
+                            <div
+                              style={{
+                                display:
+                                  "flex",
+                                alignItems:
+                                  "center",
+                                gap: "12px",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: "44px",
+                                  height: "44px",
+                                  borderRadius:
+                                    "50%",
+                                  overflow:
+                                    "hidden",
+                                  background:
+                                    "#f1f5f9",
+                                  display:
+                                    "flex",
+                                  alignItems:
+                                    "center",
+                                  justifyContent:
+                                    "center",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {leave.employeeId
+                                  ?.profilePhoto
+                                  ?.url ? (
+                                  <img
+                                    src={
+                                      leave
+                                        .employeeId
+                                        .profilePhoto
+                                        .url
+                                    }
+                                    alt={
+                                      leave
+                                        .employeeId
+                                        ?.name ||
+                                      "Employee"
+                                    }
+                                    style={{
+                                      width:
+                                        "100%",
+                                      height:
+                                        "100%",
+                                      objectFit:
+                                        "cover",
+                                    }}
+                                  />
+                                ) : (
+                                  leave.employeeId
+                                    ?.name?.charAt(
+                                      0
+                                    )
+                                    ?.toUpperCase() ||
+                                  "U"
+                                )}
+                              </div>
 
-                          <p style={{ margin: "4px 0", color: "#6b7280" }}>
-                            🏢 {leave.subcategoryId?.name || "N/A"}
-                          </p>
+                              <div>
+                                <h4
+                                  style={{
+                                    margin: 0,
+                                    fontSize:
+                                      "16px",
+                                    fontWeight:
+                                      600,
+                                  }}
+                                >
+                                  {leave
+                                    .employeeId
+                                    ?.name ||
+                                    "Unknown Employee"}
+                                </h4>
 
-                          <p style={{ margin: 0, color: "#6b7280" }}>
-                            📅{" "}
-                            {new Date(leave.startDate).toLocaleDateString()} -{" "}
-                            {new Date(leave.endDate).toLocaleDateString()}
-                          </p>
-                        </div>
+                                <p
+                                  style={{
+                                    margin:
+                                      "4px 0",
+                                    color:
+                                      "#6b7280",
+                                  }}
+                                >
+                                  🏢{" "}
+                                  {leave
+                                    .subcategoryId
+                                    ?.name ||
+                                    "N/A"}
+                                </p>
 
-                        <div
-                          style={{
-                            padding: "8px 14px",
-                            borderRadius: "20px",
-                            background: "#ecfdf5",
-                            color: "#166534",
-                            fontWeight: "600",
-                            fontSize: "13px",
-                          }}
-                        >
-                          {leave.leaveType}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{ marginTop: "15px" }}>
-                    No employees are on leave today.
-                  </p>
-                )}
-              </div>
-            )}
+                                <p
+                                  style={{
+                                    margin: 0,
+                                    color:
+                                      "#6b7280",
+                                  }}
+                                >
+                                  📅{" "}
+                                  {new Date(
+                                    leave.startDate
+                                  ).toLocaleDateString()}{" "}
+                                  -{" "}
+                                  {new Date(
+                                    leave.endDate
+                                  ).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div
+                              style={{
+                                padding:
+                                  "8px 14px",
+                                borderRadius:
+                                  "20px",
+                                background:
+                                  "#ecfdf5",
+                                color:
+                                  "#166534",
+                                fontWeight: 600,
+                                fontSize:
+                                  "13px",
+                              }}
+                            >
+                              {leave.leaveType}
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  ) : (
+                    <p
+                      style={{
+                        marginTop: "15px",
+                      }}
+                    >
+                      No employees are on leave
+                      today.
+                    </p>
+                  )}
+                </div>
+              )}
             {isEmployee && (
               <>
                 <div className="employee-dashboard-grid">
                   <div className="modern-profile-card">
                     <div className="profile-main-row">
                       <div className="large-avatar">
-                        {user?.name?.charAt(0)?.toUpperCase()}
+                        {user?.profilePhoto?.url ? (
+                          <img
+                            src={user.profilePhoto.url}
+                            alt={user?.name || "Profile"}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              borderRadius: "50%",
+                            }}
+                          />
+                        ) : (
+                          user?.name
+                            ?.charAt(0)
+                            ?.toUpperCase() || "U"
+                        )}
                       </div>
 
                       <div>
                         <h2>
-                          {user?.firstName || user?.name} {user?.lastName || ""}
+                          {user?.firstName ||
+                            user?.name}{" "}
+                          {user?.lastName || ""}
                         </h2>
-                        <p>{user?.email}</p>
+
+                        <p>
+                          {user?.email || "N/A"}
+                        </p>
                       </div>
 
-                      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "10px",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                        }}
+                      >
                         <button
+                          type="button"
                           className="btn btn-primary"
-                          onClick={() => setShowEditProfile(true)}
+                          onClick={openEditProfile}
                         >
-                          Edit
+                          <UserRound size={16} />
+                          Edit Profile
                         </button>
 
                         <span className="active-pill">
                           <BadgeCheck size={14} />
-                          Active
+                          {user?.isActive === false
+                            ? "Inactive"
+                            : "Active"}
                         </span>
                       </div>
                     </div>
@@ -640,25 +1184,58 @@ const Dashboard = () => {
                     <div className="profile-detail-grid">
                       <div>
                         <span>Employee ID</span>
-                        <strong>{user?.employeeId || "Not Updated"}</strong>
+
+                        <strong>
+                          {user?.employeeId ||
+                            "Not Updated"}
+                        </strong>
                       </div>
 
                       <div>
                         <span>Phone</span>
-                        <strong>{user?.phone || "Not Updated"}</strong>
+
+                        <strong>
+                          {user?.phone ||
+                            "Not Updated"}
+                        </strong>
                       </div>
 
                       <div>
                         <span>Designation</span>
-                        <strong>{user?.designation || "Not Updated"}</strong>
+
+                        <strong>
+                          {user?.designation ||
+                            "Not Updated"}
+                        </strong>
                       </div>
 
                       <div>
                         <span>Joining Date</span>
+
                         <strong>
                           {user?.dateOfJoining
-                            ? new Date(user.dateOfJoining).toLocaleDateString()
+                            ? new Date(
+                              user.dateOfJoining
+                            ).toLocaleDateString()
                             : "Not Updated"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Department</span>
+
+                        <strong>
+                          {user?.subcategoryId
+                            ?.name || "Not Updated"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Team</span>
+
+                        <strong>
+                          {user?.teamId?.name ||
+                            "Not Updated"}
                         </strong>
                       </div>
                     </div>
@@ -674,16 +1251,26 @@ const Dashboard = () => {
                       <span>Casual</span>
 
                       <strong>
-                        {stats.leaveBalance?.casual?.remaining ?? 20} /{" "}
-                        {stats.leaveBalance?.casual?.total ?? 20}
+                        {stats.leaveBalance
+                          ?.casual?.remaining ??
+                          20}{" "}
+                        /{" "}
+                        {stats.leaveBalance
+                          ?.casual?.total ?? 20}
                       </strong>
                     </div>
 
                     <div className="balance-bar">
                       <span
                         style={{
-                          width: `${((stats.leaveBalance?.casual?.remaining ?? 20) /
-                            (stats.leaveBalance?.casual?.total ?? 20)) *
+                          width: `${((stats.leaveBalance
+                              ?.casual
+                              ?.remaining ??
+                              20) /
+                              (stats
+                                .leaveBalance
+                                ?.casual?.total ??
+                                20)) *
                             100
                             }%`,
                         }}
@@ -694,75 +1281,158 @@ const Dashboard = () => {
                       <span>Sick</span>
 
                       <strong>
-                        {stats.leaveBalance?.sick?.remaining ?? 8} /{" "}
-                        {stats.leaveBalance?.sick?.total ?? 8}
+                        {stats.leaveBalance
+                          ?.sick?.remaining ??
+                          8}{" "}
+                        /{" "}
+                        {stats.leaveBalance
+                          ?.sick?.total ?? 8}
                       </strong>
                     </div>
 
                     <div className="balance-bar">
                       <span
                         style={{
-                          width: `${((stats.leaveBalance?.sick?.remaining ?? 8) /
-                            (stats.leaveBalance?.sick?.total ?? 8)) *
+                          width: `${((stats.leaveBalance
+                              ?.sick
+                              ?.remaining ??
+                              8) /
+                              (stats
+                                .leaveBalance
+                                ?.sick?.total ??
+                                8)) *
                             100
                             }%`,
                         }}
                       />
                     </div>
-
-
                   </div>
                 </div>
 
                 <div className="modern-stats-grid">
                   <div className="mini-stat-card">
                     <CalendarCheck size={23} />
-                    <span>Leaves Submitted</span>
-                    <h3>{stats.myLeaves || 0}</h3>
+
+                    <span>
+                      Leaves Submitted
+                    </span>
+
+                    <h3>
+                      {stats.myLeaves || 0}
+                    </h3>
+
                     <p>lifetime</p>
                   </div>
+
                   <div className="mini-stat-card">
                     <CalendarCheck size={23} />
+
                     <span>Pending Leaves</span>
-                    <h3>{stats.myPendingLeaves || 0}</h3>
+
+                    <h3>
+                      {stats.myPendingLeaves ||
+                        0}
+                    </h3>
                   </div>
 
                   <div className="mini-stat-card">
                     <BadgeCheck size={23} />
-                    <span>Approved Leaves</span>
-                    <h3>{stats.myApprovedLeaves || 0}</h3>
+
+                    <span>
+                      Approved Leaves
+                    </span>
+
+                    <h3>
+                      {stats.myApprovedLeaves ||
+                        0}
+                    </h3>
                   </div>
 
                   <div className="mini-stat-card">
                     <Receipt size={23} />
-                    <span>Rejected Leaves</span>
-                    <h3>{stats.myRejectedLeaves || 0}</h3>
+
+                    <span>
+                      Rejected Leaves
+                    </span>
+
+                    <h3>
+                      {stats.myRejectedLeaves ||
+                        0}
+                    </h3>
                   </div>
+
                   <div className="mini-stat-card">
                     <Receipt size={23} />
-                    <span>Claims Submitted</span>
-                    <h3>{stats.myReimbursements || 0}</h3>
+
+                    <span>
+                      Claims Submitted
+                    </span>
+
+                    <h3>
+                      {stats.myReimbursements ||
+                        0}
+                    </h3>
+
                     <p>lifetime</p>
                   </div>
 
                   <div className="mini-stat-card">
                     <Wallet size={23} />
+
                     <span>Pending Claims</span>
-                    <h3>₹0</h3>
+
+                    <h3>
+                      {stats.myPendingReimbursements ||
+                        0}
+                    </h3>
+
                     <p>awaiting review</p>
                   </div>
-                  <div className="mini-stat-card">
-                    <Receipt size={23} />
-                    <span>Pending Reimbursements</span>
-                    <h3>{stats.pendingManagerReimbursements || 0}</h3>
-                    <p>awaiting your approval</p>
-                  </div>
-
                 </div>
+
                 <div className="modern-section-card">
                   <h3>My Activity Overview</h3>
 
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "12px",
+                      flexWrap: "wrap",
+                      marginTop: "16px",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() =>
+                        navigateToPage("leave")
+                      }
+                    >
+                      Apply / Track Leave
+                    </button>
 
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() =>
+                        navigateToPage(
+                          "reimbursements"
+                        )
+                      }
+                    >
+                      Submit / Track Claims
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={
+                        openEditProfile
+                      }
+                    >
+                      Manage Profile
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -773,41 +1443,120 @@ const Dashboard = () => {
                   <div className="modern-profile-card">
                     <div className="profile-main-row">
                       <div className="large-avatar">
-                        {user?.name?.charAt(0)?.toUpperCase()}
+                        {user?.profilePhoto
+                          ?.url ? (
+                          <img
+                            src={
+                              user
+                                .profilePhoto
+                                .url
+                            }
+                            alt={
+                              user?.name ||
+                              "Administrator"
+                            }
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit:
+                                "cover",
+                              borderRadius:
+                                "50%",
+                            }}
+                          />
+                        ) : (
+                          user?.name
+                            ?.charAt(0)
+                            ?.toUpperCase() ||
+                          "A"
+                        )}
                       </div>
 
                       <div>
-                        <h2>{user?.name}</h2>
-                        <p>{user?.email}</p>
+                        <h2>
+                          {user?.name ||
+                            "Administrator"}
+                        </h2>
+
+                        <p>
+                          {user?.email ||
+                            "N/A"}
+                        </p>
                       </div>
 
-                      <span className="active-pill">
-                        <BadgeCheck size={14} />
-                        Administrator
-                      </span>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "10px",
+                          alignItems:
+                            "center",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={
+                            openEditProfile
+                          }
+                        >
+                          <UserRound
+                            size={16}
+                          />
+                          Edit Profile
+                        </button>
+
+                        <span className="active-pill">
+                          <BadgeCheck
+                            size={14}
+                          />
+                          Administrator
+                        </span>
+                      </div>
                     </div>
 
                     <div className="profile-divider" />
 
                     <div className="profile-detail-grid">
                       <div>
-                        <span>Total Employees</span>
-                        <strong>{stats.totalEmployees || 0}</strong>
+                        <span>
+                          Total Employees
+                        </span>
+
+                        <strong>
+                          {stats.totalEmployees ||
+                            0}
+                        </strong>
                       </div>
 
                       <div>
-                        <span>Departments</span>
-                        <strong>{stats.departments || 0}</strong>
+                        <span>
+                          Departments
+                        </span>
+
+                        <strong>
+                          {stats.departments ||
+                            0}
+                        </strong>
                       </div>
 
                       <div>
                         <span>Role</span>
-                        <strong>Admin</strong>
+
+                        <strong>
+                          Admin
+                        </strong>
                       </div>
 
                       <div>
                         <span>Status</span>
-                        <strong>Active</strong>
+
+                        <strong>
+                          {user?.isActive ===
+                            false
+                            ? "Inactive"
+                            : "Active"}
+                        </strong>
                       </div>
                     </div>
                   </div>
@@ -816,29 +1565,61 @@ const Dashboard = () => {
                 <div className="modern-stats-grid">
                   <div className="mini-stat-card">
                     <Users size={23} />
-                    <span>Total Employees</span>
-                    <h3>{stats.totalEmployees || 0}</h3>
+
+                    <span>
+                      Total Employees
+                    </span>
+
+                    <h3>
+                      {stats.totalEmployees ||
+                        0}
+                    </h3>
+
                     <p>active users</p>
                   </div>
 
                   <div className="mini-stat-card">
                     <Building2 size={23} />
-                    <span>Departments</span>
-                    <h3>{stats.departments || 0}</h3>
+
+                    <span>
+                      Departments
+                    </span>
+
+                    <h3>
+                      {stats.departments ||
+                        0}
+                    </h3>
+
                     <p>company units</p>
                   </div>
 
                   <div className="mini-stat-card">
                     <CalendarCheck size={23} />
-                    <span>Pending Leaves</span>
-                    <h3>{stats.pendingLeaves || 0}</h3>
+
+                    <span>
+                      Pending Leaves
+                    </span>
+
+                    <h3>
+                      {stats.pendingLeaves ||
+                        0}
+                    </h3>
+
                     <p>awaiting approval</p>
                   </div>
 
                   <div className="mini-stat-card">
                     <Receipt size={23} />
-                    <span>Pending Claims</span>
-                    <h3>{stats.pendingReimbursements || 0}</h3>
+
+                    <span>
+                      Pending Claims
+                    </span>
+
+                    <h3>
+                      {stats.pendingReimbursements ||
+                        0}
+                    </h3>
+
                     <p>awaiting review</p>
                   </div>
                 </div>
@@ -855,95 +1636,258 @@ const Dashboard = () => {
                     }}
                   >
                     <button
+                      type="button"
                       className="btn btn-primary"
-                      onClick={() => {
-                        setActivePage("users");
-                        localStorage.setItem("activePage", "users");
-                      }}
+                      onClick={() =>
+                        navigateToPage("users")
+                      }
                     >
                       Add Employee
                     </button>
 
                     <button
+                      type="button"
                       className="btn btn-primary"
-                      onClick={() => {
-                        setActivePage("departments");
-                        localStorage.setItem("activePage", "departments");
-                      }}
+                      onClick={() =>
+                        navigateToPage(
+                          "departments"
+                        )
+                      }
                     >
                       Manage Departments
                     </button>
 
                     <button
+                      type="button"
                       className="btn btn-primary"
-                      onClick={() => {
-                        setActivePage("leaveReports");
-                        localStorage.setItem("activePage", "leaveReports");
-                      }}
+                      onClick={() =>
+                        navigateToPage(
+                          "leaveReports"
+                        )
+                      }
                     >
                       Leave Reports
                     </button>
 
                     <button
+                      type="button"
                       className="btn btn-primary"
-                      onClick={() => {
-                        setActivePage("reimbursementReports");
-                        localStorage.setItem("activePage", "reimbursementReports");
-                      }}
+                      onClick={() =>
+                        navigateToPage(
+                          "reimbursementReports"
+                        )
+                      }
                     >
                       Reimbursement Reports
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={
+                        openEditProfile
+                      }
+                    >
+                      Edit My Profile
                     </button>
                   </div>
                 </div>
               </>
             )}
-
             {isManagerOrHR && (
               <>
+                <div className="employee-dashboard-grid">
+                  <div className="modern-profile-card">
+                    <div className="profile-main-row">
+                      <div className="large-avatar">
+                        {user?.profilePhoto?.url ? (
+                          <img
+                            src={user.profilePhoto.url}
+                            alt={user?.name || user?.role}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              borderRadius: "50%",
+                            }}
+                          />
+                        ) : (
+                          user?.name
+                            ?.charAt(0)
+                            ?.toUpperCase() || "U"
+                        )}
+                      </div>
+
+                      <div>
+                        <h2>
+                          {user?.name || user?.role}
+                        </h2>
+
+                        <p>
+                          {user?.email || "N/A"}
+                        </p>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "10px",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={openEditProfile}
+                        >
+                          <UserRound size={16} />
+                          Edit Profile
+                        </button>
+
+                        <span className="active-pill">
+                          <BadgeCheck size={14} />
+                          {user?.role}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="profile-divider" />
+
+                    <div className="profile-detail-grid">
+                      <div>
+                        <span>Employee ID</span>
+
+                        <strong>
+                          {user?.employeeId || "Not Updated"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Phone</span>
+
+                        <strong>
+                          {user?.phone || "Not Updated"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Designation</span>
+
+                        <strong>
+                          {user?.designation || "Not Updated"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Department</span>
+
+                        <strong>
+                          {user?.subcategoryId?.name ||
+                            "Not Updated"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Joining Date</span>
+
+                        <strong>
+                          {user?.dateOfJoining
+                            ? new Date(
+                              user.dateOfJoining
+                            ).toLocaleDateString()
+                            : "Not Updated"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Status</span>
+
+                        <strong>
+                          {user?.isActive === false
+                            ? "Inactive"
+                            : "Active"}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="modern-stats-grid">
                   <div className="mini-stat-card">
                     <Users size={23} />
+
+                    <span>
+                      {user?.role === "HR"
+                        ? "Total Employees"
+                        : "Employees Under Me"}
+                    </span>
+
                     <h3>
                       {user?.role === "HR"
                         ? stats.totalEmployees || 0
                         : stats.managerEmployees?.length || 0}
                     </h3>
 
+                    <p>
+                      {user?.role === "HR"
+                        ? "company users"
+                        : "team members"}
+                    </p>
+                  </div>
+
+                  <div className="mini-stat-card">
+                    <Building2 size={23} />
+
+                    <span>
+                      {user?.role === "HR"
+                        ? "Departments"
+                        : "Teams Under Me"}
+                    </span>
+
                     <h3>
                       {user?.role === "HR"
-                        ? stats.totalEmployees || 0
+                        ? stats.departments || 0
                         : stats.managerTeamCount || 0}
                     </h3>
-                    <p>{user?.role === "HR" ? "company users" : "team members"}</p>
+
+                    <p>
+                      {user?.role === "HR"
+                        ? "active departments"
+                        : "managed teams"}
+                    </p>
                   </div>
 
                   <div className="mini-stat-card">
                     <CalendarCheck size={23} />
+
                     <span>
                       {user?.role === "HR"
                         ? "Pending HR Leave Approvals"
                         : "Pending Manager Leaves"}
                     </span>
-                    <h3>{stats.pendingManagerLeaves || 0}</h3>
+
+                    <h3>
+                      {stats.pendingManagerLeaves || 0}
+                    </h3>
+
                     <p>awaiting your approval</p>
                   </div>
 
                   <div className="mini-stat-card">
                     <Receipt size={23} />
+
                     <span>
                       {user?.role === "HR"
                         ? "Pending HR Reimbursements"
                         : "Pending Manager Reimbursements"}
                     </span>
-                    <h3>{stats.pendingManagerReimbursements || 0}</h3>
-                    <p>awaiting your approval</p>
-                  </div>
 
-                  <div className="mini-stat-card">
-                    <Building2 size={23} />
-                    <span>Departments</span>
-                    <h3>{stats.departments || 0}</h3>
-                    <p>active departments</p>
+                    <h3>
+                      {stats.pendingManagerReimbursements || 0}
+                    </h3>
+
+                    <p>awaiting your approval</p>
                   </div>
                 </div>
 
@@ -952,97 +1896,182 @@ const Dashboard = () => {
                     <>
                       <h3>Teams Under Me</h3>
 
-                      <div style={{ marginTop: "15px" }}>
-                        {stats.managerTeams?.map((team) => (
-                          <div
-                            key={team._id}
-                            style={{
-                              padding: "12px",
-                              borderBottom: "1px solid #eee",
-                            }}
-                          >
-                            <strong>{team.name}</strong>
+                      {stats.managerTeams?.length > 0 ? (
+                        <div
+                          style={{
+                            marginTop: "15px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "12px",
+                          }}
+                        >
+                          {stats.managerTeams.map(
+                            (team) => (
+                              <div
+                                key={team._id}
+                                style={{
+                                  padding: "14px",
+                                  border:
+                                    "1px solid #e5e7eb",
+                                  borderRadius:
+                                    "12px",
+                                  background:
+                                    "#ffffff",
+                                }}
+                              >
+                                <strong>
+                                  {team.name}
+                                </strong>
 
-                            <p>
-                              Employees: {team.employeeCount}
-                            </p>
+                                <p
+                                  style={{
+                                    margin:
+                                      "8px 0 4px",
+                                  }}
+                                >
+                                  Employees:{" "}
+                                  {team.employeeCount ||
+                                    0}
+                                </p>
 
-                            <p>
-                              Team Leader:
-                              {team.teamLeaderId?.name || "Not Assigned"}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
+                                <p
+                                  style={{
+                                    margin: 0,
+                                  }}
+                                >
+                                  Team Leader:{" "}
+                                  {team.teamLeaderId
+                                    ?.name ||
+                                    "Not Assigned"}
+                                </p>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      ) : (
+                        <p
+                          style={{
+                            marginTop: "15px",
+                          }}
+                        >
+                          No teams are assigned.
+                        </p>
+                      )}
                     </>
                   )}
 
-
                   {user?.role === "HR" && (
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fit,minmax(200px,1fr))",
-                        gap: "15px",
-                        marginTop: "20px",
-                      }}
-                    >
-                      <div className="mini-stat-card">
-                        <span>Managers</span>
-                        <h3>{stats.totalManagers || 0}</h3>
-                      </div>
+                    <>
+                      <h3>HR Overview</h3>
 
-                      <div className="mini-stat-card">
-                        <span>Team Leaders</span>
-                        <h3>{stats.totalTeamLeaders || 0}</h3>
-                      </div>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns:
+                            "repeat(auto-fit,minmax(200px,1fr))",
+                          gap: "15px",
+                          marginTop: "20px",
+                        }}
+                      >
+                        <div className="mini-stat-card">
+                          <span>Managers</span>
 
-                      <div className="mini-stat-card">
-                        <span>HR</span>
-                        <h3>{stats.totalHRs || 0}</h3>
-                      </div>
+                          <h3>
+                            {stats.totalManagers ||
+                              0}
+                          </h3>
+                        </div>
 
-                      <div className="mini-stat-card">
-                        <span>Finance</span>
-                        <h3>{stats.totalFinance || 0}</h3>
+                        <div className="mini-stat-card">
+                          <span>
+                            Team Leaders
+                          </span>
+
+                          <h3>
+                            {stats.totalTeamLeaders ||
+                              0}
+                          </h3>
+                        </div>
+
+                        <div className="mini-stat-card">
+                          <span>HR Users</span>
+
+                          <h3>
+                            {stats.totalHRs || 0}
+                          </h3>
+                        </div>
+
+                        <div className="mini-stat-card">
+                          <span>Finance</span>
+
+                          <h3>
+                            {stats.totalFinance ||
+                              0}
+                          </h3>
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )}
+                </div>
 
-
-
+                <div className="modern-section-card">
                   <h3>
-                    {user?.role === "HR" ? "HR Workload" : "Manager Workload"}
+                    {user?.role === "HR"
+                      ? "HR Quick Actions"
+                      : "Manager Quick Actions"}
                   </h3>
 
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(220px, 1fr))",
                       gap: "16px",
                       marginTop: "16px",
                     }}
                   >
                     <button
+                      type="button"
                       className="btn btn-primary"
-                      onClick={() => setActivePage("managerApprovals")}
+                      onClick={() =>
+                        navigateToPage(
+                          "managerApprovals"
+                        )
+                      }
                     >
                       Review Leave Approvals
                     </button>
 
                     <button
+                      type="button"
                       className="btn btn-primary"
-                      onClick={() => setActivePage("reimbursementApprovals")}
+                      onClick={() =>
+                        navigateToPage(
+                          "reimbursementApprovals"
+                        )
+                      }
                     >
                       Review Reimbursements
                     </button>
 
                     <button
+                      type="button"
                       className="btn btn-primary"
-                      onClick={() => setActivePage("leaveCalendar")}
+                      onClick={() =>
+                        navigateToPage(
+                          "leaveCalendar"
+                        )
+                      }
                     >
                       View Leave Calendar
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={openEditProfile}
+                    >
+                      Edit My Profile
                     </button>
                   </div>
                 </div>
@@ -1051,85 +2080,249 @@ const Dashboard = () => {
 
             {isTeamLeader && (
               <>
+                <div className="employee-dashboard-grid">
+                  <div className="modern-profile-card">
+                    <div className="profile-main-row">
+                      <div className="large-avatar">
+                        {user?.profilePhoto?.url ? (
+                          <img
+                            src={user.profilePhoto.url}
+                            alt={
+                              user?.name ||
+                              "Team Leader"
+                            }
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              borderRadius: "50%",
+                            }}
+                          />
+                        ) : (
+                          user?.name
+                            ?.charAt(0)
+                            ?.toUpperCase() || "T"
+                        )}
+                      </div>
+
+                      <div>
+                        <h2>
+                          {user?.name ||
+                            "Team Leader"}
+                        </h2>
+
+                        <p>
+                          {user?.email || "N/A"}
+                        </p>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "10px",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={openEditProfile}
+                        >
+                          <UserRound size={16} />
+                          Edit Profile
+                        </button>
+
+                        <span className="active-pill">
+                          <BadgeCheck size={14} />
+                          Team Leader
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="profile-divider" />
+
+                    <div className="profile-detail-grid">
+                      <div>
+                        <span>Employee ID</span>
+
+                        <strong>
+                          {user?.employeeId ||
+                            "Not Updated"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Phone</span>
+
+                        <strong>
+                          {user?.phone ||
+                            "Not Updated"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Designation</span>
+
+                        <strong>
+                          {user?.designation ||
+                            "Not Updated"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Department</span>
+
+                        <strong>
+                          {user?.subcategoryId?.name ||
+                            "Not Updated"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Team</span>
+
+                        <strong>
+                          {user?.teamId?.name ||
+                            "Not Updated"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Status</span>
+
+                        <strong>
+                          {user?.isActive === false
+                            ? "Inactive"
+                            : "Active"}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="modern-stats-grid">
                   <div className="mini-stat-card">
                     <Users size={23} />
+
                     <span>My Team Members</span>
-                    <h3>{stats.teamMembers?.length || 0}</h3>
+
+                    <h3>
+                      {stats.teamMembers?.length ||
+                        0}
+                    </h3>
+
                     <p>assigned employees</p>
                   </div>
 
                   <div className="mini-stat-card">
                     <Building2 size={23} />
+
                     <span>My Teams</span>
-                    <h3>{stats.tlTeams?.length || 0}</h3>
+
+                    <h3>
+                      {stats.tlTeams?.length || 0}
+                    </h3>
+
                     <p>teams under you</p>
                   </div>
 
                   <div className="mini-stat-card">
                     <CalendarCheck size={23} />
-                    <span>Pending Leave Review</span>
-                    <h3>{stats.pendingTLLeaves || 0}</h3>
+
+                    <span>
+                      Pending Leave Review
+                    </span>
+
+                    <h3>
+                      {stats.pendingTLLeaves || 0}
+                    </h3>
+
                     <p>awaiting TL review</p>
                   </div>
 
                   <div className="mini-stat-card">
                     <Receipt size={23} />
-                    <span>Pending Claim Review</span>
-                    <h3>{stats.pendingTLReimbursements || 0}</h3>
+
+                    <span>
+                      Pending Claim Review
+                    </span>
+
+                    <h3>
+                      {stats.pendingTLReimbursements ||
+                        0}
+                    </h3>
+
                     <p>awaiting TL review</p>
                   </div>
                 </div>
 
                 <div className="modern-section-card">
-                  <h3>Team Leader Quick Actions</h3>
+                  <h3>
+                    Team Leader Quick Actions
+                  </h3>
 
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(220px, 1fr))",
                       gap: "16px",
                       marginTop: "16px",
                     }}
                   >
                     <button
+                      type="button"
                       className="btn btn-primary"
-                      onClick={() => {
-                        setActivePage("tlApprovals");
-                        localStorage.setItem("activePage", "tlApprovals");
-                      }}
+                      onClick={() =>
+                        navigateToPage(
+                          "tlApprovals"
+                        )
+                      }
                     >
                       Review Leave Requests
                     </button>
 
                     <button
+                      type="button"
                       className="btn btn-primary"
-                      onClick={() => {
-                        setActivePage("reimbursementApprovals");
-                        localStorage.setItem("activePage", "reimbursementApprovals");
-                      }}
+                      onClick={() =>
+                        navigateToPage(
+                          "reimbursementApprovals"
+                        )
+                      }
                     >
                       Review Reimbursements
                     </button>
 
                     <button
+                      type="button"
                       className="btn btn-primary"
-                      onClick={() => {
-                        setActivePage("leave");
-                        localStorage.setItem("activePage", "leave");
-                      }}
+                      onClick={() =>
+                        navigateToPage("leave")
+                      }
                     >
                       Apply / Track My Leave
                     </button>
 
                     <button
+                      type="button"
                       className="btn btn-primary"
-                      onClick={() => {
-                        setActivePage("reimbursements");
-                        localStorage.setItem("activePage", "reimbursements");
-                      }}
+                      onClick={() =>
+                        navigateToPage(
+                          "reimbursements"
+                        )
+                      }
                     >
                       Apply / Track Claims
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={openEditProfile}
+                    >
+                      Edit My Profile
                     </button>
                   </div>
                 </div>
@@ -1138,58 +2331,259 @@ const Dashboard = () => {
                   <h3>My Team Members</h3>
 
                   {stats.teamMembers?.length > 0 ? (
-                    <div style={{ marginTop: "15px" }}>
-                      {stats.teamMembers.map((member) => (
-                        <div
-                          key={member._id}
-                          style={{
-                            padding: "12px",
-                            borderBottom: "1px solid #eee",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            gap: "12px",
-                          }}
-                        >
-                          <div>
-                            <strong>{member.name}</strong>
-                            <p style={{ margin: "4px 0", color: "#6b7280" }}>
-                              {member.designation || "No designation"} • {member.role}
-                            </p>
-                          </div>
+                    <div
+                      style={{
+                        marginTop: "15px",
+                      }}
+                    >
+                      {stats.teamMembers.map(
+                        (member) => (
+                          <div
+                            key={member._id}
+                            style={{
+                              padding: "12px",
+                              borderBottom:
+                                "1px solid #eee",
+                              display: "flex",
+                              justifyContent:
+                                "space-between",
+                              alignItems:
+                                "center",
+                              gap: "12px",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems:
+                                  "center",
+                                gap: "12px",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: "42px",
+                                  height: "42px",
+                                  borderRadius:
+                                    "50%",
+                                  overflow:
+                                    "hidden",
+                                  background:
+                                    "#f1f5f9",
+                                  display: "flex",
+                                  alignItems:
+                                    "center",
+                                  justifyContent:
+                                    "center",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {member
+                                  .profilePhoto
+                                  ?.url ? (
+                                  <img
+                                    src={
+                                      member
+                                        .profilePhoto
+                                        .url
+                                    }
+                                    alt={
+                                      member.name ||
+                                      "Member"
+                                    }
+                                    style={{
+                                      width:
+                                        "100%",
+                                      height:
+                                        "100%",
+                                      objectFit:
+                                        "cover",
+                                    }}
+                                  />
+                                ) : (
+                                  member.name
+                                    ?.charAt(0)
+                                    ?.toUpperCase() ||
+                                  "U"
+                                )}
+                              </div>
 
-                          <span className="active-pill">
-                            {member.teamId?.name || "No Team"}
-                          </span>
-                        </div>
-                      ))}
+                              <div>
+                                <strong>
+                                  {member.name}
+                                </strong>
+
+                                <p
+                                  style={{
+                                    margin:
+                                      "4px 0",
+                                    color:
+                                      "#6b7280",
+                                  }}
+                                >
+                                  {member.designation ||
+                                    "No designation"}{" "}
+                                  •{" "}
+                                  {member.role}
+                                </p>
+                              </div>
+                            </div>
+
+                            <span className="active-pill">
+                              {member.teamId
+                                ?.name ||
+                                "No Team"}
+                            </span>
+                          </div>
+                        )
+                      )}
                     </div>
                   ) : (
-                    <p>No team members assigned.</p>
+                    <p>
+                      No team members assigned.
+                    </p>
                   )}
                 </div>
               </>
             )}
             {isFinance && (
               <>
+                <div className="employee-dashboard-grid">
+                  <div className="modern-profile-card">
+                    <div className="profile-main-row">
+                      <div className="large-avatar">
+                        {user?.profilePhoto?.url ? (
+                          <img
+                            src={user.profilePhoto.url}
+                            alt={user?.name || "Finance"}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              borderRadius: "50%",
+                            }}
+                          />
+                        ) : (
+                          user?.name
+                            ?.charAt(0)
+                            ?.toUpperCase() || "F"
+                        )}
+                      </div>
+
+                      <div>
+                        <h2>
+                          {user?.name || "Finance"}
+                        </h2>
+
+                        <p>
+                          {user?.email || "N/A"}
+                        </p>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "10px",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={openEditProfile}
+                        >
+                          <UserRound size={16} />
+                          Edit Profile
+                        </button>
+
+                        <span className="active-pill">
+                          <BadgeCheck size={14} />
+                          Finance
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="profile-divider" />
+
+                    <div className="profile-detail-grid">
+                      <div>
+                        <span>Employee ID</span>
+
+                        <strong>
+                          {user?.employeeId ||
+                            "Not Updated"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Phone</span>
+
+                        <strong>
+                          {user?.phone ||
+                            "Not Updated"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Designation</span>
+
+                        <strong>
+                          {user?.designation ||
+                            "Not Updated"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Status</span>
+
+                        <strong>
+                          {user?.isActive === false
+                            ? "Inactive"
+                            : "Active"}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="modern-stats-grid">
                   <div className="mini-stat-card">
                     <Receipt size={23} />
-                    <span>Approved Reimbursements</span>
-                    <h3>{stats.approvedReimbursements || 0}</h3>
+
+                    <span>
+                      Approved Reimbursements
+                    </span>
+
+                    <h3>
+                      {stats.approvedReimbursements ||
+                        0}
+                    </h3>
+
                     <p>ready for payment</p>
                   </div>
 
                   <div className="mini-stat-card">
                     <CalendarCheck size={23} />
-                    <span>Approved Leaves</span>
-                    <h3>{stats.approvedLeaves || 0}</h3>
+
+                    <span>
+                      Approved Leaves
+                    </span>
+
+                    <h3>
+                      {stats.approvedLeaves || 0}
+                    </h3>
+
                     <p>employee records</p>
                   </div>
 
                   <div className="mini-stat-card">
                     <BadgeCheck size={23} />
+
                     <span>Finance Role</span>
+
                     <h3>Finance</h3>
+
                     <p>authorized</p>
                   </div>
                 </div>
@@ -1197,33 +2591,83 @@ const Dashboard = () => {
                 <div className="modern-section-card">
                   <h3>Finance Overview</h3>
 
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "12px",
+                      flexWrap: "wrap",
+                      marginTop: "16px",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() =>
+                        navigateToPage(
+                          "financeLeaves"
+                        )
+                      }
+                    >
+                      View Finance Leaves
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() =>
+                        navigateToPage(
+                          "financeReimbursements"
+                        )
+                      }
+                    >
+                      View Reimbursements
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={openEditProfile}
+                    >
+                      Edit My Profile
+                    </button>
+                  </div>
                 </div>
               </>
             )}
 
-            {!isAdmin && !isFinance && <SignatureUploader />}
+            {!isAdmin && !isFinance && (
+              <SignatureUploader />
+            )}
           </>
         )}
 
         {isAdmin && (
           <div
-            className={`modern-section-card ${activePage === "departments" ? "page-visible" : "page-hidden"
+            className={`modern-section-card ${activePage === "departments"
+                ? "page-visible"
+                : "page-hidden"
               }`}
           >
             <AdminSubcategories />
           </div>
         )}
+
         {isAdmin && (
           <div
-            className={`modern-section-card ${activePage === "teams" ? "page-visible" : "page-hidden"
+            className={`modern-section-card ${activePage === "teams"
+                ? "page-visible"
+                : "page-hidden"
               }`}
           >
             <AdminTeams />
           </div>
         )}
+
         {isAdmin && (
           <div
-            className={`modern-section-card ${activePage === "users" ? "page-visible" : "page-hidden"
+            className={`modern-section-card ${activePage === "users"
+                ? "page-visible"
+                : "page-hidden"
               }`}
           >
             <AdminUsers />
@@ -1233,55 +2677,69 @@ const Dashboard = () => {
         {isTeamLeader && (
           <div
             className={`modern-section-card ${activePage === "tlApprovals"
-              ? "page-visible"
-              : "page-hidden"
+                ? "page-visible"
+                : "page-hidden"
               }`}
           >
             <TLApprovals />
           </div>
         )}
 
-        {(isEmployee || isTeamLeader) && (
-          <div
-            className={`modern-section-card ${activePage === "leave" ? "page-visible" : "page-hidden"}`}
-          >
-            <LeaveRequests />
-          </div>
-        )}
+        {(isEmployee ||
+          isTeamLeader) && (
+            <div
+              className={`modern-section-card ${activePage === "leave"
+                  ? "page-visible"
+                  : "page-hidden"
+                }`}
+            >
+              <LeaveRequests />
+            </div>
+          )}
 
-        {(isEmployee || isTeamLeader) && (
-          <div
-            className={`modern-section-card ${activePage === "reimbursements" ? "page-visible" : "page-hidden"}`}
-          >
-            <Reimbursements />
-          </div>
-        )}
+        {(isEmployee ||
+          isTeamLeader) && (
+            <div
+              className={`modern-section-card ${activePage ===
+                  "reimbursements"
+                  ? "page-visible"
+                  : "page-hidden"
+                }`}
+            >
+              <Reimbursements />
+            </div>
+          )}
 
         {isManagerOrHR && (
           <div
-            className={`modern-section-card ${activePage === "managerApprovals"
-              ? "page-visible"
-              : "page-hidden"
+            className={`modern-section-card ${activePage ===
+                "managerApprovals"
+                ? "page-visible"
+                : "page-hidden"
               }`}
           >
             <ManagerApprovals />
           </div>
         )}
 
-        {(isManagerOrHR || isTeamLeader) && (
-          <div
-            className={`modern-section-card ${activePage === "reimbursementApprovals"
-              ? "page-visible"
-              : "page-hidden"
-              }`}
-          >
-            <ReimbursementApprovals />
-          </div>
-        )}
+        {(isManagerOrHR ||
+          isTeamLeader) && (
+            <div
+              className={`modern-section-card ${activePage ===
+                  "reimbursementApprovals"
+                  ? "page-visible"
+                  : "page-hidden"
+                }`}
+            >
+              <ReimbursementApprovals />
+            </div>
+          )}
 
         {isAdmin && (
           <div
-            className={`modern-section-card ${activePage === "leaveReports" ? "page-visible" : "page-hidden"
+            className={`modern-section-card ${activePage === "leaveReports"
+                ? "page-visible"
+                : "page-hidden"
               }`}
           >
             <AdminLeaveReports />
@@ -1290,42 +2748,69 @@ const Dashboard = () => {
 
         {isAdmin && (
           <div
-            className={`modern-section-card ${activePage === "reimbursementReports"
-              ? "page-visible"
-              : "page-hidden"
+            className={`modern-section-card ${activePage ===
+                "reimbursementReports"
+                ? "page-visible"
+                : "page-hidden"
               }`}
           >
             <AdminReimbursementReports />
           </div>
         )}
-        {activePage === "financeLeaves" && isFinance && (
-          <div className="modern-section-card">
-            <FinanceLeaves />
-          </div>
-        )}
 
-        {activePage === "financeReimbursements" && isFinance && (
-          <div className="modern-section-card">
-            <FinanceReimbursements />
-          </div>
-        )}
+        {activePage ===
+          "financeLeaves" &&
+          isFinance && (
+            <div className="modern-section-card">
+              <FinanceLeaves />
+            </div>
+          )}
 
-        {activePage === "leaveCalendar" && (
-          <div className="modern-section-card">
-            <LeaveCalendar />
-          </div>
-        )}
-        {activePage === "notifications" && !isAdmin && (
-          <div className="modern-section-card">
-            <Notifications />
-          </div>
-        )}
+        {activePage ===
+          "financeReimbursements" &&
+          isFinance && (
+            <div className="modern-section-card">
+              <FinanceReimbursements />
+            </div>
+          )}
+
+        {activePage ===
+          "leaveCalendar" && (
+            <div className="modern-section-card">
+              <LeaveCalendar />
+            </div>
+          )}
+
+        {activePage ===
+          "notifications" &&
+          !isAdmin && (
+            <div className="modern-section-card">
+              <Notifications />
+            </div>
+          )}
 
         <div
-          className={`modern-section-card ${activePage === "holidays" ? "page-visible" : "page-hidden"
+          className={`modern-section-card ${activePage === "holidays"
+              ? "page-visible"
+              : "page-hidden"
             }`}
         >
           <HolidayManagement />
+        </div>
+
+        <div
+          className={`modern-section-card ${activePage === "editProfile"
+              ? "page-visible"
+              : "page-hidden"
+            }`}
+        >
+          <EditProfile
+            onSuccess={(updatedUser) => {
+              if (updatedUser) {
+                updateUser(updatedUser);
+              }
+            }}
+          />
         </div>
         {showPasswordModal && (
           <div className="modal-overlay">
@@ -1333,8 +2818,7 @@ const Dashboard = () => {
               <h2>Change Password</h2>
 
               <p>
-                You must change your password before
-                continuing.
+                You must change your password before continuing.
               </p>
 
               <div className="input-group">
@@ -1343,12 +2827,16 @@ const Dashboard = () => {
                 <input
                   type="password"
                   value={passwordData.currentPassword}
-                  onChange={(e) =>
-                    setPasswordData({
-                      ...passwordData,
-                      currentPassword: e.target.value,
-                    })
+                  onChange={(event) =>
+                    setPasswordData(
+                      (previousData) => ({
+                        ...previousData,
+                        currentPassword:
+                          event.target.value,
+                      })
+                    )
                   }
+                  autoComplete="current-password"
                 />
               </div>
 
@@ -1358,12 +2846,17 @@ const Dashboard = () => {
                 <input
                   type="password"
                   value={passwordData.newPassword}
-                  onChange={(e) =>
-                    setPasswordData({
-                      ...passwordData,
-                      newPassword: e.target.value,
-                    })
+                  onChange={(event) =>
+                    setPasswordData(
+                      (previousData) => ({
+                        ...previousData,
+                        newPassword:
+                          event.target.value,
+                      })
+                    )
                   }
+                  minLength={8}
+                  autoComplete="new-password"
                 />
               </div>
 
@@ -1373,45 +2866,27 @@ const Dashboard = () => {
                 <input
                   type="password"
                   value={passwordData.confirmPassword}
-                  onChange={(e) =>
-                    setPasswordData({
-                      ...passwordData,
-                      confirmPassword: e.target.value,
-                    })
+                  onChange={(event) =>
+                    setPasswordData(
+                      (previousData) => ({
+                        ...previousData,
+                        confirmPassword:
+                          event.target.value,
+                      })
+                    )
                   }
+                  minLength={8}
+                  autoComplete="new-password"
                 />
               </div>
 
               <button
+                type="button"
                 className="btn btn-primary"
                 onClick={handlePasswordChange}
               >
                 Update Password
               </button>
-            </div>
-          </div>
-        )}
-
-        {showEditProfile && (
-          <div className="modal-overlay">
-            <div className="modal-box profile-modal">
-              <div className="modal-header">
-                <h2>Edit Profile</h2>
-
-                <button
-                  className="modal-close"
-                  onClick={() => setShowEditProfile(false)}
-                >
-                  ×
-                </button>
-              </div>
-
-              <EditProfile
-                onSuccess={() => {
-                  setShowEditProfile(false);
-                  window.location.reload();
-                }}
-              />
             </div>
           </div>
         )}

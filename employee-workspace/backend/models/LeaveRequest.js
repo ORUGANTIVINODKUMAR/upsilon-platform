@@ -1,5 +1,125 @@
 import mongoose from "mongoose";
 
+const leaveEditHistorySchema = new mongoose.Schema(
+  {
+    editedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    editedAt: {
+      type: Date,
+      default: Date.now,
+    },
+
+    previousValues: {
+      leaveType: {
+        type: String,
+        default: "",
+      },
+
+      startDate: {
+        type: Date,
+        default: null,
+      },
+
+      endDate: {
+        type: Date,
+        default: null,
+      },
+
+      reason: {
+        type: String,
+        default: "",
+      },
+
+      leaveExplanation: {
+        type: String,
+        default: "",
+      },
+
+      workingDays: {
+        type: Number,
+        default: 0,
+      },
+
+      proofFile: {
+        type: String,
+        default: "",
+      },
+
+      finalStatus: {
+        type: String,
+        default: "",
+      },
+    },
+
+    updatedValues: {
+      leaveType: {
+        type: String,
+        default: "",
+      },
+
+      startDate: {
+        type: Date,
+        default: null,
+      },
+
+      endDate: {
+        type: Date,
+        default: null,
+      },
+
+      reason: {
+        type: String,
+        default: "",
+      },
+
+      leaveExplanation: {
+        type: String,
+        default: "",
+      },
+
+      workingDays: {
+        type: Number,
+        default: 0,
+      },
+
+      proofFile: {
+        type: String,
+        default: "",
+      },
+
+      finalStatus: {
+        type: String,
+        default: "",
+      },
+    },
+
+    changedFields: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+
+    requiredReapproval: {
+      type: Boolean,
+      default: false,
+    },
+
+    remarks: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+  },
+  {
+    _id: true,
+  },
+);
+
 const leaveRequestSchema = new mongoose.Schema(
   {
     employeeId: {
@@ -71,21 +191,24 @@ const leaveRequestSchema = new mongoose.Schema(
     workingDays: {
       type: Number,
       default: 0,
+      min: 0,
     },
 
     leaveExplanation: {
       type: String,
       default: "",
+      trim: true,
     },
 
     proofFile: {
       type: String,
       default: "",
+      trim: true,
     },
 
     tlStatus: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected"],
+      enum: ["Pending", "Approved", "Rejected", "Not Required"],
       default: "Pending",
     },
 
@@ -151,11 +274,12 @@ const leaveRequestSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
-
     finalStatus: {
       type: String,
       enum: [
         "Pending Final Approval",
+        "Pending Reapproval",
+        "On Hold",
         "Approved by Manager",
         "Approved by HR",
         "Rejected by Manager",
@@ -168,12 +292,23 @@ const leaveRequestSchema = new mongoose.Schema(
       {
         level: {
           type: String,
-          enum: ["TeamLeader", "Manager", "HR"],
+          enum: ["TeamLeader", "Manager", "HR", "Employee"],
+          required: true,
         },
 
         action: {
           type: String,
-          enum: ["Submitted", "Approved", "Rejected"],
+          enum: [
+            "Submitted",
+            "Approved",
+            "Rejected",
+            "Edited",
+            "Sent for Reapproval",
+            "Put On Hold",
+            "Moved to Pending",
+            "Status Changed",
+          ],
+          required: true,
         },
 
         actedBy: {
@@ -194,15 +329,139 @@ const leaveRequestSchema = new mongoose.Schema(
         },
       },
     ],
+    statusHistory: [
+      {
+        previousStatus: {
+          type: String,
+          default: "",
+          trim: true,
+        },
 
+        newStatus: {
+          type: String,
+          enum: [
+            "Pending Final Approval",
+            "Pending Reapproval",
+            "On Hold",
+            "Approved by Manager",
+            "Approved by HR",
+            "Rejected by Manager",
+            "Rejected by HR",
+          ],
+          required: true,
+        },
+
+        changedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+
+        changedAt: {
+          type: Date,
+          default: Date.now,
+        },
+
+        remarks: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+      },
+    ],
     rejectionReason: {
       type: String,
       default: "",
       trim: true,
     },
+
+    editHistory: {
+      type: [leaveEditHistorySchema],
+      default: [],
+    },
+
+    lastEditedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    lastEditedAt: {
+      type: Date,
+      default: null,
+    },
+    lastStatusChangedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    lastStatusChangedAt: {
+      type: Date,
+      default: null,
+    },
+    requiresReapproval: {
+      type: Boolean,
+      default: false,
+    },
+
+    reapprovalCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  },
 );
+
+leaveRequestSchema.pre("validate", function () {
+  if (
+    this.startDate &&
+    this.endDate &&
+    new Date(this.endDate) < new Date(this.startDate)
+  ) {
+    this.invalidate("endDate", "End date cannot be earlier than start date");
+  }
+
+  if (this.finalStatus === "Pending Reapproval") {
+    this.requiresReapproval = true;
+  }
+
+  if (
+    [
+      "Pending Final Approval",
+      "On Hold",
+      "Approved by Manager",
+      "Approved by HR",
+      "Rejected by Manager",
+      "Rejected by HR",
+    ].includes(this.finalStatus)
+  ) {
+    this.requiresReapproval = false;
+  }
+});
+
+leaveRequestSchema.index({
+  employeeId: 1,
+  createdAt: -1,
+});
+
+leaveRequestSchema.index({
+  managerId: 1,
+  finalStatus: 1,
+});
+
+leaveRequestSchema.index({
+  teamLeaderId: 1,
+  finalStatus: 1,
+});
+
+leaveRequestSchema.index({
+  finalStatus: 1,
+  updatedAt: -1,
+});
 
 const LeaveRequest = mongoose.model("LeaveRequest", leaveRequestSchema);
 
