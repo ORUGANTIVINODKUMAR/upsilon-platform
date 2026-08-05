@@ -1567,7 +1567,71 @@ export const updateUser = async (req, res) => {
     });
   }
 };
+export const resetUserPassword = async (req, res) => {
+  try {
+    const { newPassword } = req.body;
 
+    if (!newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New temporary password is required",
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must contain at least 8 characters",
+      });
+    }
+
+    const user = await User.findById(req.params.id).select("+passwordHash");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    /*
+     * Optional protection:
+     * Do not allow one Admin to reset another Admin's password.
+     *
+     * Remove this block if you want Admin accounts to also be reset.
+     */
+    if (user.role === "Admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin passwords cannot be reset from User Management",
+      });
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.mustChangePassword = true;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Password reset successfully for ${user.name}. They must change it after login.`,
+    });
+  } catch (error) {
+    console.error("RESET USER PASSWORD ERROR:", error);
+
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to reset user password",
+    });
+  }
+};
 export const deleteUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select("+passwordHash");

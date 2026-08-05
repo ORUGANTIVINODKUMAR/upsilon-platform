@@ -1,12 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+
 import {
-  Plus,
-  Users,
-  Trash2,
+  KeyRound,
   Pencil,
+  Plus,
+  Trash2,
+  Users,
+  X,
 } from "lucide-react";
 
 import api from "../api/api";
@@ -35,37 +42,113 @@ const EMPTY_FORM_DATA = {
 };
 
 const AdminUsers = () => {
-  const [users, setUsers] = useState([]);
-  const [subcategories, setSubcategories] = useState([]);
-  const [teams, setTeams] = useState([]);
+  const [users, setUsers] =
+    useState([]);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [
+    subcategories,
+    setSubcategories,
+  ] = useState([]);
 
-  const [activeFilter, setActiveFilter] = useState("All");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [teams, setTeams] =
+    useState([]);
 
-  const [showModal, setShowModal] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
-  const [error, setError] = useState("");
+  const [
+    isLoading,
+    setIsLoading,
+  ] = useState(true);
 
-  const [formData, setFormData] = useState({
+  const [
+    isSubmitting,
+    setIsSubmitting,
+  ] = useState(false);
+
+  const [
+    activeFilter,
+    setActiveFilter,
+  ] = useState("All");
+
+  const [
+    searchTerm,
+    setSearchTerm,
+  ] = useState("");
+
+  const [
+    currentPage,
+    setCurrentPage,
+  ] = useState(1);
+
+  const [
+    showModal,
+    setShowModal,
+  ] = useState(false);
+
+  const [
+    editingUser,
+    setEditingUser,
+  ] = useState(null);
+
+  const [error, setError] =
+    useState("");
+
+  const [
+    formData,
+    setFormData,
+  ] = useState({
     ...EMPTY_FORM_DATA,
   });
 
-  const fetchSubcategories = async () => {
-    const { data } = await api.get("/admin/subcategories");
+  const [
+    showResetPasswordModal,
+    setShowResetPasswordModal,
+  ] = useState(false);
 
-    setSubcategories(
-      Array.isArray(data.subcategories)
-        ? data.subcategories
-        : []
-    );
-  };
+  const [
+    selectedResetUser,
+    setSelectedResetUser,
+  ] = useState(null);
+
+  const [
+    temporaryPassword,
+    setTemporaryPassword,
+  ] = useState("");
+
+  const [
+    confirmTemporaryPassword,
+    setConfirmTemporaryPassword,
+  ] = useState("");
+
+  const [
+    resetPasswordError,
+    setResetPasswordError,
+  ] = useState("");
+
+  const [
+    resetPasswordSuccess,
+    setResetPasswordSuccess,
+  ] = useState("");
+
+  const fetchSubcategories =
+    async () => {
+      const { data } =
+        await api.get(
+          "/admin/subcategories"
+        );
+
+      setSubcategories(
+        Array.isArray(
+          data.subcategories
+        )
+          ? data.subcategories
+          : []
+      );
+    };
 
   const fetchTeams = async () => {
-    const { data } = await api.get("/admin/teams");
+    const { data } =
+      await api.get(
+        "/admin/teams"
+      );
 
     setTeams(
       Array.isArray(data.teams)
@@ -75,7 +158,10 @@ const AdminUsers = () => {
   };
 
   const fetchUsers = async () => {
-    const { data } = await api.get("/admin/users");
+    const { data } =
+      await api.get(
+        "/admin/users"
+      );
 
     setUsers(
       Array.isArray(data.users)
@@ -97,12 +183,14 @@ const AdminUsers = () => {
     } catch (error) {
       console.error(
         "LOAD ADMIN USERS DATA ERROR:",
-        error.response?.data || error.message
+        error.response?.data ||
+          error.message
       );
 
       setError(
-        error.response?.data?.message ||
-        "Unable to load user-management data."
+        error.response?.data
+          ?.message ||
+          "Unable to load user-management data."
       );
     } finally {
       setIsLoading(false);
@@ -112,30 +200,34 @@ const AdminUsers = () => {
   useEffect(() => {
     loadAllData();
 
-    const handleTeamsUpdated = async () => {
-      try {
-        await Promise.all([
-          fetchTeams(),
-          fetchUsers(),
-        ]);
-      } catch (error) {
-        console.error(
-          "REFRESH TEAMS ERROR:",
-          error.response?.data || error.message
-        );
-      }
-    };
+    const handleTeamsUpdated =
+      async () => {
+        try {
+          await Promise.all([
+            fetchTeams(),
+            fetchUsers(),
+          ]);
+        } catch (error) {
+          console.error(
+            "REFRESH TEAMS ERROR:",
+            error.response?.data ||
+              error.message
+          );
+        }
+      };
 
-    const handleUsersUpdated = async () => {
-      try {
-        await fetchUsers();
-      } catch (error) {
-        console.error(
-          "REFRESH USERS ERROR:",
-          error.response?.data || error.message
-        );
-      }
-    };
+    const handleUsersUpdated =
+      async () => {
+        try {
+          await fetchUsers();
+        } catch (error) {
+          console.error(
+            "REFRESH USERS ERROR:",
+            error.response?.data ||
+              error.message
+          );
+        }
+      };
 
     window.addEventListener(
       "teams-updated",
@@ -160,259 +252,354 @@ const AdminUsers = () => {
     };
   }, []);
 
-  const activeManagers = useMemo(
-    () =>
-      users.filter(
-        (user) =>
-          user.role === "Manager" &&
-          user.isActive !== false
-      ),
-    [users]
-  );
+  const activeManagers =
+    useMemo(
+      () =>
+        users.filter(
+          (user) =>
+            user.role ===
+              "Manager" &&
+            user.isActive !==
+              false
+        ),
+      [users]
+    );
 
   const activeHrs = useMemo(
     () =>
       users.filter(
         (user) =>
           user.role === "HR" &&
-          user.isActive !== false
+          user.isActive !==
+            false
       ),
     [users]
   );
 
-  const filteredUsers = useMemo(() => {
-    const normalizedSearch = searchTerm
-      .trim()
-      .toLowerCase();
+  const filteredUsers =
+    useMemo(() => {
+      const normalizedSearch =
+        searchTerm
+          .trim()
+          .toLowerCase();
 
-    return users.filter((user) => {
-      const matchesRole =
-        activeFilter === "All" ||
-        user.role === activeFilter;
+      return users.filter(
+        (user) => {
+          const matchesRole =
+            activeFilter ===
+              "All" ||
+            user.role ===
+              activeFilter;
 
-      const matchesSearch =
-        !normalizedSearch ||
-        user.name
-          ?.toLowerCase()
-          .includes(normalizedSearch) ||
-        user.email
-          ?.toLowerCase()
-          .includes(normalizedSearch) ||
-        user.employeeId
-          ?.toLowerCase()
-          .includes(normalizedSearch) ||
-        user.phone
-          ?.toLowerCase()
-          .includes(normalizedSearch) ||
-        user.designation
-          ?.toLowerCase()
-          .includes(normalizedSearch);
+          const matchesSearch =
+            !normalizedSearch ||
+            user.name
+              ?.toLowerCase()
+              .includes(
+                normalizedSearch
+              ) ||
+            user.email
+              ?.toLowerCase()
+              .includes(
+                normalizedSearch
+              ) ||
+            user.employeeId
+              ?.toLowerCase()
+              .includes(
+                normalizedSearch
+              ) ||
+            user.phone
+              ?.toLowerCase()
+              .includes(
+                normalizedSearch
+              ) ||
+            user.designation
+              ?.toLowerCase()
+              .includes(
+                normalizedSearch
+              );
 
-      return matchesRole && matchesSearch;
-    });
-  }, [users, activeFilter, searchTerm]);
+          return (
+            matchesRole &&
+            matchesSearch
+          );
+        }
+      );
+    }, [
+      users,
+      activeFilter,
+      searchTerm,
+    ]);
 
   const totalPages = Math.max(
     1,
     Math.ceil(
-      filteredUsers.length / USERS_PER_PAGE
+      filteredUsers.length /
+        USERS_PER_PAGE
     )
   );
 
-  const paginatedUsers = useMemo(() => {
-    const startIndex =
-      (currentPage - 1) * USERS_PER_PAGE;
+  const paginatedUsers =
+    useMemo(() => {
+      const startIndex =
+        (currentPage - 1) *
+        USERS_PER_PAGE;
 
-    return filteredUsers.slice(
-      startIndex,
-      startIndex + USERS_PER_PAGE
-    );
-  }, [filteredUsers, currentPage]);
+      return filteredUsers.slice(
+        startIndex,
+        startIndex +
+          USERS_PER_PAGE
+      );
+    }, [
+      filteredUsers,
+      currentPage,
+    ]);
 
   useEffect(() => {
-    if (currentPage > totalPages) {
+    if (
+      currentPage > totalPages
+    ) {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
 
-  const employeeCount = useMemo(
-    () =>
-      users.filter(
-        (user) => user.role === "Employee"
-      ).length,
-    [users]
-  );
+  const employeeCount =
+    useMemo(
+      () =>
+        users.filter(
+          (user) =>
+            user.role ===
+            "Employee"
+        ).length,
+      [users]
+    );
 
-  const managerCount = useMemo(
-    () =>
-      users.filter(
-        (user) => user.role === "Manager"
-      ).length,
-    [users]
-  );
+  const managerCount =
+    useMemo(
+      () =>
+        users.filter(
+          (user) =>
+            user.role ===
+            "Manager"
+        ).length,
+      [users]
+    );
 
   const hrCount = useMemo(
     () =>
       users.filter(
-        (user) => user.role === "HR"
+        (user) =>
+          user.role === "HR"
       ).length,
     [users]
   );
 
-  const activeUsersCount = useMemo(
-    () =>
-      users.filter(
-        (user) => user.isActive !== false
-      ).length,
-    [users]
-  );
+  const activeUsersCount =
+    useMemo(
+      () =>
+        users.filter(
+          (user) =>
+            user.isActive !==
+            false
+        ).length,
+      [users]
+    );
 
-  const selectedTeam = useMemo(
-    () =>
-      teams.find(
-        (team) =>
-          team._id === formData.teamId
-      ) || null,
-    [teams, formData.teamId]
-  );
+  const selectedTeam =
+    useMemo(
+      () =>
+        teams.find(
+          (team) =>
+            team._id ===
+            formData.teamId
+        ) || null,
+      [
+        teams,
+        formData.teamId,
+      ]
+    );
 
-  const filteredTeams = useMemo(
-    () =>
-      teams.filter(
-        (team) =>
-          team.departmentId?._id ===
-          formData.subcategoryId &&
-          team.isActive !== false
-      ),
-    [teams, formData.subcategoryId]
-  );
+  const filteredTeams =
+    useMemo(
+      () =>
+        teams.filter(
+          (team) =>
+            team.departmentId
+              ?._id ===
+              formData.subcategoryId &&
+            team.isActive !==
+              false
+        ),
+      [
+        teams,
+        formData.subcategoryId,
+      ]
+    );
 
   const selectedTeamLeader =
-    selectedTeam?.teamLeaderId || null;
+    selectedTeam?.teamLeaderId ||
+    null;
 
   const selectedTeamManager =
-    selectedTeam?.managerIds?.[0] || null;
+    selectedTeam
+      ?.managerIds?.[0] || null;
 
   const selectedTeamHr =
-    selectedTeam?.hrIds?.[0] || null;
+    selectedTeam?.hrIds?.[0] ||
+    null;
 
-  const departmentManagers = useMemo(() => {
-    if (!formData.subcategoryId) {
-      return activeManagers;
-    }
+  const departmentManagers =
+    useMemo(() => {
+      if (
+        !formData.subcategoryId
+      ) {
+        return activeManagers;
+      }
 
-    return activeManagers.filter(
-      (manager) =>
-        manager.subcategoryId?._id ===
-        formData.subcategoryId ||
-        manager.assignedTeamIds?.some(
-          (team) =>
-            team.departmentId?._id ===
-            formData.subcategoryId
-        )
-    );
-  }, [
-    activeManagers,
-    formData.subcategoryId,
-  ]);
+      return activeManagers.filter(
+        (manager) =>
+          manager.subcategoryId
+            ?._id ===
+            formData.subcategoryId ||
+          manager.assignedTeamIds
+            ?.some(
+              (team) =>
+                team.departmentId
+                  ?._id ===
+                formData.subcategoryId
+            )
+      );
+    }, [
+      activeManagers,
+      formData.subcategoryId,
+    ]);
 
-  const departmentHrs = useMemo(() => {
-    if (!formData.subcategoryId) {
-      return activeHrs;
-    }
+  const departmentHrs =
+    useMemo(() => {
+      if (
+        !formData.subcategoryId
+      ) {
+        return activeHrs;
+      }
 
-    return activeHrs.filter(
-      (hr) =>
-        hr.subcategoryId?._id ===
-        formData.subcategoryId ||
-        hr.assignedTeamIds?.some(
-          (team) =>
-            team.departmentId?._id ===
-            formData.subcategoryId
-        )
-    );
-  }, [
-    activeHrs,
-    formData.subcategoryId,
-  ]);
+      return activeHrs.filter(
+        (hr) =>
+          hr.subcategoryId?._id ===
+            formData.subcategoryId ||
+          hr.assignedTeamIds?.some(
+            (team) =>
+              team.departmentId
+                ?._id ===
+              formData.subcategoryId
+          )
+      );
+    }, [
+      activeHrs,
+      formData.subcategoryId,
+    ]);
 
-  const exportUsersToExcel = () => {
-    const exportData = filteredUsers.map(
-      (user) => ({
-        Name: user.name || "",
-        EmployeeID:
-          user.employeeId || "N/A",
-        Email: user.email || "",
-        Phone: user.phone || "N/A",
-        Designation:
-          user.designation || "N/A",
-        Role: user.role || "N/A",
-        Department:
-          user.subcategoryId?.name ||
-          "N/A",
-        Team:
-          user.teamId?.name || "N/A",
-        Manager:
-          user.managerId?.name || "N/A",
-        HR:
-          user.hrId?.name || "N/A",
-        TeamLeader:
-          user.teamLeaderId?.name ||
-          "N/A",
-        Status:
-          user.isActive !== false
-            ? "Active"
-            : "Inactive",
-        DateOfJoining:
-          user.dateOfJoining
-            ? new Date(
+  const exportUsersToExcel =
+    () => {
+      const exportData =
+        filteredUsers.map(
+          (user) => ({
+            Name:
+              user.name || "",
+
+            EmployeeID:
+              user.employeeId ||
+              "N/A",
+
+            Email:
+              user.email || "",
+
+            Phone:
+              user.phone || "N/A",
+
+            Designation:
+              user.designation ||
+              "N/A",
+
+            Role:
+              user.role || "N/A",
+
+            Department:
+              user.subcategoryId
+                ?.name || "N/A",
+
+            Team:
+              user.teamId?.name ||
+              "N/A",
+
+            Manager:
+              user.managerId?.name ||
+              "N/A",
+
+            HR:
+              user.hrId?.name ||
+              "N/A",
+
+            TeamLeader:
+              user.teamLeaderId
+                ?.name || "N/A",
+
+            Status:
+              user.isActive !==
+              false
+                ? "Active"
+                : "Inactive",
+
+            DateOfJoining:
               user.dateOfJoining
-            ).toLocaleDateString()
-            : "N/A",
-        DateOfBirth:
-          user.dateOfBirth
-            ? new Date(
-              user.dateOfBirth
-            ).toLocaleDateString()
-            : "N/A",
-      })
-    );
+                ? new Date(
+                    user.dateOfJoining
+                  ).toLocaleDateString()
+                : "N/A",
 
-    const worksheet =
-      XLSX.utils.json_to_sheet(
-        exportData
+            DateOfBirth:
+              user.dateOfBirth
+                ? new Date(
+                    user.dateOfBirth
+                  ).toLocaleDateString()
+                : "N/A",
+          })
+        );
+
+      const worksheet =
+        XLSX.utils.json_to_sheet(
+          exportData
+        );
+
+      const workbook =
+        XLSX.utils.book_new();
+
+      XLSX.utils.book_append_sheet(
+        workbook,
+        worksheet,
+        "Users"
       );
 
-    const workbook =
-      XLSX.utils.book_new();
+      const excelBuffer =
+        XLSX.write(workbook, {
+          bookType: "xlsx",
+          type: "array",
+        });
 
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      "Users"
-    );
+      const fileData =
+        new Blob(
+          [excelBuffer],
+          {
+            type:
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+          }
+        );
 
-    const excelBuffer = XLSX.write(
-      workbook,
-      {
-        bookType: "xlsx",
-        type: "array",
-      }
-    );
+      saveAs(
+        fileData,
+        "Users_Report.xlsx"
+      );
+    };
 
-    const fileData = new Blob(
-      [excelBuffer],
-      {
-        type:
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
-      }
-    );
-
-    saveAs(
-      fileData,
-      "Users_Report.xlsx"
-    );
-  };
   const resetForm = () => {
     setFormData({
       ...EMPTY_FORM_DATA,
@@ -434,209 +621,370 @@ const AdminUsers = () => {
     setShowModal(true);
   };
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
+  const openResetPasswordModal =
+    (user) => {
+      setSelectedResetUser(
+        user
+      );
+
+      setTemporaryPassword("");
+      setConfirmTemporaryPassword(
+        ""
+      );
+
+      setResetPasswordError("");
+      setResetPasswordSuccess("");
+
+      setShowResetPasswordModal(
+        true
+      );
+    };
+
+  const closeResetPasswordModal =
+    () => {
+      if (isSubmitting) {
+        return;
+      }
+
+      setShowResetPasswordModal(
+        false
+      );
+
+      setSelectedResetUser(
+        null
+      );
+
+      setTemporaryPassword("");
+      setConfirmTemporaryPassword(
+        ""
+      );
+
+      setResetPasswordError("");
+      setResetPasswordSuccess("");
+    };
+      const handleResetPassword = async (
+    event
+  ) => {
+    event.preventDefault();
+
+    if (!selectedResetUser) {
+      setResetPasswordError(
+        "No user selected."
+      );
+      return;
+    }
+
+    if (
+      temporaryPassword.length < 8
+    ) {
+      setResetPasswordError(
+        "Temporary password must contain at least 8 characters."
+      );
+      return;
+    }
+
+    if (
+      temporaryPassword !==
+      confirmTemporaryPassword
+    ) {
+      setResetPasswordError(
+        "Temporary password and confirmation do not match."
+      );
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        `Reset the password for ${selectedResetUser.name}?`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setResetPasswordError("");
+      setResetPasswordSuccess("");
+
+      const { data } =
+        await api.put(
+          `/admin/users/${selectedResetUser._id}/reset-password`,
+          {
+            newPassword:
+              temporaryPassword,
+          }
+        );
+
+      setResetPasswordSuccess(
+        data.message ||
+          "Password reset successfully."
+      );
+
+      setTemporaryPassword("");
+      setConfirmTemporaryPassword(
+        ""
+      );
+
+      await fetchUsers();
+    } catch (error) {
+      console.error(
+        "RESET PASSWORD ERROR:",
+        error.response?.data ||
+          error.message
+      );
+
+      setResetPasswordError(
+        error.response?.data
+          ?.message ||
+          "Unable to reset password."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleChange = (
+    event
+  ) => {
+    const { name, value } =
+      event.target;
 
     if (name === "phone") {
-      const digitsOnly = value
-        .replace(/\D/g, "")
-        .slice(0, 10);
+      const digitsOnly =
+        value
+          .replace(/\D/g, "")
+          .slice(0, 10);
 
-      setFormData((previousData) => ({
-        ...previousData,
-        phone: digitsOnly,
-      }));
+      setFormData(
+        (previousData) => ({
+          ...previousData,
+          phone: digitsOnly,
+        })
+      );
 
       setError("");
       return;
     }
 
-    setFormData((previousData) => {
-      const updatedData = {
-        ...previousData,
-        [name]: value,
-      };
-
-      if (
-        name === "firstName" ||
-        name === "lastName"
-      ) {
-        updatedData.name =
-          `${updatedData.firstName || ""} ${updatedData.lastName || ""
-            }`
-            .trim()
-            .replace(/\s+/g, " ");
-      }
-
-      return updatedData;
-    });
-
-    setError("");
-  };
-
-  const handleRoleChange = (event) => {
-    const nextRole = event.target.value;
-
-    setFormData((previousData) => {
-      const nextData = {
-        ...previousData,
-        role: nextRole,
-      };
-
-      if (
-        nextRole === "Admin" ||
-        nextRole === "Finance"
-      ) {
-        return {
-          ...nextData,
-          subcategoryId: "",
-          teamId: "",
-          managerId: "",
-          hrId: "",
-          teamLeaderId: "",
-          assignedTeamIds: [],
-        };
-      }
-
-      if (nextRole === "Employee") {
-        return {
-          ...nextData,
-          assignedTeamIds: [],
-        };
-      }
-
-      if (nextRole === "TeamLeader") {
-        return {
-          ...nextData,
-          teamLeaderId: "",
-          assignedTeamIds: [],
-        };
-      }
-
-      if (
-        nextRole === "Manager" ||
-        nextRole === "HR"
-      ) {
-        return {
-          ...nextData,
-          teamId: "",
-          managerId: "",
-          hrId: "",
-          teamLeaderId: "",
-        };
-      }
-
-      return nextData;
-    });
-
-    setError("");
-  };
-
-  const handleDepartmentChange = (event) => {
-    const nextDepartmentId =
-      event.target.value;
-
-    setFormData((previousData) => ({
-      ...previousData,
-      subcategoryId: nextDepartmentId,
-      teamId: "",
-      managerId: "",
-      hrId: "",
-      teamLeaderId: "",
-      assignedTeamIds: [],
-    }));
-
-    setError("");
-  };
-
-  const handleEmployeeTeamChange = (
-    event
-  ) => {
-    const nextTeamId =
-      event.target.value;
-
-    const nextTeam =
-      teams.find(
-        (team) =>
-          team._id === nextTeamId
-      ) || null;
-
-    setFormData((previousData) => ({
-      ...previousData,
-      teamId: nextTeamId,
-      teamLeaderId:
-        nextTeam?.teamLeaderId?._id ||
-        "",
-      managerId:
-        nextTeam?.managerIds?.[0]?._id ||
-        "",
-      hrId:
-        nextTeam?.hrIds?.[0]?._id ||
-        "",
-    }));
-
-    setError("");
-  };
-
-  const handleTeamLeaderTeamChange = (
-    event
-  ) => {
-    const nextTeamId =
-      event.target.value;
-
-    const nextTeam =
-      teams.find(
-        (team) =>
-          team._id === nextTeamId
-      ) || null;
-
-    setFormData((previousData) => ({
-      ...previousData,
-      teamId: nextTeamId,
-      managerId:
-        nextTeam?.managerIds?.[0]?._id ||
-        "",
-      hrId:
-        nextTeam?.hrIds?.[0]?._id ||
-        "",
-      teamLeaderId: "",
-    }));
-
-    setError("");
-  };
-
-  const handleAssignedTeamChange = (
-    teamId,
-    checked
-  ) => {
-    setFormData((previousData) => {
-      const currentIds =
-        previousData.assignedTeamIds ||
-        [];
-
-      if (checked) {
-        return {
+    setFormData(
+      (previousData) => {
+        const updatedData = {
           ...previousData,
-          assignedTeamIds: [
-            ...new Set([
-              ...currentIds,
-              teamId,
-            ]),
-          ],
+          [name]: value,
         };
-      }
 
-      return {
-        ...previousData,
-        assignedTeamIds:
-          currentIds.filter(
-            (id) => id !== teamId
-          ),
-      };
-    });
+        if (
+          name === "firstName" ||
+          name === "lastName"
+        ) {
+          updatedData.name =
+            `${updatedData.firstName || ""} ${
+              updatedData.lastName || ""
+            }`
+              .trim()
+              .replace(/\s+/g, " ");
+        }
+
+        return updatedData;
+      }
+    );
 
     setError("");
   };
+
+  const handleRoleChange = (
+    event
+  ) => {
+    const nextRole =
+      event.target.value;
+
+    setFormData(
+      (previousData) => {
+        const nextData = {
+          ...previousData,
+          role: nextRole,
+        };
+
+        if (
+          nextRole === "Admin" ||
+          nextRole === "Finance"
+        ) {
+          return {
+            ...nextData,
+            subcategoryId: "",
+            teamId: "",
+            managerId: "",
+            hrId: "",
+            teamLeaderId: "",
+            assignedTeamIds: [],
+          };
+        }
+
+        if (
+          nextRole === "Employee"
+        ) {
+          return {
+            ...nextData,
+            assignedTeamIds: [],
+          };
+        }
+
+        if (
+          nextRole ===
+          "TeamLeader"
+        ) {
+          return {
+            ...nextData,
+            teamLeaderId: "",
+            assignedTeamIds: [],
+          };
+        }
+
+        if (
+          nextRole === "Manager" ||
+          nextRole === "HR"
+        ) {
+          return {
+            ...nextData,
+            teamId: "",
+            managerId: "",
+            hrId: "",
+            teamLeaderId: "",
+          };
+        }
+
+        return nextData;
+      }
+    );
+
+    setError("");
+  };
+
+  const handleDepartmentChange =
+    (event) => {
+      const nextDepartmentId =
+        event.target.value;
+
+      setFormData(
+        (previousData) => ({
+          ...previousData,
+          subcategoryId:
+            nextDepartmentId,
+          teamId: "",
+          managerId: "",
+          hrId: "",
+          teamLeaderId: "",
+          assignedTeamIds: [],
+        })
+      );
+
+      setError("");
+    };
+
+  const handleEmployeeTeamChange =
+    (event) => {
+      const nextTeamId =
+        event.target.value;
+
+      const nextTeam =
+        teams.find(
+          (team) =>
+            team._id === nextTeamId
+        ) || null;
+
+      setFormData(
+        (previousData) => ({
+          ...previousData,
+          teamId: nextTeamId,
+
+          teamLeaderId:
+            nextTeam?.teamLeaderId
+              ?._id || "",
+
+          managerId:
+            nextTeam
+              ?.managerIds?.[0]?._id ||
+            "",
+
+          hrId:
+            nextTeam
+              ?.hrIds?.[0]?._id ||
+            "",
+        })
+      );
+
+      setError("");
+    };
+
+  const handleTeamLeaderTeamChange =
+    (event) => {
+      const nextTeamId =
+        event.target.value;
+
+      const nextTeam =
+        teams.find(
+          (team) =>
+            team._id === nextTeamId
+        ) || null;
+
+      setFormData(
+        (previousData) => ({
+          ...previousData,
+          teamId: nextTeamId,
+
+          managerId:
+            nextTeam
+              ?.managerIds?.[0]?._id ||
+            "",
+
+          hrId:
+            nextTeam
+              ?.hrIds?.[0]?._id ||
+            "",
+
+          teamLeaderId: "",
+        })
+      );
+
+      setError("");
+    };
+
+  const handleAssignedTeamChange =
+    (teamId, checked) => {
+      setFormData(
+        (previousData) => {
+          const currentIds =
+            previousData
+              .assignedTeamIds || [];
+
+          if (checked) {
+            return {
+              ...previousData,
+
+              assignedTeamIds: [
+                ...new Set([
+                  ...currentIds,
+                  teamId,
+                ]),
+              ],
+            };
+          }
+
+          return {
+            ...previousData,
+
+            assignedTeamIds:
+              currentIds.filter(
+                (id) =>
+                  id !== teamId
+              ),
+          };
+        }
+      );
+
+      setError("");
+    };
 
   const validateForm = () => {
     const normalizedEmail =
@@ -647,19 +995,27 @@ const AdminUsers = () => {
     const emailPattern =
       /^[a-zA-Z0-9._%+-]+@upsilonservices\.com$/;
 
-    if (!formData.firstName.trim()) {
+    if (
+      !formData.firstName.trim()
+    ) {
       return "First name is required.";
     }
 
-    if (!formData.lastName.trim()) {
+    if (
+      !formData.lastName.trim()
+    ) {
       return "Last name is required.";
     }
 
-    if (!formData.employeeId.trim()) {
+    if (
+      !formData.employeeId.trim()
+    ) {
       return "Employee ID is required.";
     }
 
-    if (!formData.designation.trim()) {
+    if (
+      !formData.designation.trim()
+    ) {
       return "Designation is required.";
     }
 
@@ -692,24 +1048,27 @@ const AdminUsers = () => {
 
     if (
       formData.dateOfJoining &&
-      formData.dateOfJoining > today
+      formData.dateOfJoining >
+        today
     ) {
       return "Date of joining cannot be a future date.";
     }
 
     if (
       formData.dateOfBirth &&
-      formData.dateOfBirth > today
+      formData.dateOfBirth >
+        today
     ) {
       return "Date of birth cannot be a future date.";
     }
 
-    const rolesRequiringDepartment = [
-      "Employee",
-      "TeamLeader",
-      "Manager",
-      "HR",
-    ];
+    const rolesRequiringDepartment =
+      [
+        "Employee",
+        "TeamLeader",
+        "Manager",
+        "HR",
+      ];
 
     if (
       rolesRequiringDepartment.includes(
@@ -721,14 +1080,16 @@ const AdminUsers = () => {
     }
 
     if (
-      formData.role === "Employee" &&
+      formData.role ===
+        "Employee" &&
       !formData.teamId
     ) {
       return "Team is required for Employee role.";
     }
 
     if (
-      formData.role === "TeamLeader" &&
+      formData.role ===
+        "TeamLeader" &&
       !formData.teamId
     ) {
       return "Team is required for Team Leader role.";
@@ -738,8 +1099,8 @@ const AdminUsers = () => {
       ["Manager", "HR"].includes(
         formData.role
       ) &&
-      formData.assignedTeamIds.length ===
-      0
+      formData.assignedTeamIds
+        .length === 0
     ) {
       return "Select at least one team for the selected role.";
     }
@@ -753,58 +1114,84 @@ const AdminUsers = () => {
         `${formData.firstName} ${formData.lastName}`
           .trim()
           .replace(/\s+/g, " "),
+
       firstName:
         formData.firstName.trim(),
+
       lastName:
         formData.lastName.trim(),
+
       employeeId:
         formData.employeeId.trim(),
+
       designation:
         formData.designation.trim(),
-      phone: `+91${formData.phone}`,
+
+      phone:
+        `+91${formData.phone}`,
+
       dateOfJoining:
-        formData.dateOfJoining || null,
+        formData.dateOfJoining ||
+        null,
+
       dateOfBirth:
-        formData.dateOfBirth || null,
+        formData.dateOfBirth ||
+        null,
+
       email:
         formData.email
           .trim()
           .toLowerCase(),
+
       role: formData.role,
+
       subcategoryId:
-        ["Employee", "TeamLeader", "Manager", "HR"].includes(
-          formData.role
-        )
+        [
+          "Employee",
+          "TeamLeader",
+          "Manager",
+          "HR",
+        ].includes(formData.role)
           ? formData.subcategoryId
           : "",
+
       teamId:
-        ["Employee", "TeamLeader"].includes(
-          formData.role
-        )
+        [
+          "Employee",
+          "TeamLeader",
+        ].includes(formData.role)
           ? formData.teamId
           : "",
+
       managerId:
-        ["Employee", "TeamLeader"].includes(
-          formData.role
-        )
+        [
+          "Employee",
+          "TeamLeader",
+        ].includes(formData.role)
           ? formData.managerId
           : "",
+
       hrId:
-        ["Employee", "TeamLeader"].includes(
-          formData.role
-        )
+        [
+          "Employee",
+          "TeamLeader",
+        ].includes(formData.role)
           ? formData.hrId
           : "",
+
       teamLeaderId:
-        formData.role === "Employee"
+        formData.role ===
+        "Employee"
           ? formData.teamLeaderId
           : "",
+
       assignedTeamIds:
         ["Manager", "HR"].includes(
           formData.role
         )
           ? formData.assignedTeamIds
           : [],
+
       isActive:
         formData.isActive,
     };
@@ -826,7 +1213,9 @@ const AdminUsers = () => {
       validateForm();
 
     if (validationMessage) {
-      setError(validationMessage);
+      setError(
+        validationMessage
+      );
       return;
     }
 
@@ -878,63 +1267,67 @@ const AdminUsers = () => {
       );
 
       setError(
-        error.response?.data?.message ||
-        (editingUser
-          ? "Unable to update user."
-          : "Unable to create user.")
+        error.response?.data
+          ?.message ||
+          (editingUser
+            ? "Unable to update user."
+            : "Unable to create user.")
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeactivate = async (
+  const handleDeactivate =
+    async (user) => {
+      const confirmed =
+        window.confirm(
+          `Deactivate ${user.name}? Their attendance, leave, and reimbursement records will remain available.`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        await api.delete(
+          `/admin/users/${user._id}`
+        );
+
+        window.dispatchEvent(
+          new CustomEvent(
+            "users-updated"
+          )
+        );
+
+        await Promise.all([
+          fetchUsers(),
+          fetchTeams(),
+        ]);
+      } catch (error) {
+        console.error(
+          "DEACTIVATE USER ERROR:",
+          error.response?.data ||
+            error.message
+        );
+
+        window.alert(
+          error.response?.data
+            ?.message ||
+            "Unable to deactivate user."
+        );
+      }
+    };
+
+  const handleEdit = (
     user
   ) => {
-    const confirmed =
-      window.confirm(
-        `Deactivate ${user.name}? Their attendance, leave, and reimbursement records will remain available.`
-      );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await api.delete(
-        `/admin/users/${user._id}`
-      );
-
-      window.dispatchEvent(
-        new CustomEvent(
-          "users-updated"
-        )
-      );
-
-      await Promise.all([
-        fetchUsers(),
-        fetchTeams(),
-      ]);
-    } catch (error) {
-      console.error(
-        "DEACTIVATE USER ERROR:",
-        error.response?.data ||
-        error.message
-      );
-
-      window.alert(
-        error.response?.data?.message ||
-        "Unable to deactivate user."
-      );
-    }
-  };
-
-  const handleEdit = (user) => {
     setEditingUser(user);
     setError("");
 
     setFormData({
       name: user.name || "",
+
       firstName:
         user.firstName ||
         user.name
@@ -943,6 +1336,7 @@ const AdminUsers = () => {
           .slice(0, 1)
           .join(" ") ||
         "",
+
       lastName:
         user.lastName ||
         user.name
@@ -951,57 +1345,76 @@ const AdminUsers = () => {
           .slice(1)
           .join(" ") ||
         "",
+
       employeeId:
         user.employeeId || "",
+
       designation:
         user.designation || "",
+
       phone:
         (user.phone || "")
           .replace(/^\+91/, "")
           .replace(/\D/g, "")
           .slice(-10),
+
       dateOfJoining:
         user.dateOfJoining
           ? user.dateOfJoining.split(
-            "T"
-          )[0]
+              "T"
+            )[0]
           : "",
+
       dateOfBirth:
         user.dateOfBirth
           ? user.dateOfBirth.split(
-            "T"
-          )[0]
+              "T"
+            )[0]
           : "",
-      email: user.email || "",
+
+      email:
+        user.email || "",
+
       password: "",
+
       role:
         user.role || "Employee",
+
       subcategoryId:
         user.subcategoryId?._id ||
         "",
+
       teamId:
-        user.teamId?._id || "",
+        user.teamId?._id ||
+        "",
+
       managerId:
-        user.managerId?._id || "",
+        user.managerId?._id ||
+        "",
+
       hrId:
-        user.hrId?._id || "",
+        user.hrId?._id ||
+        "",
+
       teamLeaderId:
         user.teamLeaderId?._id ||
         "",
+
       assignedTeamIds:
-        user.assignedTeamIds?.map(
-          (team) =>
+        user.assignedTeamIds
+          ?.map((team) =>
             typeof team === "string"
               ? team
               : team._id
-        ) || [],
+          ) || [],
+
       isActive:
         user.isActive !== false,
     });
 
     setShowModal(true);
   };
-  return (
+    return (
     <>
       <div className="section-header">
         <div>
@@ -1010,7 +1423,7 @@ const AdminUsers = () => {
           </h2>
 
           <p className="section-subtitle">
-            Create, edit, activate, and deactivate employees,
+            Create, edit, reset passwords, activate, and deactivate employees,
             managers, HR users, Team Leaders, and Finance users.
           </p>
         </div>
@@ -1026,7 +1439,9 @@ const AdminUsers = () => {
             type="button"
             className="btn btn-primary"
             onClick={exportUsersToExcel}
-            disabled={filteredUsers.length === 0}
+            disabled={
+              filteredUsers.length === 0
+            }
           >
             Export Excel
           </button>
@@ -1042,36 +1457,46 @@ const AdminUsers = () => {
         </div>
       </div>
 
-      {error && !showModal && (
-        <div className="alert alert-error">
-          {error}
-        </div>
-      )}
+      {error &&
+        !showModal &&
+        !showResetPasswordModal && (
+          <div className="alert alert-error">
+            {error}
+          </div>
+        )}
 
       <div className="reimbursement-summary-grid">
         <div className="reimbursement-summary-card">
           <span>Total Users</span>
+
           <h3>{users.length}</h3>
+
           <p>registered users</p>
         </div>
 
         <div className="reimbursement-summary-card">
           <span>Employees</span>
+
           <h3>{employeeCount}</h3>
+
           <p>staff users</p>
         </div>
 
         <div className="reimbursement-summary-card">
           <span>Managers / HR</span>
+
           <h3>
             {managerCount + hrCount}
           </h3>
+
           <p>approval roles</p>
         </div>
 
         <div className="reimbursement-summary-card">
           <span>Active Users</span>
+
           <h3>{activeUsersCount}</h3>
+
           <p>currently active</p>
         </div>
       </div>
@@ -1089,6 +1514,7 @@ const AdminUsers = () => {
             setSearchTerm(
               event.target.value
             );
+
             setCurrentPage(1);
           }}
           style={{
@@ -1128,7 +1554,7 @@ const AdminUsers = () => {
             {filter === "All"
               ? "All Users"
               : filter ===
-                "TeamLeader"
+                  "TeamLeader"
                 ? "Team Leaders"
                 : filter}
           </button>
@@ -1221,9 +1647,7 @@ const AdminUsers = () => {
                                   "#64748b",
                               }}
                             >
-                              {
-                                user.phone
-                              }
+                              {user.phone}
                             </div>
                           )}
                         </div>
@@ -1236,8 +1660,7 @@ const AdminUsers = () => {
                     </td>
 
                     <td>
-                      {user.email ||
-                        "N/A"}
+                      {user.email || "N/A"}
                     </td>
 
                     <td>
@@ -1249,19 +1672,19 @@ const AdminUsers = () => {
                       <span
                         className={
                           user.role ===
-                            "HR"
+                          "HR"
                             ? "approval-approved"
                             : user.role ===
-                              "Manager"
+                                "Manager"
                               ? "approval-pending"
                               : user.role ===
-                                "Admin"
+                                  "Admin"
                                 ? "badge badge-danger"
                                 : "badge badge-success"
                         }
                       >
                         {user.role ===
-                          "TeamLeader"
+                        "TeamLeader"
                           ? "Team Leader"
                           : user.role}
                       </span>
@@ -1270,13 +1693,11 @@ const AdminUsers = () => {
                     <td>
                       {user
                         .subcategoryId
-                        ?.name ||
-                        "N/A"}
+                        ?.name || "N/A"}
                     </td>
 
                     <td>
-                      {user.teamId
-                        ?.name ||
+                      {user.teamId?.name ||
                         (user
                           .assignedTeamIds
                           ?.length
@@ -1288,13 +1709,13 @@ const AdminUsers = () => {
                       <span
                         className={
                           user.isActive !==
-                            false
+                          false
                             ? "badge badge-success"
                             : "badge badge-danger"
                         }
                       >
                         {user.isActive !==
-                          false
+                        false
                           ? "Active"
                           : "Inactive"}
                       </span>
@@ -1310,15 +1731,18 @@ const AdminUsers = () => {
                             "center",
                           flexWrap:
                             "wrap",
+                          minWidth:
+                            "280px",
                         }}
                       >
                         <button
                           type="button"
                           className="btn"
                           onClick={() =>
-                            handleEdit(
-                              user
-                            )
+                            handleEdit(user)
+                          }
+                          disabled={
+                            isSubmitting
                           }
                         >
                           <Pencil
@@ -1328,9 +1752,30 @@ const AdminUsers = () => {
                         </button>
 
                         {user.role !==
-                          "Admin" ? (
+                          "Admin" && (
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={() =>
+                              openResetPasswordModal(
+                                user
+                              )
+                            }
+                            disabled={
+                              isSubmitting
+                            }
+                          >
+                            <KeyRound
+                              size={14}
+                            />
+                            Reset Password
+                          </button>
+                        )}
+
+                        {user.role !==
+                        "Admin" ? (
                           user.isActive !==
-                            false ? (
+                          false ? (
                             <button
                               type="button"
                               className="delete-icon-btn"
@@ -1338,6 +1783,9 @@ const AdminUsers = () => {
                                 handleDeactivate(
                                   user
                                 )
+                              }
+                              disabled={
+                                isSubmitting
                               }
                             >
                               <Trash2
@@ -1363,15 +1811,14 @@ const AdminUsers = () => {
 
             {!isLoading &&
               filteredUsers.length ===
-              0 && (
+                0 && (
                 <tr>
                   <td
                     colSpan="9"
                     style={{
                       textAlign:
                         "center",
-                      padding:
-                        "24px",
+                      padding: "24px",
                     }}
                   >
                     No users found.
@@ -1384,113 +1831,110 @@ const AdminUsers = () => {
 
       {filteredUsers.length >
         USERS_PER_PAGE && (
-          <div
+        <div
+          style={{
+            display: "flex",
+            justifyContent:
+              "center",
+            alignItems: "center",
+            gap: "10px",
+            marginTop: "24px",
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={
+              currentPage === 1
+            }
+            onClick={() =>
+              setCurrentPage(
+                (previousPage) =>
+                  Math.max(
+                    1,
+                    previousPage - 1
+                  )
+              )
+            }
             style={{
-              display: "flex",
-              justifyContent:
-                "center",
-              alignItems: "center",
-              gap: "10px",
-              marginTop: "24px",
-              flexWrap: "wrap",
+              opacity:
+                currentPage === 1
+                  ? 0.6
+                  : 1,
+
+              cursor:
+                currentPage === 1
+                  ? "not-allowed"
+                  : "pointer",
             }}
           >
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={
-                currentPage === 1
-              }
-              onClick={() =>
-                setCurrentPage(
-                  (previousPage) =>
-                    Math.max(
-                      1,
-                      previousPage -
-                      1
-                    )
-                )
-              }
-              style={{
-                opacity:
-                  currentPage ===
-                    1
-                    ? 0.6
-                    : 1,
-                cursor:
-                  currentPage ===
-                    1
-                    ? "not-allowed"
-                    : "pointer",
-              }}
-            >
-              Previous
-            </button>
+            Previous
+          </button>
 
-            {Array.from(
-              {
-                length:
-                  totalPages,
-              },
-              (_, index) =>
-                index + 1
-            ).map(
-              (pageNumber) => (
-                <button
-                  type="button"
-                  key={pageNumber}
-                  className={
-                    currentPage ===
-                      pageNumber
-                      ? "btn btn-primary"
-                      : "btn"
-                  }
-                  onClick={() =>
-                    setCurrentPage(
-                      pageNumber
-                    )
-                  }
-                >
-                  {pageNumber}
-                </button>
+          {Array.from(
+            {
+              length: totalPages,
+            },
+            (_, index) =>
+              index + 1
+          ).map(
+            (pageNumber) => (
+              <button
+                type="button"
+                key={pageNumber}
+                className={
+                  currentPage ===
+                  pageNumber
+                    ? "btn btn-primary"
+                    : "btn"
+                }
+                onClick={() =>
+                  setCurrentPage(
+                    pageNumber
+                  )
+                }
+              >
+                {pageNumber}
+              </button>
+            )
+          )}
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={
+              currentPage ===
+              totalPages
+            }
+            onClick={() =>
+              setCurrentPage(
+                (previousPage) =>
+                  Math.min(
+                    totalPages,
+                    previousPage + 1
+                  )
               )
-            )}
-
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={
+            }
+            style={{
+              opacity:
                 currentPage ===
                 totalPages
-              }
-              onClick={() =>
-                setCurrentPage(
-                  (previousPage) =>
-                    Math.min(
-                      totalPages,
-                      previousPage +
-                      1
-                    )
-                )
-              }
-              style={{
-                opacity:
-                  currentPage ===
-                    totalPages
-                    ? 0.6
-                    : 1,
-                cursor:
-                  currentPage ===
-                    totalPages
-                    ? "not-allowed"
-                    : "pointer",
-              }}
-            >
-              Next
-            </button>
-          </div>
-        )}
-      {showModal && (
+                  ? 0.6
+                  : 1,
+
+              cursor:
+                currentPage ===
+                totalPages
+                  ? "not-allowed"
+                  : "pointer",
+            }}
+          >
+            Next
+          </button>
+        </div>
+      )}
+            {showModal && (
         <div className="modal-overlay">
           <div className="modal-card user-modal modern-user-modal">
             <div className="modal-header">
@@ -1505,7 +1949,7 @@ const AdminUsers = () => {
                 onClick={closeModal}
                 disabled={isSubmitting}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
@@ -1584,11 +2028,9 @@ const AdminUsers = () => {
                     name="dateOfJoining"
                     value={formData.dateOfJoining}
                     onChange={handleChange}
-                    max={
-                      new Date()
-                        .toISOString()
-                        .split("T")[0]
-                    }
+                    max={new Date()
+                      .toISOString()
+                      .split("T")[0]}
                     disabled={isSubmitting}
                     required
                   />
@@ -1602,11 +2044,9 @@ const AdminUsers = () => {
                     name="dateOfBirth"
                     value={formData.dateOfBirth}
                     onChange={handleChange}
-                    max={
-                      new Date()
-                        .toISOString()
-                        .split("T")[0]
-                    }
+                    max={new Date()
+                      .toISOString()
+                      .split("T")[0]}
                     disabled={isSubmitting}
                     required
                   />
@@ -1641,8 +2081,7 @@ const AdminUsers = () => {
                     <span
                       style={{
                         padding: "12px",
-                        border:
-                          "1px solid #d1d5db",
+                        border: "1px solid #d1d5db",
                         borderRadius: "8px",
                         background: "#f8fafc",
                         fontWeight: 600,
@@ -1725,33 +2164,33 @@ const AdminUsers = () => {
                   "Manager",
                   "HR",
                 ].includes(formData.role) && (
-                    <div className="input-group">
-                      <label>Department</label>
+                  <div className="input-group">
+                    <label>Department</label>
 
-                      <select
-                        name="subcategoryId"
-                        value={formData.subcategoryId}
-                        onChange={handleDepartmentChange}
-                        disabled={isSubmitting}
-                        required
-                      >
-                        <option value="">
-                          Select Department
-                        </option>
+                    <select
+                      name="subcategoryId"
+                      value={formData.subcategoryId}
+                      onChange={handleDepartmentChange}
+                      disabled={isSubmitting}
+                      required
+                    >
+                      <option value="">
+                        Select Department
+                      </option>
 
-                        {subcategories.map(
-                          (department) => (
-                            <option
-                              key={department._id}
-                              value={department._id}
-                            >
-                              {department.name}
-                            </option>
-                          )
-                        )}
-                      </select>
-                    </div>
-                  )}
+                      {subcategories.map(
+                        (department) => (
+                          <option
+                            key={department._id}
+                            value={department._id}
+                          >
+                            {department.name}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </div>
+                )}
               </div>
 
               {editingUser && (
@@ -1798,10 +2237,8 @@ const AdminUsers = () => {
                           color: "#b45309",
                         }}
                       >
-                        The user will be inactive,
-                        but their attendance, leave,
-                        and reimbursement records
-                        will remain available.
+                        The user will be inactive, but their attendance, leave,
+                        and reimbursement records will remain available.
                       </p>
                     )}
                   </div>
@@ -1810,263 +2247,251 @@ const AdminUsers = () => {
 
               {formData.role ===
                 "Employee" && (
-                  <div className="grid-2">
-                    <div className="input-group">
-                      <label>Team</label>
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label>Team</label>
 
-                      <select
-                        name="teamId"
-                        value={formData.teamId}
-                        onChange={
-                          handleEmployeeTeamChange
-                        }
-                        disabled={
-                          !formData.subcategoryId ||
-                          isSubmitting
-                        }
-                        required
-                      >
-                        <option value="">
-                          {formData.subcategoryId
-                            ? "Select Team"
-                            : "Select Department First"}
-                        </option>
+                    <select
+                      name="teamId"
+                      value={formData.teamId}
+                      onChange={
+                        handleEmployeeTeamChange
+                      }
+                      disabled={
+                        !formData.subcategoryId ||
+                        isSubmitting
+                      }
+                      required
+                    >
+                      <option value="">
+                        {formData.subcategoryId
+                          ? "Select Team"
+                          : "Select Department First"}
+                      </option>
 
-                        {filteredTeams.map(
-                          (team) => (
-                            <option
-                              key={team._id}
-                              value={team._id}
-                            >
-                              {team.name}
-                            </option>
-                          )
-                        )}
-                      </select>
-                    </div>
-
-                    <div className="input-group">
-                      <label>Team Leader</label>
-
-                      <input
-                        value={
-                          selectedTeamLeader?.name ||
-                          "No Team Leader assigned"
-                        }
-                        disabled
-                      />
-                    </div>
-
-                    <div className="input-group">
-                      <label>
-                        Reporting Manager
-                      </label>
-
-                      <input
-                        value={
-                          selectedTeamManager?.name ||
-                          "No Manager assigned"
-                        }
-                        disabled
-                      />
-                    </div>
-
-                    <div className="input-group">
-                      <label>Reporting HR</label>
-
-                      <input
-                        value={
-                          selectedTeamHr?.name ||
-                          "No HR assigned"
-                        }
-                        disabled
-                      />
-                    </div>
+                      {filteredTeams.map(
+                        (team) => (
+                          <option
+                            key={team._id}
+                            value={team._id}
+                          >
+                            {team.name}
+                          </option>
+                        )
+                      )}
+                    </select>
                   </div>
-                )}
+
+                  <div className="input-group">
+                    <label>Team Leader</label>
+
+                    <input
+                      value={
+                        selectedTeamLeader?.name ||
+                        "No Team Leader assigned"
+                      }
+                      disabled
+                    />
+                  </div>
+
+                  <div className="input-group">
+                    <label>
+                      Reporting Manager
+                    </label>
+
+                    <input
+                      value={
+                        selectedTeamManager?.name ||
+                        "No Manager assigned"
+                      }
+                      disabled
+                    />
+                  </div>
+
+                  <div className="input-group">
+                    <label>Reporting HR</label>
+
+                    <input
+                      value={
+                        selectedTeamHr?.name ||
+                        "No HR assigned"
+                      }
+                      disabled
+                    />
+                  </div>
+                </div>
+              )}
 
               {formData.role ===
                 "TeamLeader" && (
-                  <div className="grid-2">
-                    <div className="input-group">
-                      <label>Team</label>
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label>Team</label>
 
-                      <select
-                        name="teamId"
-                        value={formData.teamId}
-                        onChange={
-                          handleTeamLeaderTeamChange
-                        }
-                        disabled={
-                          !formData.subcategoryId ||
-                          isSubmitting
-                        }
-                        required
-                      >
-                        <option value="">
-                          {formData.subcategoryId
-                            ? "Select Team"
-                            : "Select Department First"}
-                        </option>
+                    <select
+                      name="teamId"
+                      value={formData.teamId}
+                      onChange={
+                        handleTeamLeaderTeamChange
+                      }
+                      disabled={
+                        !formData.subcategoryId ||
+                        isSubmitting
+                      }
+                      required
+                    >
+                      <option value="">
+                        {formData.subcategoryId
+                          ? "Select Team"
+                          : "Select Department First"}
+                      </option>
 
-                        {filteredTeams.map(
-                          (team) => (
-                            <option
-                              key={team._id}
-                              value={team._id}
-                            >
-                              {team.name}
-                            </option>
-                          )
-                        )}
-                      </select>
-                    </div>
-
-                    <div className="input-group">
-                      <label>
-                        Reporting Manager
-                      </label>
-
-                      <select
-                        name="managerId"
-                        value={formData.managerId}
-                        onChange={handleChange}
-                        disabled={isSubmitting}
-                      >
-                        <option value="">
-                          Select Manager
-                        </option>
-
-                        {departmentManagers.map(
-                          (manager) => (
-                            <option
-                              key={manager._id}
-                              value={manager._id}
-                            >
-                              {manager.name}
-                            </option>
-                          )
-                        )}
-                      </select>
-                    </div>
-
-                    <div className="input-group">
-                      <label>Reporting HR</label>
-
-                      <select
-                        name="hrId"
-                        value={formData.hrId}
-                        onChange={handleChange}
-                        disabled={isSubmitting}
-                      >
-                        <option value="">
-                          Select HR
-                        </option>
-
-                        {departmentHrs.map(
-                          (hr) => (
-                            <option
-                              key={hr._id}
-                              value={hr._id}
-                            >
-                              {hr.name}
-                            </option>
-                          )
-                        )}
-                      </select>
-                    </div>
+                      {filteredTeams.map(
+                        (team) => (
+                          <option
+                            key={team._id}
+                            value={team._id}
+                          >
+                            {team.name}
+                          </option>
+                        )
+                      )}
+                    </select>
                   </div>
-                )}
+
+                  <div className="input-group">
+                    <label>
+                      Reporting Manager
+                    </label>
+
+                    <select
+                      name="managerId"
+                      value={formData.managerId}
+                      onChange={handleChange}
+                      disabled={isSubmitting}
+                    >
+                      <option value="">
+                        Select Manager
+                      </option>
+
+                      {departmentManagers.map(
+                        (manager) => (
+                          <option
+                            key={manager._id}
+                            value={manager._id}
+                          >
+                            {manager.name}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </div>
+
+                  <div className="input-group">
+                    <label>Reporting HR</label>
+
+                    <select
+                      name="hrId"
+                      value={formData.hrId}
+                      onChange={handleChange}
+                      disabled={isSubmitting}
+                    >
+                      <option value="">
+                        Select HR
+                      </option>
+
+                      {departmentHrs.map(
+                        (hr) => (
+                          <option
+                            key={hr._id}
+                            value={hr._id}
+                          >
+                            {hr.name}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </div>
+                </div>
+              )}
 
               {["Manager", "HR"].includes(
                 formData.role
               ) && (
-                  <div className="input-group">
-                    <label>Assign Teams</label>
+                <div className="input-group">
+                  <label>Assign Teams</label>
 
-                    <div
-                      style={{
-                        border:
-                          "1px solid #d1d5db",
-                        borderRadius: "12px",
-                        padding: "12px",
-                        maxHeight: "220px",
-                        overflowY: "auto",
-                      }}
-                    >
-                      {!formData.subcategoryId && (
+                  <div
+                    style={{
+                      border: "1px solid #d1d5db",
+                      borderRadius: "12px",
+                      padding: "12px",
+                      maxHeight: "220px",
+                      overflowY: "auto",
+                    }}
+                  >
+                    {!formData.subcategoryId && (
+                      <p
+                        style={{
+                          margin: 0,
+                          color: "#64748b",
+                        }}
+                      >
+                        Select a department first.
+                      </p>
+                    )}
+
+                    {formData.subcategoryId &&
+                      filteredTeams.length ===
+                        0 && (
                         <p
                           style={{
                             margin: 0,
                             color: "#64748b",
                           }}
                         >
-                          Select a department first.
+                          No active teams are available for this department.
                         </p>
                       )}
 
-                      {formData.subcategoryId &&
-                        filteredTeams.length ===
-                        0 && (
-                          <p
-                            style={{
-                              margin: 0,
-                              color: "#64748b",
-                            }}
-                          >
-                            No active teams are
-                            available for this
-                            department.
-                          </p>
-                        )}
+                    {filteredTeams.map(
+                      (team) => (
+                        <label
+                          key={team._id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            marginBottom: "10px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.assignedTeamIds.includes(
+                              team._id
+                            )}
+                            onChange={(event) =>
+                              handleAssignedTeamChange(
+                                team._id,
+                                event.target.checked
+                              )
+                            }
+                            disabled={isSubmitting}
+                          />
 
-                      {filteredTeams.map(
-                        (team) => (
-                          <label
-                            key={team._id}
-                            style={{
-                              display: "flex",
-                              alignItems:
-                                "center",
-                              gap: "10px",
-                              marginBottom:
-                                "10px",
-                              cursor:
-                                "pointer",
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={formData.assignedTeamIds.includes(
-                                team._id
-                              )}
-                              onChange={(
-                                event
-                              ) =>
-                                handleAssignedTeamChange(
-                                  team._id,
-                                  event.target
-                                    .checked
-                                )
-                              }
-                              disabled={
-                                isSubmitting
-                              }
-                            />
-
-                            {team.name}
-                          </label>
-                        )
-                      )}
-                    </div>
+                          {team.name}
+                        </label>
+                      )
+                    )}
                   </div>
-                )}
+                </div>
+              )}
 
               <div
                 style={{
                   display: "flex",
-                  justifyContent:
-                    "flex-end",
+                  justifyContent: "flex-end",
                   gap: "10px",
                   marginTop: "20px",
                 }}
@@ -2106,6 +2531,210 @@ const AdminUsers = () => {
           </div>
         </div>
       )}
+
+      {showResetPasswordModal &&
+        selectedResetUser && (
+          <div className="modal-overlay">
+            <div
+              className="modal-card"
+              style={{
+                maxWidth: "520px",
+                width: "92%",
+              }}
+            >
+              <div className="modal-header">
+                <div>
+                  <h3>
+                    Reset User Password
+                  </h3>
+
+                  <p
+                    style={{
+                      marginTop: "5px",
+                      color: "#64748b",
+                      fontSize: "13px",
+                    }}
+                  >
+                    Set a temporary password for{" "}
+                    <strong>
+                      {selectedResetUser.name}
+                    </strong>
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    closeResetPasswordModal
+                  }
+                  disabled={isSubmitting}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form
+                className="auth-form"
+                onSubmit={
+                  handleResetPassword
+                }
+              >
+                {resetPasswordError && (
+                  <div className="alert alert-error">
+                    {resetPasswordError}
+                  </div>
+                )}
+
+                {resetPasswordSuccess && (
+                  <div className="alert alert-success">
+                    {resetPasswordSuccess}
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    padding: "12px 14px",
+                    marginBottom: "14px",
+                    borderRadius: "10px",
+                    background: "#f8fafc",
+                    border:
+                      "1px solid #e2e8f0",
+                    fontSize: "13px",
+                    color: "#475569",
+                  }}
+                >
+                  <strong>
+                    {selectedResetUser.name}
+                  </strong>
+
+                  <div
+                    style={{
+                      marginTop: "4px",
+                    }}
+                  >
+                    {selectedResetUser.email}
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: "4px",
+                    }}
+                  >
+                    Role:{" "}
+                    {selectedResetUser.role ===
+                    "TeamLeader"
+                      ? "Team Leader"
+                      : selectedResetUser.role}
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <label>
+                    Temporary Password
+                  </label>
+
+                  <input
+                    type="password"
+                    value={
+                      temporaryPassword
+                    }
+                    onChange={(event) => {
+                      setTemporaryPassword(
+                        event.target.value
+                      );
+
+                      setResetPasswordError(
+                        ""
+                      );
+
+                      setResetPasswordSuccess(
+                        ""
+                      );
+                    }}
+                    placeholder="Minimum 8 characters"
+                    minLength={8}
+                    disabled={isSubmitting}
+                    required
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label>
+                    Confirm Temporary Password
+                  </label>
+
+                  <input
+                    type="password"
+                    value={
+                      confirmTemporaryPassword
+                    }
+                    onChange={(event) => {
+                      setConfirmTemporaryPassword(
+                        event.target.value
+                      );
+
+                      setResetPasswordError(
+                        ""
+                      );
+
+                      setResetPasswordSuccess(
+                        ""
+                      );
+                    }}
+                    placeholder="Re-enter temporary password"
+                    minLength={8}
+                    disabled={isSubmitting}
+                    required
+                  />
+                </div>
+
+                <p
+                  style={{
+                    marginTop: "8px",
+                    color: "#64748b",
+                    fontSize: "12px",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  The user must change this temporary password after their next
+                  login.
+                </p>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: "10px",
+                    marginTop: "20px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={
+                      closeResetPasswordModal
+                    }
+                    disabled={isSubmitting}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={isSubmitting}
+                  >
+                    <KeyRound size={15} />
+
+                    {isSubmitting
+                      ? "Resetting..."
+                      : "Reset Password"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
     </>
   );
 };

@@ -11,6 +11,7 @@ import {
   getUsers,
   deleteUser,
   updateUser,
+  resetUserPassword,
   deleteSubcategory,
   getAllLeaveReports,
   getAllReimbursementReports,
@@ -33,7 +34,12 @@ router.post(
   authorizeRoles("Admin"),
   createSubcategory
 );
-
+router.put(
+  "/users/:id/reset-password",
+  protect,
+  authorizeRoles("Admin"),
+  resetUserPassword
+);
 router.get(
   "/subcategories",
   protect,
