@@ -69,12 +69,6 @@ const ApprovalRequests = () => {
 
   useEffect(() => {
     fetchRequests();
-
-    const interval = setInterval(() => {
-      fetchRequests();
-    }, 2000); // every 5 seconds
-
-    return () => clearInterval(interval);
   }, []);
 
   const filteredRequests =

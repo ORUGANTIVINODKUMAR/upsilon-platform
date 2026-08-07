@@ -1,6 +1,9 @@
 import transporter from "../config/mail.js";
 import { emailTemplate } from "../utils/emailTemplate.js";
-const mailFrom = `"UPSILON HRMS" <${process.env.SMTP_USER}>`;
+const senderAddress =
+  process.env.SMTP_FROM?.trim() ||
+  process.env.SMTP_USER?.trim();
+const mailFrom = `"UPSILON HRMS" <${senderAddress}>`;
 export const sendLeaveRequestEmail = async ({
   to,
   employeeName,
@@ -53,11 +56,42 @@ export const sendDecisionEmail = async ({
   requestType,
   status,
   rejectionReason = "",
+  leaveType = "",
+  startDate = null,
+  endDate = null,
+  approverName = "",
+  approverRole = "",
 }) => {
+  const leaveDetails = requestType === "Leave"
+    ? `
+      <table border="1" cellpadding="8" cellspacing="0">
+        ${leaveType
+          ? `<tr><td><strong>Leave Type</strong></td><td>${leaveType}</td></tr>`
+          : ""
+        }
+        ${startDate
+          ? `<tr><td><strong>Start Date</strong></td><td>${new Date(startDate).toDateString()}</td></tr>`
+          : ""
+        }
+        ${endDate
+          ? `<tr><td><strong>End Date</strong></td><td>${new Date(endDate).toDateString()}</td></tr>`
+          : ""
+        }
+        <tr><td><strong>Status</strong></td><td>${status}</td></tr>
+        ${approverRole || approverName
+          ? `<tr><td><strong>Decision By</strong></td><td>${[approverName, approverRole].filter(Boolean).join(" - ")}</td></tr>`
+          : ""
+        }
+      </table>
+    `
+    : "";
+
   const html = `
     <h2>${title}</h2>
     <p>Hello ${employeeName},</p>
     <p>Your ${requestType} request has been marked as <strong>${status}</strong>.</p>
+
+    ${leaveDetails}
 
     ${status === "Rejected"
       ? `<p><strong>Rejection Reason:</strong> ${rejectionReason}</p>`

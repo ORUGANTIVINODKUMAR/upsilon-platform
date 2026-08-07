@@ -17,7 +17,7 @@ const TLApprovals = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectLeaveId, setRejectLeaveId] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [activeTab, setActiveTab] = useState("Pending");
+  const [activeTab, setActiveTab] = useState("Pending Review");
 
   const fetchRequests = async () => {
     try {
@@ -53,10 +53,6 @@ const TLApprovals = () => {
 
   useEffect(() => {
     fetchRequests();
-
-    const interval = setInterval(fetchRequests, 5000);
-
-    return () => clearInterval(interval);
   }, [activeTab]);
 
   const filteredRequests = requests.filter((item) => {

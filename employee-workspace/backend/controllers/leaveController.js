@@ -2013,6 +2013,56 @@ export const approveLeaveByManager = async (
         "/dashboard",
     });
 
+    if (
+      leaveRequest.employeeId.email
+    ) {
+      sendDecisionEmail({
+        to:
+          leaveRequest.employeeId.email,
+
+        subject:
+          wasReapproval
+            ? "Updated Leave Request Reapproved"
+            : "Leave Request Approved",
+
+        title:
+          wasReapproval
+            ? "Updated Leave Request Reapproved"
+            : "Leave Request Approved",
+
+        employeeName:
+          leaveRequest.employeeId.name,
+
+        requestType:
+          "Leave",
+
+        status:
+          "Approved",
+
+        leaveType:
+          leaveRequest.leaveType,
+
+        startDate:
+          leaveRequest.startDate,
+
+        endDate:
+          leaveRequest.endDate,
+
+        approverName:
+          req.user.name,
+
+        approverRole:
+          req.user.role,
+      }).catch(
+        (emailError) => {
+          console.log(
+            "Leave approval email failed:",
+            emailError.message
+          );
+        }
+      );
+    }
+
     const financeUsers =
       await User.find({
         role: "Finance",
@@ -2347,6 +2397,21 @@ export const rejectLeaveByManager = async (
 
         rejectionReason:
           trimmedReason,
+
+        leaveType:
+          leaveRequest.leaveType,
+
+        startDate:
+          leaveRequest.startDate,
+
+        endDate:
+          leaveRequest.endDate,
+
+        approverName:
+          req.user.name,
+
+        approverRole:
+          req.user.role,
       }).catch(
         (emailError) => {
           console.log(
@@ -2554,6 +2619,47 @@ export const changeLeaveStatus = async (req, res) => {
       message: `Your leave status has been changed to "${status}".`,
       link: "/dashboard",
     });
+
+    const isApprovedStatus =
+      status === "Approved by Manager" ||
+      status === "Approved by HR";
+
+    const isRejectedStatus =
+      status === "Rejected by Manager" ||
+      status === "Rejected by HR";
+
+    if (
+      leaveRequest.employeeId.email &&
+      previousStatus !== status &&
+      (isApprovedStatus || isRejectedStatus)
+    ) {
+      const decisionStatus =
+        isApprovedStatus
+          ? "Approved"
+          : "Rejected";
+
+      sendDecisionEmail({
+        to: leaveRequest.employeeId.email,
+        subject: `Leave Request ${decisionStatus}`,
+        title: `Leave Request ${decisionStatus}`,
+        employeeName: leaveRequest.employeeId.name,
+        requestType: "Leave",
+        status: decisionStatus,
+        rejectionReason: isRejectedStatus
+          ? remarks.trim()
+          : "",
+        leaveType: leaveRequest.leaveType,
+        startDate: leaveRequest.startDate,
+        endDate: leaveRequest.endDate,
+        approverName: req.user.name,
+        approverRole: req.user.role,
+      }).catch((emailError) => {
+        console.log(
+          "Leave status decision email failed:",
+          emailError.message
+        );
+      });
+    }
 
     return res.status(200).json({
       success: true,
