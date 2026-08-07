@@ -59,7 +59,7 @@ const SignatureUploader = () => {
           <p>Current Signature</p>
 
           <img
-            src={`http://localhost:5000${user.signatureFile}`}
+            src={user.signatureFile}
             alt="Digital Signature"
           />
         </div>

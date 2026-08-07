@@ -10,10 +10,8 @@
 import {
   FaFileInvoiceDollar,
   FaCalculator,
-  FaMoneyCheckAlt,
   FaClipboardCheck,
   FaFolderOpen,
-  FaCogs,
   FaArrowRight,
 } from "react-icons/fa";
 import "./OurServicesSection.css";

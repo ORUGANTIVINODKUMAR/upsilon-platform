@@ -37,6 +37,8 @@ import EditProfile from "./EditProfile";
 import AdminTeams from "./AdminTeams";
 import TLApprovals from "./TLApprovals";
 import ManagerApprovals from "./ManagerApprovals";
+import PersonalLeaveBalance from "../components/PersonalLeaveBalance";
+import HrLeaveBalances from "./HrLeaveBalances";
 
 const Dashboard = () => {
   const { user, logout, updateUser } = useAuth();
@@ -69,10 +71,17 @@ const Dashboard = () => {
   const isEmployee = user?.role === "Employee";
   const isTeamLeader = user?.role === "TeamLeader";
   const isFinance = user?.role === "Finance";
+  const hasPersonalLeaveBalance = [
+    "Employee",
+    "TeamLeader",
+    "Manager",
+    "HR",
+  ].includes(user?.role);
 
   const isManagerOrHR = ["Manager", "HR"].includes(
     user?.role
   );
+  const canManageLeaveBalances = isManagerOrHR;
 
   const navigateToPage = (page) => {
     setActivePage(page);
@@ -124,15 +133,6 @@ const Dashboard = () => {
     };
 
     fetchStats();
-
-    const interval = setInterval(
-      fetchStats,
-      30000
-    );
-
-    return () => {
-      clearInterval(interval);
-    };
   }, [user?.role]);
 
   useEffect(() => {
@@ -369,12 +369,25 @@ const Dashboard = () => {
               </>
             )}
 
-            {(isEmployee ||
-              isTeamLeader) &&
+            {hasPersonalLeaveBalance &&
               menuButton(
                 "leave",
                 <CalendarCheck size={18} />,
                 "Leaves"
+              )}
+
+            {hasPersonalLeaveBalance &&
+              menuButton(
+                "myLeaveBalance",
+                <Wallet size={18} />,
+                "My Leave Balance"
+              )}
+
+            {canManageLeaveBalances &&
+              menuButton(
+                "hrLeaveBalances",
+                <Wallet size={18} />,
+                "Leave Balance Management"
               )}
 
             {(isEmployee ||
@@ -1117,6 +1130,12 @@ const Dashboard = () => {
                   )}
                 </div>
               )}
+            {hasPersonalLeaveBalance && !isEmployee && (
+              <div style={{ marginBottom: "20px" }}>
+                <PersonalLeaveBalance compact />
+              </div>
+            )}
+
             {isEmployee && (
               <>
                 <div className="employee-dashboard-grid">
@@ -1241,72 +1260,7 @@ const Dashboard = () => {
                     </div>
                   </div>
 
-                  <div className="leave-balance-card">
-                    <div className="balance-title">
-                      <Wallet size={20} />
-                      Leave Balance
-                    </div>
-
-                    <div className="balance-row">
-                      <span>Casual</span>
-
-                      <strong>
-                        {stats.leaveBalance
-                          ?.casual?.remaining ??
-                          20}{" "}
-                        /{" "}
-                        {stats.leaveBalance
-                          ?.casual?.total ?? 20}
-                      </strong>
-                    </div>
-
-                    <div className="balance-bar">
-                      <span
-                        style={{
-                          width: `${((stats.leaveBalance
-                              ?.casual
-                              ?.remaining ??
-                              20) /
-                              (stats
-                                .leaveBalance
-                                ?.casual?.total ??
-                                20)) *
-                            100
-                            }%`,
-                        }}
-                      />
-                    </div>
-
-                    <div className="balance-row">
-                      <span>Sick</span>
-
-                      <strong>
-                        {stats.leaveBalance
-                          ?.sick?.remaining ??
-                          8}{" "}
-                        /{" "}
-                        {stats.leaveBalance
-                          ?.sick?.total ?? 8}
-                      </strong>
-                    </div>
-
-                    <div className="balance-bar">
-                      <span
-                        style={{
-                          width: `${((stats.leaveBalance
-                              ?.sick
-                              ?.remaining ??
-                              8) /
-                              (stats
-                                .leaveBalance
-                                ?.sick?.total ??
-                                8)) *
-                            100
-                            }%`,
-                        }}
-                      />
-                    </div>
-                  </div>
+                  <PersonalLeaveBalance compact />
                 </div>
 
                 <div className="modern-stats-grid">
@@ -2685,8 +2639,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {(isEmployee ||
-          isTeamLeader) && (
+        {hasPersonalLeaveBalance && (
             <div
               className={`modern-section-card ${activePage === "leave"
                   ? "page-visible"
@@ -2696,6 +2649,18 @@ const Dashboard = () => {
               <LeaveRequests />
             </div>
           )}
+
+        {hasPersonalLeaveBalance && activePage === "myLeaveBalance" && (
+          <div className="modern-section-card">
+            <PersonalLeaveBalance />
+          </div>
+        )}
+
+        {canManageLeaveBalances && activePage === "hrLeaveBalances" && (
+          <div className="modern-section-card">
+            <HrLeaveBalances />
+          </div>
+        )}
 
         {(isEmployee ||
           isTeamLeader) && (

@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import leaveRoutes from "./routes/leaveRoutes.js";
+import leaveBalanceRoutes from "./routes/leaveBalanceRoutes.js";
 import websiteRoutes from "./routes/websiteRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import reimbursementRoutes from "./routes/reimbursementRoutes.js";
@@ -94,6 +95,16 @@ app.use(cookieParser());
 
 app.use(
   "/uploads",
+  (req, res, next) => {
+    if (req.path.startsWith("/resumes/")) {
+      return res.status(404).json({
+        success: false,
+        message: "File not found",
+      });
+    }
+
+    return next();
+  },
   express.static("uploads")
 );
 
@@ -115,6 +126,7 @@ app.use(
 
 app.use("/api/admin", adminRoutes);
 app.use("/api/leave", leaveRoutes);
+app.use("/api/leave-balance", leaveBalanceRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reimbursements", reimbursementRoutes);
 app.use("/api/dashboard", dashboardRoutes);
@@ -248,9 +260,16 @@ if (process.env.NODE_ENV === "production") {
 app.use((err, req, res, next) => {
   console.error("Server Error:", err);
 
-  return res.status(err.status || 500).json({
+  const status = err.status || 500;
+  const message =
+    status >= 500 &&
+    process.env.NODE_ENV === "production"
+      ? "Server Error"
+      : err.message || "Server Error";
+
+  return res.status(status).json({
     success: false,
-    message: err.message || "Server Error",
+    message,
   });
 });
 

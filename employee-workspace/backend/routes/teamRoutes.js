@@ -22,6 +22,7 @@ router.post(
 router.get(
   "/",
   protect,
+  authorizeRoles("Admin"),
   getTeams
 );
 

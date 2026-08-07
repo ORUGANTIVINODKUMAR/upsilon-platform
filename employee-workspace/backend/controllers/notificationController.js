@@ -32,6 +32,13 @@ export const markNotificationRead = async (req, res) => {
       }
     );
 
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found",
+      });
+    }
+
     res.status(200).json({
       success: true,
       notification,

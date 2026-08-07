@@ -4,6 +4,10 @@ import LeaveRequest from "../models/LeaveRequest.js";
 import ReimbursementRequest from "../models/ReimbursementRequest.js";
 import Holiday from "../models/Holiday.js";
 import Team from "../models/Team.js";
+import {
+  PERSONAL_LEAVE_ROLES,
+  getLeaveBalanceForUser,
+} from "../services/leaveBalanceService.js";
 
 export const getDashboardStats = async (req, res) => {
   try {
@@ -127,7 +131,6 @@ export const getDashboardStats = async (req, res) => {
       myApprovedReimbursements,
       myRejectedReimbursements,
 
-      approvedMyLeaves,
       todayBirthdays,
 
       tlTeams,
@@ -262,15 +265,6 @@ export const getDashboardStats = async (req, res) => {
         },
       }),
 
-      LeaveRequest.find({
-        employeeId: req.user._id,
-        finalStatus: {
-          $in: ["Approved by Manager", "Approved by HR"],
-        },
-      })
-        .select("leaveType workingDays")
-        .lean(),
-
       User.find({
         isActive: true,
         role: { $ne: "Admin" },
@@ -338,42 +332,9 @@ export const getDashboardStats = async (req, res) => {
       );
     });
 
-    const yearlyCasualTotal = 20;
-    const yearlySickTotal = 8;
-    const yearlyEarnedTotal = 0;
-
-    let usedCasualLeaves = 0;
-    let usedSickLeaves = 0;
-
-    approvedMyLeaves.forEach((leave) => {
-      if (["Vacation", "Personal", "Casual"].includes(leave.leaveType)) {
-        usedCasualLeaves += leave.workingDays || 0;
-      }
-
-      if (leave.leaveType === "Sick") {
-        usedSickLeaves += leave.workingDays || 0;
-      }
-    });
-
-    const leaveBalance = {
-      casual: {
-        total: yearlyCasualTotal,
-        used: usedCasualLeaves,
-        remaining: Math.max(yearlyCasualTotal - usedCasualLeaves, 0),
-      },
-
-      sick: {
-        total: yearlySickTotal,
-        used: usedSickLeaves,
-        remaining: Math.max(yearlySickTotal - usedSickLeaves, 0),
-      },
-
-      earned: {
-        total: yearlyEarnedTotal,
-        used: 0,
-        remaining: yearlyEarnedTotal,
-      },
-    };
+    const leaveBalance = PERSONAL_LEAVE_ROLES.includes(req.user.role)
+      ? await getLeaveBalanceForUser(req.user._id, { includeHistory: false })
+      : null;
 
     const managerTeamsWithCounts = managerTeams.map((team) => {
       const employeesInTeam = managerEmployees.filter(

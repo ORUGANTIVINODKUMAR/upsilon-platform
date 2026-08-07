@@ -17,10 +17,6 @@ const FinanceLeaves = () => {
 
   const safeLeaves = leaveRequests || [];
 
-  useEffect(() => {
-    fetchLeaves();
-  }, []);
-
   const fetchLeaves = async () => {
     try {
       const { data } = await api.get("/leave/finance");
@@ -32,6 +28,10 @@ const FinanceLeaves = () => {
     }
   };
 
+  useEffect(() => {
+    fetchLeaves();
+  }, []);
+
   const filteredLeaves = safeLeaves.filter((leave) => {
     const search = searchTerm.toLowerCase();
 
@@ -39,7 +39,7 @@ const FinanceLeaves = () => {
       leave.employeeId?.name?.toLowerCase().includes(search) ||
       leave.employeeId?.email?.toLowerCase().includes(search) ||
       leave.leaveType?.toLowerCase().includes(search) ||
-      leave.status?.toLowerCase().includes(search)
+      leave.finalStatus?.toLowerCase().includes(search)
     );
   });
 

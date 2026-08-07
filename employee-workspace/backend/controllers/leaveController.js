@@ -12,6 +12,10 @@ import {
   sendFinanceLeaveEmail,
   sendLeaveRequestEmail,
 } from "../services/emailService.js";
+import {
+  PERSONAL_LEAVE_ROLES,
+  syncApprovedLeaveLedger,
+} from "../services/leaveBalanceService.js";
 
 const APPROVED_LEAVE_STATUSES = [
   "Approved by Manager",
@@ -220,6 +224,18 @@ export const createLeaveRequest = async (
   res
 ) => {
   try {
+    if (
+      !PERSONAL_LEAVE_ROLES.includes(
+        req.user.role
+      )
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "This role cannot submit personal leave requests",
+      });
+    }
+
     const {
       leaveType,
       startDate,
@@ -271,7 +287,9 @@ export const createLeaveRequest = async (
       });
     }
 
-    const team = employee.teamId
+    const requiresTeam = ["Employee", "TeamLeader"].includes(employee.role);
+
+    const team = requiresTeam && employee.teamId
       ? await Team.findById(
           employee.teamId
         )
@@ -289,7 +307,7 @@ export const createLeaveRequest = async (
           )
       : null;
 
-    if (!team) {
+    if (requiresTeam && !team) {
       return res.status(400).json({
         success: false,
         message:
@@ -301,17 +319,18 @@ export const createLeaveRequest = async (
       employee.role === "TeamLeader";
 
     const assignedTeamLeader =
-      isTeamLeader
+      isTeamLeader || !requiresTeam
         ? null
         : team.teamLeaderId;
 
-    const assignedManager =
-      team.managerIds?.find(
-        (manager) =>
-          manager.isActive !== false
-      ) || null;
+    const assignedManager = requiresTeam
+      ? team.managerIds?.find(
+          (manager) => manager.isActive !== false
+        ) || null
+      : null;
 
     if (
+      requiresTeam &&
       !isTeamLeader &&
       !assignedTeamLeader
     ) {
@@ -322,7 +341,7 @@ export const createLeaveRequest = async (
       });
     }
 
-    if (!assignedManager) {
+    if (requiresTeam && !assignedManager) {
       return res.status(400).json({
         success: false,
         message:
@@ -376,6 +395,26 @@ export const createLeaveRequest = async (
       });
     }
 
+    const hrApprover = await User.findOne({
+      role: "HR",
+      isActive: true,
+      _id: { $ne: employee._id },
+    }).select("_id");
+
+    if (["Manager", "HR"].includes(employee.role) && !hrApprover) {
+      return res.status(400).json({
+        success: false,
+        message: "No other active HR user is available for final approval",
+      });
+    }
+
+    const submissionLevel =
+      employee.role === "Employee"
+        ? "TeamLeader"
+        : employee.role === "TeamLeader"
+          ? "Manager"
+          : "HR";
+
     const leaveRequest =
       await LeaveRequest.create({
         employeeId:
@@ -385,16 +424,21 @@ export const createLeaveRequest = async (
           employee.subcategoryId,
 
         teamId:
-          employee.teamId || null,
+          requiresTeam ? employee.teamId || null : null,
 
         teamLeaderId:
-          isTeamLeader
+          isTeamLeader || !requiresTeam
             ? null
             : assignedTeamLeader?._id ||
               null,
 
         managerId:
-          assignedManager._id,
+          assignedManager?._id || null,
+
+        hrId:
+          hrApprover?._id ||
+          team?.hrIds?.find((hr) => hr.isActive !== false)?._id ||
+          null,
 
         leaveType,
 
@@ -417,7 +461,7 @@ export const createLeaveRequest = async (
           req.file?.path || "",
 
         tlStatus:
-          isTeamLeader
+          isTeamLeader || !requiresTeam
             ? "Not Required"
             : "Pending",
 
@@ -436,9 +480,7 @@ export const createLeaveRequest = async (
         approvalHistory: [
           {
             level:
-              isTeamLeader
-                ? "Manager"
-                : "TeamLeader",
+              submissionLevel,
 
             action: "Submitted",
 
@@ -917,11 +959,7 @@ export const updateMyLeaveRequest = async (
     });
 
     leaveRequest.approvalHistory.push({
-      level:
-        req.user.role ===
-        "TeamLeader"
-          ? "TeamLeader"
-          : "Employee",
+      level: req.user.role,
 
       action:
         "Edited",
@@ -938,10 +976,11 @@ export const updateMyLeaveRequest = async (
     if (requiredReapproval) {
       leaveRequest.approvalHistory.push({
         level:
-          req.user.role ===
-          "TeamLeader"
-            ? "Manager"
-            : "TeamLeader",
+          req.user.role === "Employee"
+            ? "TeamLeader"
+            : req.user.role === "TeamLeader"
+              ? "Manager"
+              : "HR",
 
         action:
           "Sent for Reapproval",
@@ -955,6 +994,8 @@ export const updateMyLeaveRequest = async (
     }
 
     await leaveRequest.save();
+
+    await syncApprovedLeaveLedger(leaveRequest, req.user._id);
 
     const hrUsers =
       await User.find({
@@ -1322,6 +1363,13 @@ export const approveLeaveByTL = async (
         success: false,
         message:
           "Leave request not found",
+      });
+    }
+
+    if (leaveRequest.employeeId._id.toString() === req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot approve your own leave request",
       });
     }
 
@@ -1903,6 +1951,32 @@ export const approveLeaveByManager = async (
       });
     }
 
+    if (leaveRequest.employeeId._id.toString() === req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot approve your own leave request",
+      });
+    }
+
+    if (APPROVED_LEAVE_STATUSES.includes(leaveRequest.finalStatus)) {
+      if (
+        req.user.role === "Manager" &&
+        leaveRequest.managerId?.toString() !== req.user._id.toString()
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "You are not assigned as Manager for this leave request",
+        });
+      }
+
+      await syncApprovedLeaveLedger(leaveRequest, req.user._id);
+      return res.status(200).json({
+        success: true,
+        message: "Leave was already approved; balance is already up to date",
+        leaveRequest,
+      });
+    }
+
     if (
       !PENDING_LEAVE_STATUSES.includes(
         leaveRequest.finalStatus
@@ -1994,6 +2068,8 @@ export const approveLeaveByManager = async (
     });
 
     await leaveRequest.save();
+
+    await syncApprovedLeaveLedger(leaveRequest, req.user._id);
 
     await createNotification({
       recipientId:
@@ -2268,6 +2344,13 @@ export const rejectLeaveByManager = async (
       });
     }
 
+    if (leaveRequest.employeeId._id.toString() === req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot reject your own leave request",
+      });
+    }
+
     if (
       !PENDING_LEAVE_STATUSES.includes(
         leaveRequest.finalStatus
@@ -2350,6 +2433,8 @@ export const rejectLeaveByManager = async (
     });
 
     await leaveRequest.save();
+
+    await syncApprovedLeaveLedger(leaveRequest, req.user._id);
 
     await createNotification({
       recipientId:
@@ -2529,13 +2614,19 @@ export const changeLeaveStatus = async (req, res) => {
       });
     }
 
-    const allowedStatuses = [
+    const commonStatuses = [
       "Pending Final Approval",
       "On Hold",
-      "Approved by Manager",
-      "Approved by HR",
-      "Rejected by Manager",
-      "Rejected by HR",
+    ];
+
+    const roleStatuses =
+      req.user.role === "Manager"
+        ? ["Approved by Manager", "Rejected by Manager"]
+        : ["Approved by HR", "Rejected by HR"];
+
+    const allowedStatuses = [
+      ...commonStatuses,
+      ...roleStatuses,
     ];
 
     if (!allowedStatuses.includes(status)) {
@@ -2552,6 +2643,13 @@ export const changeLeaveStatus = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Leave request not found",
+      });
+    }
+
+    if (leaveRequest.employeeId._id.toString() === req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot change the status of your own leave request",
       });
     }
 
@@ -2612,6 +2710,8 @@ export const changeLeaveStatus = async (req, res) => {
     }
 
     await leaveRequest.save();
+
+    await syncApprovedLeaveLedger(leaveRequest, req.user._id);
 
     await createNotification({
       recipientId: leaveRequest.employeeId._id,

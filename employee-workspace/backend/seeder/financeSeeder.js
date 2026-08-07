@@ -9,8 +9,17 @@ connectDB();
 
 const seedFinanceUser = async () => {
   try {
+    const financeEmail = process.env.FINANCE_EMAIL?.trim().toLowerCase();
+    const financePassword = process.env.FINANCE_PASSWORD;
+
+    if (!financeEmail || !financePassword || financePassword.length < 8) {
+      throw new Error(
+        "FINANCE_EMAIL and FINANCE_PASSWORD (minimum 8 characters) are required"
+      );
+    }
+
     const existingFinance = await User.findOne({
-      email: "finance@upsilonservice.com",
+      email: financeEmail,
     });
 
     if (existingFinance) {
@@ -18,11 +27,11 @@ const seedFinanceUser = async () => {
       process.exit(0);
     }
 
-    const passwordHash = await bcrypt.hash("finance@2026", 10);
+    const passwordHash = await bcrypt.hash(financePassword, 10);
 
     await User.create({
       name: "Finance User",
-      email: "finance@upsilonservice.com",
+      email: financeEmail,
       passwordHash,
       role: "Finance",
       isActive: true,

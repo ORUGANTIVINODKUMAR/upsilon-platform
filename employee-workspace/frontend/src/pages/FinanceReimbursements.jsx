@@ -47,17 +47,6 @@ const FinanceReimbursements = () => {
       startIndex,
       startIndex + RECORDS_PER_PAGE
     );
-  useEffect(() => {
-    fetchRequests();
-
-    const interval = setInterval(
-      fetchRequests,
-      10000
-    );
-
-    return () => clearInterval(interval);
-  }, []);
-
   const fetchRequests = async () => {
     try {
       const { data } = await api.get("/reimbursements/finance");
@@ -68,6 +57,10 @@ const FinanceReimbursements = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchRequests();
+  }, []);
 
   const handleMarkAsPaid = async (id) => {
     const confirmPayment = window.confirm(

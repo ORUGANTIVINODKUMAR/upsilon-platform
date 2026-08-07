@@ -104,10 +104,6 @@ const ReimbursementApprovals = () => {
 
   useEffect(() => {
     fetchRequests();
-
-    const interval = setInterval(fetchRequests, 10000);
-
-    return () => clearInterval(interval);
   }, [activeTab, user?.role]);
 
   useEffect(() => {
@@ -240,7 +236,11 @@ const ReimbursementApprovals = () => {
         });
       }
 
-      alert(`Reimbursement ${decision.toLowerCase()} successfully`);
+      alert(
+        user?.role === "TeamLeader" && decision === "Rejected"
+          ? "Team Leader review recorded. Manager or HR will make the final decision."
+          : `Reimbursement ${decision.toLowerCase()} successfully`
+      );
 
       fetchRequests();
     } catch (error) {
@@ -273,9 +273,7 @@ const ReimbursementApprovals = () => {
       setRejectionReason("");
     };
 
-  const printReimbursementForm = (
-    item
-  ) => {
+  const printReimbursementForm = () => {
     window.print();
   };
 
@@ -556,9 +554,7 @@ const ReimbursementApprovals = () => {
                         <button
                           className="print-btn"
                           onClick={() =>
-                            printReimbursementForm(
-                              item
-                            )
+                            printReimbursementForm()
                           }
                         >
                           <Printer

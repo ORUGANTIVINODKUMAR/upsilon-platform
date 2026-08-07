@@ -81,9 +81,7 @@ export default function ApplicantDetails() {
     );
   }
 
-  const resumeFileName = application.resumePath
-    ? application.resumePath.split(/[\\/]/).pop()
-    : "";
+  const hasResume = Boolean(application.resumePath);
 
   const appliedDate = application.createdAt
     ? new Date(application.createdAt).toLocaleString()
@@ -287,12 +285,10 @@ export default function ApplicantDetails() {
       <section className="applicant-details-section">
         <h2>Resume</h2>
 
-        {resumeFileName ? (
+        {hasResume ? (
           <a
             className="applicant-resume-button"
-            href={`/uploads/resumes/${encodeURIComponent(
-              resumeFileName
-            )}`}
+            href={`/api/applications/${application._id}/resume`}
             target="_blank"
             rel="noreferrer"
           >

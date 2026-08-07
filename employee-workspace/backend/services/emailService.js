@@ -4,6 +4,14 @@ const senderAddress =
   process.env.SMTP_FROM?.trim() ||
   process.env.SMTP_USER?.trim();
 const mailFrom = `"UPSILON HRMS" <${senderAddress}>`;
+
+const escapeHtml = (value = "") =>
+  String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 export const sendLeaveRequestEmail = async ({
   to,
   employeeName,
@@ -19,11 +27,11 @@ export const sendLeaveRequestEmail = async ({
     <table border="1" cellpadding="8" cellspacing="0">
       <tr>
         <td><strong>Employee Name</strong></td>
-        <td>${employeeName}</td>
+        <td>${escapeHtml(employeeName)}</td>
       </tr>
       <tr>
         <td><strong>Leave Type</strong></td>
-        <td>${leaveType}</td>
+        <td>${escapeHtml(leaveType)}</td>
       </tr>
       <tr>
         <td><strong>Start Date</strong></td>
@@ -66,7 +74,7 @@ export const sendDecisionEmail = async ({
     ? `
       <table border="1" cellpadding="8" cellspacing="0">
         ${leaveType
-          ? `<tr><td><strong>Leave Type</strong></td><td>${leaveType}</td></tr>`
+          ? `<tr><td><strong>Leave Type</strong></td><td>${escapeHtml(leaveType)}</td></tr>`
           : ""
         }
         ${startDate
@@ -77,9 +85,9 @@ export const sendDecisionEmail = async ({
           ? `<tr><td><strong>End Date</strong></td><td>${new Date(endDate).toDateString()}</td></tr>`
           : ""
         }
-        <tr><td><strong>Status</strong></td><td>${status}</td></tr>
+        <tr><td><strong>Status</strong></td><td>${escapeHtml(status)}</td></tr>
         ${approverRole || approverName
-          ? `<tr><td><strong>Decision By</strong></td><td>${[approverName, approverRole].filter(Boolean).join(" - ")}</td></tr>`
+          ? `<tr><td><strong>Decision By</strong></td><td>${escapeHtml([approverName, approverRole].filter(Boolean).join(" - "))}</td></tr>`
           : ""
         }
       </table>
@@ -87,14 +95,14 @@ export const sendDecisionEmail = async ({
     : "";
 
   const html = `
-    <h2>${title}</h2>
-    <p>Hello ${employeeName},</p>
-    <p>Your ${requestType} request has been marked as <strong>${status}</strong>.</p>
+    <h2>${escapeHtml(title)}</h2>
+    <p>Hello ${escapeHtml(employeeName)},</p>
+    <p>Your ${escapeHtml(requestType)} request has been marked as <strong>${escapeHtml(status)}</strong>.</p>
 
     ${leaveDetails}
 
     ${status === "Rejected"
-      ? `<p><strong>Rejection Reason:</strong> ${rejectionReason}</p>`
+      ? `<p><strong>Rejection Reason:</strong> ${escapeHtml(rejectionReason)}</p>`
       : ""
     }
   `;
@@ -123,11 +131,11 @@ export const sendFinanceLeaveEmail = async ({
     <table border="1" cellpadding="8" cellspacing="0">
       <tr>
         <td><strong>Employee Name</strong></td>
-        <td>${employeeName}</td>
+        <td>${escapeHtml(employeeName)}</td>
       </tr>
       <tr>
         <td><strong>Leave Type</strong></td>
-        <td>${leaveType}</td>
+        <td>${escapeHtml(leaveType)}</td>
       </tr>
       <tr>
         <td><strong>Start Date</strong></td>
@@ -143,7 +151,7 @@ export const sendFinanceLeaveEmail = async ({
       </tr>
       <tr>
         <td><strong>Approval Status</strong></td>
-        <td>${status}</td>
+        <td>${escapeHtml(status)}</td>
       </tr>
     </table>
   `;
@@ -180,12 +188,12 @@ export const sendFinanceReimbursementEmail = async ({
   >
     <tr>
       <td><strong>Employee</strong></td>
-      <td>${employeeName}</td>
+      <td>${escapeHtml(employeeName)}</td>
     </tr>
 
     <tr>
       <td><strong>Business Purpose</strong></td>
-      <td>${businessPurpose}</td>
+      <td>${escapeHtml(businessPurpose)}</td>
     </tr>
 
     <tr>
@@ -227,11 +235,11 @@ export const sendReimbursementRequestEmail = async ({
     <table border="1" cellpadding="8" cellspacing="0">
       <tr>
         <td><strong>Employee Name</strong></td>
-        <td>${employeeName}</td>
+        <td>${escapeHtml(employeeName)}</td>
       </tr>
       <tr>
         <td><strong>Business Purpose</strong></td>
-        <td>${businessPurpose}</td>
+        <td>${escapeHtml(businessPurpose)}</td>
       </tr>
       <tr>
         <td><strong>Expense From</strong></td>

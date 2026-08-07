@@ -25,6 +25,13 @@ export const protect = async (req, res, next) => {
       });
     }
 
+    if (req.user.isActive === false) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is inactive",
+      });
+    }
+
     next();
   } catch (error) {
     return res.status(401).json({

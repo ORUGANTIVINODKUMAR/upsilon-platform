@@ -4,6 +4,10 @@ import LeaveRequest from "../models/LeaveRequest.js";
 import ReimbursementRequest from "../models/ReimbursementRequest.js";
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
+import {
+  PERSONAL_LEAVE_ROLES,
+  ensureMonthlyCredits,
+} from "../services/leaveBalanceService.js";
 
 const ALLOWED_ROLES = [
   "Admin",
@@ -1091,6 +1095,10 @@ export const createUser = async (req, res) => {
     });
 
     await syncUserTeamRelationships(user);
+
+    if (PERSONAL_LEAVE_ROLES.includes(user.role)) {
+      await ensureMonthlyCredits(user._id);
+    }
 
     const populatedUser = await getPopulatedUser(user._id);
 

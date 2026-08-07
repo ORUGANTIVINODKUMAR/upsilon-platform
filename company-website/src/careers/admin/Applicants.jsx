@@ -661,9 +661,7 @@ function Applicants() {
 
                       <td>
                         <a
-                          href={`/uploads/resumes/${encodeURIComponent(
-                            application.resumePath
-                          )}`}
+                          href={`/api/applications/${application._id}/resume`}
                           className="careers-applicant-resume"
                           target="_blank"
                           rel="noreferrer"

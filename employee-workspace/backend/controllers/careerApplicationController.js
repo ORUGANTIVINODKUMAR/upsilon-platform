@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 import CareerApplication from "../models/CareerApplication.js";
 import CareerJob from "../models/CareerJob.js";
 
@@ -59,6 +60,29 @@ export const createCareerApplication = async (req, res) => {
       });
     }
 
+    const normalizedEmail = String(email).trim().toLowerCase();
+
+    if (!isValidEmail(normalizedEmail)) {
+      removeUploadedFile(req.file.path);
+
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid email address.",
+      });
+    }
+
+    if (
+      !isValidOptionalWebUrl(linkedinUrl) ||
+      !isValidOptionalWebUrl(portfolioUrl)
+    ) {
+      removeUploadedFile(req.file.path);
+
+      return res.status(400).json({
+        success: false,
+        message: "LinkedIn and portfolio links must use HTTP or HTTPS.",
+      });
+    }
+
     const job = await CareerJob.findById(jobId);
 
     if (!job) {
@@ -91,10 +115,24 @@ export const createCareerApplication = async (req, res) => {
       });
     }
 
+    const existingApplication = await CareerApplication.exists({
+      jobId,
+      email: normalizedEmail,
+    });
+
+    if (existingApplication) {
+      removeUploadedFile(req.file.path);
+
+      return res.status(409).json({
+        success: false,
+        message: "An application for this job already exists for this email.",
+      });
+    }
+
     const application = await CareerApplication.create({
       jobId,
       fullName,
-      email,
+      email: normalizedEmail,
       phone,
       currentLocation,
       totalExperience,
@@ -207,6 +245,69 @@ export const getCareerApplicationById = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Unable to fetch the application.",
+    });
+  }
+};
+
+const isValidEmail = (value) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+
+const isValidOptionalWebUrl = (value) => {
+  if (!value) {
+    return true;
+  }
+
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol);
+  } catch {
+    return false;
+  }
+};
+
+export const downloadCareerApplicationResume = async (req, res) => {
+  try {
+    const application = await CareerApplication.findById(req.params.id).select(
+      "resumeFileName resumePath"
+    );
+
+    if (!application?.resumePath) {
+      return res.status(404).json({
+        success: false,
+        message: "Resume not found.",
+      });
+    }
+
+    const resumeDirectory = path.resolve("uploads", "resumes");
+    const resumePath = path.resolve(resumeDirectory, application.resumePath);
+
+    if (
+      path.dirname(resumePath) !== resumeDirectory ||
+      !fs.existsSync(resumePath)
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: "Resume not found.",
+      });
+    }
+
+    return res.download(
+      resumePath,
+      path.basename(application.resumeFileName || application.resumePath)
+    );
+  } catch (error) {
+    console.error("Download Career application resume error:", error);
+
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid application ID.",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to download the resume.",
     });
   }
 };

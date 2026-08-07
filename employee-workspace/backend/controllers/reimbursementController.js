@@ -10,25 +10,112 @@ import {
 
 export const createReimbursementRequest = async (req, res) => {
   try {
+    if (!["Employee", "TeamLeader"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Only Employees and Team Leaders can submit reimbursement requests",
+      });
+    }
+
     const {
       expenseFrom,
       expenseTo,
       businessPurpose,
       items,
-      subtotal,
       lessCashAdvance,
-      totalReimbursement,
     } = req.body;
 
-    const parsedItems = typeof items === "string" ? JSON.parse(items) : items;
+    let parsedItems;
+
+    try {
+      parsedItems = typeof items === "string" ? JSON.parse(items) : items;
+    } catch {
+      return res.status(400).json({
+        success: false,
+        message: "Expense items must be valid JSON",
+      });
+    }
+
+    if (!Array.isArray(parsedItems) || parsedItems.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one expense item is required",
+      });
+    }
+
+    const normalizedItems = parsedItems.map((item) => ({
+      description: String(item?.description || "").trim(),
+      category: String(item?.category || "").trim(),
+      cost: Number(item?.cost),
+    }));
+
+    if (
+      normalizedItems.some(
+        (item) =>
+          !item.description ||
+          !item.category ||
+          !Number.isFinite(item.cost) ||
+          item.cost < 0
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Each expense item requires a description, category, and valid non-negative cost",
+      });
+    }
+
+    const parsedExpenseFrom = new Date(expenseFrom);
+    const parsedExpenseTo = new Date(expenseTo);
+
+    if (
+      Number.isNaN(parsedExpenseFrom.getTime()) ||
+      Number.isNaN(parsedExpenseTo.getTime()) ||
+      parsedExpenseTo < parsedExpenseFrom
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid expense date range is required",
+      });
+    }
+
+    const normalizedBusinessPurpose = String(businessPurpose || "").trim();
+    const normalizedCashAdvance = Number(lessCashAdvance || 0);
+    const calculatedSubtotal = normalizedItems.reduce(
+      (sum, item) => sum + item.cost,
+      0
+    );
+    const calculatedTotal = calculatedSubtotal - normalizedCashAdvance;
+
+    if (
+      !normalizedBusinessPurpose ||
+      !Number.isFinite(normalizedCashAdvance) ||
+      normalizedCashAdvance < 0 ||
+      calculatedTotal < 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Business purpose and a valid cash advance are required",
+      });
+    }
+
     const uploadedReceiptFiles = req.files?.map((file) => file.path) || [];
 
     const employee = await User.findById(req.user._id);
 
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
     const team = employee.teamId
       ? await Team.findById(employee.teamId)
-        .populate("teamLeaderId", "name email role")
-        .populate("managerIds", "name email role")
+        .populate("teamLeaderId", "name email role isActive")
+        .populate("managerIds", "name email role isActive")
         .populate("hrIds", "name email role")
       : null;
 
@@ -43,7 +130,7 @@ export const createReimbursementRequest = async (req, res) => {
       req.user.role === "TeamLeader" ? null : team.teamLeaderId;
 
     const assignedManager =
-      team.managerIds?.length > 0 ? team.managerIds[0] : null;
+      team.managerIds?.find((manager) => manager.isActive !== false) || null;
 
     if (req.user.role !== "TeamLeader" && !assignedTeamLeader) {
       return res.status(400).json({
@@ -76,13 +163,13 @@ export const createReimbursementRequest = async (req, res) => {
       managerStatus: "Pending",
       hrStatus: "Pending",
 
-      expenseFrom,
-      expenseTo,
-      businessPurpose,
-      items: parsedItems,
-      subtotal,
-      lessCashAdvance: lessCashAdvance || 0,
-      totalReimbursement,
+      expenseFrom: parsedExpenseFrom,
+      expenseTo: parsedExpenseTo,
+      businessPurpose: normalizedBusinessPurpose,
+      items: normalizedItems,
+      subtotal: calculatedSubtotal,
+      lessCashAdvance: normalizedCashAdvance,
+      totalReimbursement: calculatedTotal,
       receiptFiles: uploadedReceiptFiles,
 
       financeStatus: "Not Routed",
@@ -107,7 +194,14 @@ export const createReimbursementRequest = async (req, res) => {
       assignedTeamLeader,
       assignedManager,
       ...hrUsers,
-    ].filter(Boolean);
+    ]
+      .filter((user) => user && user.isActive !== false)
+      .filter(
+        (user, index, users) =>
+          users.findIndex(
+            (candidate) => candidate._id.toString() === user._id.toString()
+          ) === index
+      );
 
     await Promise.all(
       notifyUsers.map((user) =>
@@ -122,14 +216,14 @@ export const createReimbursementRequest = async (req, res) => {
     );
 
     Promise.all(
-      notifyUsers.map((user) =>
+      notifyUsers.filter((user) => user.email).map((user) =>
         sendReimbursementRequestEmail({
           to: user.email,
           employeeName: req.user.name,
           businessPurpose,
-          totalReimbursement,
-          expenseFrom,
-          expenseTo,
+          totalReimbursement: calculatedTotal,
+          expenseFrom: parsedExpenseFrom,
+          expenseTo: parsedExpenseTo,
         })
       )
     ).catch((emailError) =>
@@ -257,6 +351,16 @@ export const approveReimbursementByTL = async (req, res) => {
       });
     }
 
+    if (
+      reimbursementRequest.tlStatus !== "Pending" ||
+      reimbursementRequest.finalStatus !== "Pending Final Approval"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "This reimbursement has already been reviewed",
+      });
+    }
+
     reimbursementRequest.tlStatus = "Approved";
     reimbursementRequest.tlApprovedBy = req.user._id;
     reimbursementRequest.tlApprovedAt = new Date();
@@ -323,6 +427,16 @@ export const rejectReimbursementByTL = async (req, res) => {
       });
     }
 
+    if (
+      reimbursementRequest.tlStatus !== "Pending" ||
+      reimbursementRequest.finalStatus !== "Pending Final Approval"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "This reimbursement has already been reviewed",
+      });
+    }
+
     reimbursementRequest.tlStatus = "Rejected";
     reimbursementRequest.tlRejectionReason = rejectionReason.trim();
 
@@ -339,13 +453,13 @@ export const rejectReimbursementByTL = async (req, res) => {
       recipientId: reimbursementRequest.employeeId._id,
       type: "Reimbursement",
       title: "Reimbursement Reviewed by TL",
-      message: `Your reimbursement request was rejected by Team Leader. Reason: ${rejectionReason}`,
+      message: `Your reimbursement request was not recommended by the Team Leader. Reason: ${rejectionReason}. Manager or HR will make the final decision.`,
       link: "/dashboard",
     });
 
     res.status(200).json({
       success: true,
-      message: "Reimbursement rejected by Team Leader",
+      message: "Team Leader review recorded successfully",
       reimbursementRequest,
     });
   } catch (error) {
@@ -485,6 +599,13 @@ export const approveReimbursementByManager = async (req, res) => {
       });
     }
 
+    if (reimbursementRequest.finalStatus !== "Pending Final Approval") {
+      return res.status(400).json({
+        success: false,
+        message: "This reimbursement is not awaiting final approval",
+      });
+    }
+
     if (req.user.role === "Manager") {
       reimbursementRequest.managerStatus = "Approved";
       reimbursementRequest.managerApprovedBy = req.user._id;
@@ -519,6 +640,22 @@ export const approveReimbursementByManager = async (req, res) => {
         "Your reimbursement request has been finally approved and is pending finance payment.",
       link: "/dashboard",
     });
+
+    if (reimbursementRequest.employeeId.email) {
+      sendDecisionEmail({
+        to: reimbursementRequest.employeeId.email,
+        subject: "Reimbursement Request Approved",
+        title: "Reimbursement Request Approved",
+        employeeName: reimbursementRequest.employeeId.name,
+        requestType: "Reimbursement",
+        status: "Approved",
+      }).catch((emailError) =>
+        console.log(
+          "Reimbursement approval email failed:",
+          emailError.message
+        )
+      );
+    }
     if (reimbursementRequest.teamLeaderId) {
       await createNotification({
         recipientId: reimbursementRequest.teamLeaderId,
@@ -547,7 +684,7 @@ export const approveReimbursementByManager = async (req, res) => {
     );
 
     Promise.all(
-      financeUsers.map((finance) =>
+      financeUsers.filter((finance) => finance.email).map((finance) =>
         sendFinanceReimbursementEmail({
           to: finance.email,
           employeeName: reimbursementRequest.employeeId.name,
@@ -614,6 +751,13 @@ export const rejectReimbursementByManager = async (req, res) => {
       });
     }
 
+    if (reimbursementRequest.finalStatus !== "Pending Final Approval") {
+      return res.status(400).json({
+        success: false,
+        message: "This reimbursement is not awaiting final approval",
+      });
+    }
+
     if (req.user.role === "Manager") {
       reimbursementRequest.managerStatus = "Rejected";
       reimbursementRequest.managerRejectionReason = rejectionReason.trim();
@@ -654,17 +798,19 @@ export const rejectReimbursementByManager = async (req, res) => {
         link: "/dashboard",
       });
     }
-    sendDecisionEmail({
-      to: reimbursementRequest.employeeId.email,
-      subject: "Reimbursement Request Rejected",
-      title: "Reimbursement Request Rejected",
-      employeeName: reimbursementRequest.employeeId.name,
-      requestType: "Reimbursement",
-      status: "Rejected",
-      rejectionReason: rejectionReason.trim(),
-    }).catch((emailError) =>
-      console.log("Reimbursement rejection email failed:", emailError.message)
-    );
+    if (reimbursementRequest.employeeId.email) {
+      sendDecisionEmail({
+        to: reimbursementRequest.employeeId.email,
+        subject: "Reimbursement Request Rejected",
+        title: "Reimbursement Request Rejected",
+        employeeName: reimbursementRequest.employeeId.name,
+        requestType: "Reimbursement",
+        status: "Rejected",
+        rejectionReason: rejectionReason.trim(),
+      }).catch((emailError) =>
+        console.log("Reimbursement rejection email failed:", emailError.message)
+      );
+    }
 
     res.status(200).json({
       success: true,
@@ -727,6 +873,18 @@ export const markReimbursementAsPaid = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Reimbursement request not found",
+      });
+    }
+
+    if (
+      !["Approved by Manager", "Approved by HR"].includes(
+        reimbursementRequest.finalStatus
+      ) ||
+      reimbursementRequest.financeStatus !== "Pending Payment"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Only an approved pending reimbursement can be marked paid",
       });
     }
 

@@ -21,7 +21,14 @@ function StickyContactButton() {
   // Don't show it on the Contact page itself.
   if (location.pathname === "/contact") return null;
 
-
+  return (
+    <Link
+      to="/contact"
+      className={`sticky-contact-btn ${visible ? "is-visible" : ""}`}
+    >
+      Talk to Our Experts
+    </Link>
+  );
 }
 
 export default StickyContactButton;

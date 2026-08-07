@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Upsilon Platform Complete Code Audit Report</title>
+  <style>
+    @page { size: A4; margin: 16mm 15mm 18mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #172033; font: 10.5pt/1.48 Arial, Helvetica, sans-serif; }
+    h1, h2, h3 { color: #123f3b; page-break-after: avoid; }
+    h1 { margin: 0 0 8px; font-size: 25pt; line-height: 1.15; }
+    h2 { margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #bfd4d1; font-size: 16pt; }
+    h3 { margin: 15px 0 5px; font-size: 12pt; }
+    p { margin: 5px 0 9px; }
+    ul, ol { margin: 5px 0 10px; padding-left: 22px; }
+    li { margin: 3px 0; }
+    code { color: #173f3b; background: #edf5f4; padding: 1px 4px; border-radius: 3px; font-family: Consolas, monospace; font-size: 9pt; }
+    .cover { min-height: 245mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+    .kicker { color: #348b80; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+    .subtitle { max-width: 620px; color: #475569; font-size: 13pt; }
+    .meta { margin-top: 28px; padding: 15px 18px; background: #edf5f4; border-left: 5px solid #348b80; }
+    .summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 14px 0; }
+    .card { padding: 11px 13px; border: 1px solid #d8e4e2; border-radius: 7px; page-break-inside: avoid; }
+    .card strong { display: block; color: #123f3b; font-size: 12pt; }
+    .severity { display: inline-block; margin-right: 6px; padding: 2px 7px; border-radius: 10px; color: white; font-size: 8pt; font-weight: 700; }
+    .critical { background: #9f1239; }
+    .high { background: #c2410c; }
+    .medium { background: #a16207; }
+    .low { background: #0369a1; }
+    .fixed { color: #166534; font-weight: 700; }
+    .remaining { color: #9a3412; font-weight: 700; }
+    .issue { margin: 9px 0 13px; padding: 10px 12px; border-left: 4px solid #d1d5db; background: #f8fafc; page-break-inside: avoid; }
+    .issue p { margin: 3px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 9pt; }
+    th, td { padding: 6px 7px; border: 1px solid #cbd5e1; text-align: left; vertical-align: top; }
+    th { color: #123f3b; background: #edf5f4; }
+    tr { page-break-inside: avoid; }
+    .page-break { page-break-before: always; }
+    .footer-note { margin-top: 25px; color: #64748b; font-size: 8.5pt; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="kicker">Engineering and Security Review</div>
+    <h1>Upsilon Platform<br>Complete Code Audit Report</h1>
+    <p class="subtitle">Repository-wide review of the company website, employee workspace, shared Express API, authentication, roles, leave, reimbursements, notifications, email, Careers, uploads, configuration, and scripts.</p>
+    <div class="meta">
+      <strong>Audit date:</strong> 7 August 2026<br>
+      <strong>Repository:</strong> upsilon-platform<br>
+      <strong>Overall result:</strong> Mostly healthy, with confirmed high-impact issues corrected and several architecture-level risks documented.<br>
+      <strong>Important:</strong> No environment secret values or credentials are included in this report.
+    </div>
+  </section>
+
+  <h2>1. Executive Summary</h2>
+  <p>The repository contains two React/Vite applications: the public company website and the employee workspace. A shared Express/Mongoose backend provides employee, leave, reimbursement, notification, profile, team, holiday, Careers, and public website APIs. A separate legacy company website server also remains in the repository.</p>
+  <div class="summary">
+    <div class="card"><strong>Build health</strong>Both React production builds pass.</div>
+    <div class="card"><strong>Backend syntax</strong>All backend JavaScript files pass <code>node --check</code>.</div>
+    <div class="card"><strong>Confirmed critical issues</strong>No confirmed RCE or destructive data-loss issue.</div>
+    <div class="card"><strong>Corrections</strong>Security, authorization, data integrity, email, uploads, integration, and polling fixes applied.</div>
+  </div>
+  <p>The most important corrected problems were client-controlled reimbursement totals, invalid repeated reimbursement state transitions, public résumé exposure, inactive users retaining API access, role-attribution spoofing in leave status changes, known seed passwords, and missing reimbursement approval email to the applicant.</p>
+
+  <h2>2. Application Map</h2>
+  <table>
+    <tr><th>Area</th><th>Technology</th><th>Responsibility</th></tr>
+    <tr><td><code>company-website/</code></td><td>React 19, Vite</td><td>Public website, resources, contact forms, public jobs, job applications, and two Careers-admin interfaces.</td></tr>
+    <tr><td><code>employee-workspace/frontend/</code></td><td>React 19, Vite, Axios</td><td>Employee, Team Leader, Manager, HR, Finance, and Admin workspace.</td></tr>
+    <tr><td><code>employee-workspace/backend/</code></td><td>Express 5, Mongoose, JWT, Nodemailer, Multer, Cloudinary</td><td>Shared API, authentication, data persistence, workflow enforcement, uploads, notifications, and email.</td></tr>
+    <tr><td><code>company-website/server/</code></td><td>Express, Nodemailer</td><td>Legacy standalone contact/resource server; it does not implement the newer Careers APIs.</td></tr>
+  </table>
+  <p>Workspace authentication uses an HTTP-only JWT cookie. The API resolves the authenticated user from MongoDB on each protected request. Careers administrators use a separate scoped JWT cookie.</p>
+
+  <h2>3. High-Priority Issues Corrected</h2>
+  <div class="issue"><span class="severity high">HIGH</span><strong>Reimbursement amount manipulation</strong><p><strong>Problem:</strong> The backend accepted <code>subtotal</code> and <code>totalReimbursement</code> supplied by the browser.</p><p><strong>Impact:</strong> An applicant could alter a network request and submit a value that did not match the expense items.</p><p class="fixed"><strong>Fix:</strong> Every item, cost, date, business purpose, and cash advance is validated. Subtotal and final reimbursement are recalculated server-side.</p></div>
+  <div class="issue"><span class="severity high">HIGH</span><strong>Invalid and repeatable reimbursement transitions</strong><p><strong>Problem:</strong> TL, Manager/HR, and Finance endpoints did not consistently verify the current workflow state.</p><p><strong>Impact:</strong> Requests could be approved or rejected repeatedly, generating duplicate history, email, and notifications. Finance could mark an invalid claim paid.</p><p class="fixed"><strong>Fix:</strong> Added pending-state checks at each stage. Finance can mark paid only when the claim is finally approved and awaiting payment.</p></div>
+  <div class="issue"><span class="severity high">HIGH</span><strong>Inactive accounts retained access</strong><p><strong>Problem:</strong> JWT middleware loaded the user but did not reject <code>isActive: false</code>.</p><p><strong>Impact:</strong> A deactivated user with an existing cookie remained authorized until token expiry.</p><p class="fixed"><strong>Fix:</strong> Protected routes now return 403 immediately for inactive users.</p></div>
+  <div class="issue"><span class="severity high">HIGH</span><strong>Candidate résumés were public</strong><p><strong>Problem:</strong> Résumés were served from guessable <code>/uploads/resumes/...</code> URLs.</p><p><strong>Impact:</strong> Anyone who obtained or guessed a filename could access candidate personal information.</p><p class="fixed"><strong>Fix:</strong> Public résumé paths now return 404. Careers admins download through authenticated <code>GET /api/applications/:id/resume</code>.</p></div>
+  <div class="issue"><span class="severity high">HIGH</span><strong>Known privileged seed passwords</strong><p><strong>Problem:</strong> Admin, Finance, and Careers-admin scripts contained default passwords.</p><p><strong>Impact:</strong> Running those scripts could create predictable privileged credentials.</p><p class="fixed"><strong>Fix:</strong> Seed scripts require environment-provided passwords of at least eight characters. A repository scan found zero remaining known default-password matches.</p></div>
+  <div class="issue"><span class="severity high">HIGH</span><strong>Approver identity could be mislabeled</strong><p><strong>Problem:</strong> A Manager could choose “Approved by HR” and HR could choose “Approved by Manager” in manual status management.</p><p><strong>Impact:</strong> Audit history and final status could misrepresent who made the decision.</p><p class="fixed"><strong>Fix:</strong> The backend and frontend now expose only statuses attributable to the authenticated role.</p></div>
+
+  <h2>4. Medium-Priority Issues Corrected</h2>
+  <ul>
+    <li>Only Employee and Team Leader roles may submit leave or reimbursement requests.</li>
+    <li>Final reimbursement approval now emails the applicant; rejection continues to email once.</li>
+    <li>Reimbursement submission recipients are deduplicated and missing addresses are skipped.</li>
+    <li>TL reimbursement rejection wording now clearly says “not recommended” and explains that Manager/HR makes the final decision.</li>
+    <li>Career applications validate email addresses and allow only HTTP/HTTPS LinkedIn and portfolio links.</li>
+    <li>Duplicate applications for the same job and email return HTTP 409.</li>
+    <li>Email HTML now escapes user-controlled values, including names, purposes, statuses, and rejection reasons.</li>
+    <li>Signature previews no longer hardcode localhost. Local <code>/uploads</code> requests are proxied by Vite.</li>
+    <li>Signature upload is image-only and limited to 5 MB.</li>
+    <li>Finance frontend routes now require authentication.</li>
+    <li>Team listing is Admin-only at the backend.</li>
+    <li>Production global 500 responses no longer expose internal error messages.</li>
+    <li>The legacy website server no longer prints SMTP configuration values.</li>
+    <li>Notification read attempts return 404 when the record is missing or not owned by the requester.</li>
+    <li>The company website sticky contact button previously rendered nothing; its existing intended UI is restored.</li>
+    <li>Finance leave search now reads the backend’s actual <code>finalStatus</code> property.</li>
+  </ul>
+
+  <h2>5. Authentication and Role Audit</h2>
+  <p>Actual workspace roles are <code>Admin</code>, <code>HR</code>, <code>Manager</code>, <code>TeamLeader</code>, <code>Employee</code>, and <code>Finance</code>. Backend role checks are authoritative for the active Admin, leave, reimbursement, Finance, holiday, and team-management APIs.</p>
+  <p>Login normalizes email, compares a bcrypt hash, rejects inactive accounts, issues a seven-day HTTP-only JWT cookie, and avoids returning the password hash. Password changes validate the current password and require at least eight characters.</p>
+  <h3>Remaining authentication/security concerns</h3>
+  <ul>
+    <li><span class="remaining">CSRF:</span> Production authentication cookies use <code>SameSite=None</code>, but there is no CSRF-token mechanism.</li>
+    <li><span class="remaining">Rate limiting:</span> Login, contact, resource-download, and public application endpoints have no brute-force or spam throttling.</li>
+    <li>Several older controllers still return raw <code>error.message</code> values directly.</li>
+    <li>Concurrent approval requests are protected by state checks but not by an atomic compare-and-update database operation.</li>
+  </ul>
+
+  <h2>6. Leave Workflow</h2>
+  <ol>
+    <li>An Employee submits leave. The assigned Team Leader, assigned Manager, and active HR users are notified and emailed.</li>
+    <li>The Team Leader records an advisory approval or non-recommendation. This is not a final decision.</li>
+    <li>The assigned Manager or HR makes the final approval/rejection under the existing alternative-final-approver design.</li>
+    <li>The applicant receives the in-app notification and final decision email.</li>
+    <li>Approved leave continues to notify and email Finance.</li>
+  </ol>
+  <p>A Team Leader applying for personal leave skips TL self-review and proceeds to Manager/HR. Edited approved leave enters reapproval. Final email is not sent for intermediate TL action.</p>
+  <p><span class="remaining">Concern left unchanged:</span> The manual status endpoint can still place a request into a final state without reproducing every Finance side effect of the dedicated approve handler. Removing that capability could alter intended business behavior, so only role attribution was corrected.</p>
+
+  <h2>7. Reimbursement and Finance Workflow</h2>
+  <ol>
+    <li>Employee or Team Leader submits a validated claim.</li>
+    <li>The server calculates monetary values from expense items.</li>
+    <li>TL review is advisory for Employee claims.</li>
+    <li>Manager or HR makes the final decision.</li>
+    <li>Applicant receives in-app and email notification.</li>
+    <li>Approved claims are routed to active Finance users.</li>
+    <li>Finance can mark paid only from the approved/pending-payment state.</li>
+  </ol>
+  <p>Email failures are caught after database decisions and do not roll back successful workflow state.</p>
+
+  <h2>8. Email and Notification Audit</h2>
+  <table>
+    <tr><th>Event</th><th>Recipients</th><th>Result</th></tr>
+    <tr><td>Leave submission</td><td>TL where applicable, assigned Manager, active HR</td><td>In-app + email</td></tr>
+    <tr><td>Final leave approval/rejection</td><td>Applicant</td><td>In-app + email</td></tr>
+    <tr><td>Approved leave</td><td>Finance</td><td>Existing notification/email preserved</td></tr>
+    <tr><td>Reimbursement submission</td><td>TL where applicable, assigned Manager, active HR</td><td>Deduplicated in-app + email</td></tr>
+    <tr><td>Final reimbursement approval/rejection</td><td>Applicant</td><td>In-app + email</td></tr>
+    <tr><td>Approved reimbursement</td><td>Finance</td><td>Existing notification/email preserved</td></tr>
+  </table>
+  <p>The system uses Nodemailer over configured SMTP. <code>SMTP_FROM</code> is used as the sender with <code>SMTP_USER</code> as fallback. Outlook/Microsoft 365 is a recipient inbox, not a separate application integration.</p>
+
+  <h2>9. Frontend–Backend API Audit</h2>
+  <h3>Verified obsolete mismatches</h3>
+  <table>
+    <tr><th>Frontend</th><th>Backend reality</th><th>Action</th></tr>
+    <tr><td>Dead <code>ApprovalRequests.jsx</code>: <code>GET /leave/pending</code>, <code>PUT /leave/approve/:id</code></td><td>Active APIs are <code>/leave/tl-*</code> and <code>/leave/manager-*</code></td><td>Not integrated because the component is not mounted.</td></tr>
+    <tr><td>Dead Attendance pages call <code>/attendance/*</code></td><td>No attendance route/controller/model exists</td><td>No speculative attendance backend was created.</td></tr>
+    <tr><td>Résumé links used <code>/uploads/resumes/:filename</code></td><td>Now authenticated by application ID</td><td>Fixed.</td></tr>
+  </table>
+  <p>No unresolved endpoint mismatch was found in active leave, reimbursement, profile, notification, Admin, or current Careers screens.</p>
+
+  <h2>10. Dead and Legacy Code</h2>
+  <h3>Verified unused workspace files</h3>
+  <ul><li><code>components/Navbar.jsx</code></li><li><code>components/NotificationPanel.jsx</code></li><li><code>pages/ApprovalRequests.jsx</code></li><li><code>pages/Approvals.jsx</code></li><li><code>pages/Attendance.jsx</code></li><li><code>pages/AdminAttendanceReports.jsx</code></li></ul>
+  <h3>Verified unused backend code</h3>
+  <ul><li><code>reportingRelationshipController.js</code></li><li><code>ReportingRelationship.js</code></li><li><code>utils/generateToken.js</code></li></ul>
+  <p>Two Careers admin implementations remain routed: the legacy <code>/careers-admin</code> interface and newer <code>/admin/careers</code> interface. They were not removed because both are reachable.</p>
+
+  <h2>11. Performance and Polling</h2>
+  <p>Recurring workspace API polling was removed from Dashboard statistics (30 seconds), reimbursement approvals (10 seconds), and Finance reimbursements (10 seconds). Initial loading, tab-driven loading, and post-action refreshes remain. The remaining interval is the intentional public website services carousel and includes cleanup.</p>
+  <p>Both frontend bundles exceed Vite’s 500 kB recommendation. Route-level code splitting is a future optimization, not a correctness fix.</p>
+
+  <h2>12. Files Modified</h2>
+  <p><strong>Company website:</strong> <code>server/server.js</code>; Careers <code>ApplicantDetails.jsx</code> and <code>Applicants.jsx</code>; <code>OurServicesSection.jsx</code>; <code>SoftwareSection.jsx</code>; <code>StickyContactButton.jsx</code>; <code>WhyUpsilon.jsx</code>.</p>
+  <p><strong>Backend:</strong> <code>app.js</code>; career application/auth controllers and routes; leave, notification, and reimbursement controllers; authentication and upload middleware; profile and team routes; email service; Admin, Careers-admin, and Finance seed scripts.</p>
+  <p><strong>Workspace frontend:</strong> <code>App.jsx</code>; <code>SignatureUploader.jsx</code>; Dashboard, Finance leave/reimbursement, Manager approvals, and reimbursement approvals pages; <code>vite.config.js</code>.</p>
+
+  <h2>13. Verification Results</h2>
+  <table>
+    <tr><th>Command/check</th><th>Result</th><th>Notes</th></tr>
+    <tr><td><code>npm run build</code> at repository root</td><td>PASS</td><td>Company website and workspace production builds passed.</td></tr>
+    <tr><td>Company <code>npm run lint</code></td><td>PASS</td><td>Two Fast Refresh warnings remain.</td></tr>
+    <tr><td>Workspace <code>npm run lint</code></td><td>FAIL</td><td>33 errors and 10 warnings, predominantly the React Hooks preset rejecting fetch-on-mount effects and findings in verified dead files. Rules were not disabled to manufacture a clean result.</td></tr>
+    <tr><td>Backend JavaScript <code>node --check</code></td><td>PASS</td><td>All backend JavaScript files.</td></tr>
+    <tr><td>Legacy server syntax</td><td>PASS</td><td><code>node --check server.js</code>.</td></tr>
+    <tr><td><code>npm ls --depth=0</code></td><td>PASS</td><td>All application dependency trees; workspace contains two extraneous transitive packages.</td></tr>
+    <tr><td>Email safety smoke test</td><td>PASS</td><td>Mocked delivery succeeded and injected HTML was escaped.</td></tr>
+    <tr><td>Automated backend/integration tests</td><td>NOT CONFIGURED</td><td>No test scripts exist.</td></tr>
+  </table>
+
+  <h2>14. Remaining Issues</h2>
+  <ul>
+    <li>Workspace lint baseline is still non-clean.</li>
+    <li>No automated unit, integration, or end-to-end tests are configured.</li>
+    <li>The company package’s standalone development command starts the legacy server, which lacks newer Careers APIs. The shared backend is required for complete functionality.</li>
+    <li>Cloudinary files may become orphaned when upload succeeds but later controller validation fails.</li>
+    <li>CSRF protection and public/auth rate limiting remain absent.</li>
+    <li>Some controllers expose raw internal error messages.</li>
+    <li>Approval transitions are guarded but not atomic against simultaneous duplicate requests.</li>
+    <li>Dashboard statistics return broad organization totals; the intended role visibility was not clear enough to change safely.</li>
+    <li>Legacy/current Careers implementations should eventually be consolidated.</li>
+  </ul>
+
+  <h2>15. Manual Testing Checklist</h2>
+  <ol>
+    <li>Log in as Employee, Team Leader, Manager, HR, Finance, and Admin.</li>
+    <li>Deactivate a logged-in user and confirm their next protected request returns 403.</li>
+    <li>Submit Employee leave; confirm TL, Manager, and HR notification/email.</li>
+    <li>Submit Team Leader personal leave; confirm Manager/HR notification without TL self-notification.</li>
+    <li>Approve and reject leave; confirm one applicant Outlook email with correct details.</li>
+    <li>Submit reimbursement; verify server total equals item costs minus cash advance.</li>
+    <li>Modify totals in browser DevTools and confirm the backend ignores them.</li>
+    <li>Repeat approve/reject/pay calls and confirm the second action is rejected.</li>
+    <li>Confirm Finance cannot pay pending or rejected claims.</li>
+    <li>Verify reimbursement applicant and Finance emails/notifications.</li>
+    <li>Submit a Careers application and confirm duplicate job/email submission is rejected.</li>
+    <li>Confirm public résumé URLs return 404 and Careers-admin download works.</li>
+    <li>Upload/remove a profile photo and upload an image signature.</li>
+    <li>Confirm PDF signature upload is rejected.</li>
+    <li>Verify contact/resource forms and sticky contact button.</li>
+    <li>Verify notification read and read-all behavior.</li>
+    <li>Log out, refresh, and confirm protected routes return to login.</li>
+  </ol>
+
+  <p class="footer-note">This report records the repository state and verification performed during the audit. Environment values, passwords, SMTP credentials, database connection strings, and Cloudinary secrets are intentionally excluded.</p>
+</body>
+</html>

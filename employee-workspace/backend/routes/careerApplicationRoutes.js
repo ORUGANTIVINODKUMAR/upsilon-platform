@@ -4,6 +4,7 @@ import {
   createCareerApplication,
   getAllCareerApplications,
   getCareerApplicationById,
+  downloadCareerApplicationResume,
   updateCareerApplicationStatus,
 } from "../controllers/careerApplicationController.js";
 
@@ -27,6 +28,13 @@ router.get(
   "/",
   protectCareersAdmin,
   getAllCareerApplications
+);
+
+// Admin: get one application
+router.get(
+  "/:id/resume",
+  protectCareersAdmin,
+  downloadCareerApplicationResume
 );
 
 // Admin: get one application

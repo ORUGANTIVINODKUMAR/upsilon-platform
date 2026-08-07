@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "test:leave-balance": "node --test tests/leaveBalanceService.test.js",
+    "migrate:leave-balances": "node scripts/migrateLeaveBalances.js",
     "seed:admin": "node scripts/seedAdmin.js",
     "seed:careers-admin": "node scripts/seedCareersAdmin.js"
   },

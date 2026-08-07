@@ -2,6 +2,10 @@ import jwt from "jsonwebtoken";
 import CareersAdmin from "../models/CareersAdmin.js";
 
 const generateToken = (adminId) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET is not configured");
+  }
+
   return jwt.sign(
     { id: adminId, scope: "careers-admin" },
     process.env.JWT_SECRET,
@@ -70,9 +74,11 @@ export const loginCareersAdmin = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("CAREERS ADMIN LOGIN ERROR:", error);
+
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Unable to sign in",
     });
   }
 };

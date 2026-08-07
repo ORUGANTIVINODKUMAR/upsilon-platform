@@ -11,8 +11,9 @@ import {
 
 import { protect } from "../middleware/authMiddleware.js";
 
-import upload, {
+import {
   uploadProfilePhoto as profilePhotoUpload,
+  uploadSignatureFile,
 } from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
@@ -38,7 +39,7 @@ router.put(
 router.post(
   "/signature",
   protect,
-  upload.single("signatureFile"),
+  uploadSignatureFile.single("signatureFile"),
   uploadSignature
 );
 

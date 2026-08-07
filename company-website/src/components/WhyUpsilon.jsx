@@ -48,15 +48,6 @@ const benefits = [
   },
 ];
 
-const advantages = [
-  "Reduce operating costs by up to 55%",
-  "Scale during tax season without hiring delays",
-  "Improve turnaround times",
-  "Increase partner productivity",
-  "Maintain consistent quality",
-  "Focus on advisory and client relationships",
-];
-
 function WhyUpsilon() {
   return (
     <section className="why-section">

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import api from "../api/api";
+import { useAuth } from "../context/AuthContext";
 
 const STATUS_FILTERS = [
   "All",
@@ -207,6 +208,8 @@ const getApprovalDotClass = (
 };
 
 const ManagerApprovals = () => {
+  const { user } = useAuth();
+
   const [allRequests, setAllRequests] =
     useState([]);
 
@@ -500,19 +503,23 @@ const ManagerApprovals = () => {
   const canApproveOrReject = (
     request
   ) => {
-    return PENDING_STATUSES.includes(
-      request.finalStatus
+    return (
+      request.employeeId?._id !== user?._id &&
+      PENDING_STATUSES.includes(request.finalStatus)
     );
   };
 
   const canChangeStatus = (
     request
   ) => {
-    return [
-      "On Hold",
-      ...APPROVED_STATUSES,
-      ...REJECTED_STATUSES,
-    ].includes(request.finalStatus);
+    return (
+      request.employeeId?._id !== user?._id &&
+      [
+        "On Hold",
+        ...APPROVED_STATUSES,
+        ...REJECTED_STATUSES,
+      ].includes(request.finalStatus)
+    );
   };
 
   const getEmployeePhoto = (
@@ -1128,10 +1135,9 @@ const ManagerApprovals = () => {
     const allOptions = [
       "Pending Final Approval",
       "On Hold",
-      "Approved by Manager",
-      "Approved by HR",
-      "Rejected by Manager",
-      "Rejected by HR",
+      ...(user?.role === "HR"
+        ? ["Approved by HR", "Rejected by HR"]
+        : ["Approved by Manager", "Rejected by Manager"]),
     ];
 
     return allOptions.filter(

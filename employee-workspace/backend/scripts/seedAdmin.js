@@ -9,10 +9,20 @@ dotenv.config();
 
 const seedAdmin = async () => {
   try {
+    const adminName = process.env.ADMIN_NAME || "System Administrator";
+    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    if (!adminEmail || !adminPassword || adminPassword.length < 8) {
+      throw new Error(
+        "ADMIN_EMAIL and ADMIN_PASSWORD (minimum 8 characters) are required"
+      );
+    }
+
     await connectDB();
 
     const existingAdmin = await User.findOne({
-      email: "admin@upsilonservices.com",
+      email: adminEmail,
     });
 
     if (existingAdmin) {
@@ -20,11 +30,11 @@ const seedAdmin = async () => {
       process.exit();
     }
 
-    const hashedPassword = await bcrypt.hash("Admin@12345", 10);
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
     await User.create({
-      name: "System Administrator",
-      email: "admin@upsilonservices.com",
+      name: adminName,
+      email: adminEmail,
       passwordHash: hashedPassword,
       role: "Admin",
     });

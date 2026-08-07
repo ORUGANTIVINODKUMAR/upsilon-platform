@@ -19,11 +19,22 @@ function App() {
           </ProtectedRoute>
         }
       />
-      <Route path="/finance-leaves" element={<FinanceLeaves />} />
+      <Route
+        path="/finance-leaves"
+        element={
+          <ProtectedRoute>
+            <FinanceLeaves />
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/finance-reimbursements"
-        element={<FinanceReimbursements />}
+        element={
+          <ProtectedRoute>
+            <FinanceReimbursements />
+          </ProtectedRoute>
+        }
       />
       <Route
         path="/leave-calendar"

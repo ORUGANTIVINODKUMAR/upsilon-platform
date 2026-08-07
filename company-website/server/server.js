@@ -16,15 +16,6 @@ app.use(
  
 app.use(express.json({ limit: "1mb" }));
  
-// Check SMTP values loaded from .env
-console.log("SMTP HOST:", process.env.EMAIL_HOST);
-console.log("SMTP PORT:", process.env.EMAIL_PORT);
-console.log("SMTP USER:", process.env.EMAIL_USER);
-console.log("SMTP FROM:", process.env.EMAIL_FROM);
-console.log("SMTP TO:", process.env.EMAIL_TO);
-console.log("SMTP PASSWORD LOADED:", Boolean(process.env.EMAIL_PASS));
-console.log("SMTP PASSWORD LENGTH:", process.env.EMAIL_PASS?.length);
- 
 // Validate required environment variables
 const requiredEnvVariables = [
   "EMAIL_HOST",

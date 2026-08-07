@@ -1,4 +1,4 @@
-import { LuAppWindow, LuCheck } from "react-icons/lu";
+import { LuAppWindow } from "react-icons/lu";
 import ScrollRevealHeading, { toWords } from "./ScrollRevealHeading";
 import "./SoftwareSection.css";
 
@@ -27,12 +27,6 @@ const softwareList = [
 ];
 
 const marqueeItems = [...softwareList, ...softwareList];
-
-const benefits = [
-  "Work directly inside your existing systems",
-  "Reduce software migration and onboarding time",
-  "Maintain your firm's established workflows",
-];
 
 function SoftwareSection() {
   return (
@@ -108,24 +102,6 @@ function SoftwareSection() {
             ))}
           </div>
         </div>
-{/* Temporarily hidden
-        <div className="software-benefits" data-aos="fade-up">
-          {benefits.map((benefit) => (
-            <div className="software-benefit" key={benefit}>
-              <span className="software-benefit-icon">
-                <LuCheck aria-hidden="true" />
-              </span>
-
-              <span>{benefit}</span>
-            </div>
-          ))}
-        </div>
-
-        <p className="software-note" data-aos="fade-up">
-          Don&apos;t see your platform listed? Our team can adapt to many
-          accounting, tax, payroll, practice-management, and document systems.
-        </p>
-        */}
       </div>
     </section>
   );

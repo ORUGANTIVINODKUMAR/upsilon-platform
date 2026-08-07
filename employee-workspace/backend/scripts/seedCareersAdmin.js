@@ -40,8 +40,7 @@ const email = (
 
 const password =
   argPassword ||
-  process.env.CAREERS_ADMIN_PASSWORD ||
-  "ChangeMe123!";
+  process.env.CAREERS_ADMIN_PASSWORD;
 
 const currentEmail = (
   argCurrentEmail ||
@@ -56,6 +55,12 @@ const emailPattern =
 
 const seedCareersAdmin = async () => {
   try {
+    if (!password || password.length < 8) {
+      throw new Error(
+        "A Careers admin password of at least 8 characters is required"
+      );
+    }
+
     if (!emailPattern.test(email)) {
       throw new Error(
         "The new admin email address is invalid."
