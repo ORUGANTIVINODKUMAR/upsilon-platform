@@ -765,14 +765,15 @@ const LeaveRequests = () => {
     try {
       setIsCancelling(true);
       clearFeedback();
-      const { data } = await api.patch(`/leave/request/${requestToCancel._id}/cancel`);
-      setMessage(data.message || "Leave request cancelled successfully.");
+      const { data } = await api.delete(`/leave/request/${requestToCancel._id}`);
+      setRequests((current) => current.filter((request) => request._id !== requestToCancel._id));
+      setMessage(data.message || "Leave request deleted successfully.");
       setRequestToCancel(null);
       await fetchRequests();
       window.dispatchEvent(new CustomEvent("leave-requests-updated"));
     } catch (requestError) {
       setError(
-        requestError.response?.data?.message || "Unable to cancel this leave request."
+        requestError.response?.data?.message || "Unable to delete this leave request."
       );
     } finally {
       setIsCancelling(false);
@@ -783,6 +784,8 @@ const LeaveRequests = () => {
     "Pending Final Approval",
     "Pending Reapproval",
     "On Hold",
+    "Rejected by Manager",
+    "Rejected by HR",
   ].includes(request.finalStatus);
 
   const getActionLabel = (
@@ -1310,7 +1313,7 @@ const LeaveRequests = () => {
                             onClick={() => setRequestToCancel(item)}
                           >
                             <Trash2 size={14} />
-                            Cancel
+                            Delete
                           </button>
                         )}
 
@@ -1781,11 +1784,11 @@ const LeaveRequests = () => {
 
       <ConfirmDialog
         open={Boolean(requestToCancel)}
-        title="Cancel this leave request?"
+        title="Delete Leave Request?"
         description={requestToCancel
-          ? `The ${requestToCancel.leaveType} request for ${formatDisplayDate(requestToCancel.startDate)} to ${formatDisplayDate(requestToCancel.endDate)} will be withdrawn from the approval queue. This action cannot be undone.`
+          ? `Are you sure you want to delete the ${requestToCancel.leaveType} request for ${formatDisplayDate(requestToCancel.startDate)} to ${formatDisplayDate(requestToCancel.endDate)}? This action cannot be undone.`
           : ""}
-        confirmLabel="Cancel request"
+        confirmLabel="Delete Request"
         busy={isCancelling}
         onCancel={() => !isCancelling && setRequestToCancel(null)}
         onConfirm={handleCancelRequest}

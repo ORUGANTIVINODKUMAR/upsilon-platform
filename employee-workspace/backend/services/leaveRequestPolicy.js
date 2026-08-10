@@ -160,3 +160,14 @@ export const canCancelOwnLeaveRequest = ({ ownerId, userId, finalStatus }) => {
     finalStatus,
   );
 };
+
+export const canDeleteOwnLeaveRequest = ({ ownerId, userId, finalStatus }) => {
+  if (!ownerId || !userId || ownerId.toString() !== userId.toString()) return false;
+  return [
+    "Pending Final Approval",
+    "Pending Reapproval",
+    "On Hold",
+    "Rejected by Manager",
+    "Rejected by HR",
+  ].includes(finalStatus);
+};

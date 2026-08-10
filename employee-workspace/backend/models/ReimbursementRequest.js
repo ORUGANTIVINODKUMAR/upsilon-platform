@@ -192,12 +192,12 @@ const reimbursementRequestSchema = new mongoose.Schema(
       {
         level: {
           type: String,
-          enum: ["TeamLeader", "Manager", "HR", "Finance"],
+          enum: ["Employee", "TeamLeader", "Manager", "HR", "Finance"],
         },
 
         action: {
           type: String,
-          enum: ["Submitted", "Approved", "Rejected", "Paid"],
+          enum: ["Submitted", "Edited", "Approved", "Rejected", "Paid"],
         },
 
         actedBy: {
@@ -224,9 +224,29 @@ const reimbursementRequestSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+
+    editHistory: [{
+      editedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+      editedAt: { type: Date, default: Date.now },
+      changedFields: [{ type: String, trim: true }],
+      previousValues: { type: mongoose.Schema.Types.Mixed, default: {} },
+      updatedValues: { type: mongoose.Schema.Types.Mixed, default: {} },
+    }],
+
+    lastEditedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    lastEditedAt: { type: Date, default: null },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true }
 );
+
+reimbursementRequestSchema.pre(/^find/, function () {
+  if (!this.getOptions().includeDeleted && this.getQuery().isDeleted === undefined) {
+    this.where({ isDeleted: { $ne: true } });
+  }
+});
 
 const ReimbursementRequest = mongoose.model(
   "ReimbursementRequest",

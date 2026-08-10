@@ -20,6 +20,7 @@ import {
 import {
   buildOverlapQuery,
   canCancelOwnLeaveRequest,
+  canDeleteOwnLeaveRequest,
   describeLeaveTiming,
   getOverlapMessage,
   getRetrospectivePolicy,
@@ -1060,6 +1061,20 @@ export const updateMyLeaveRequest = async (
       )
     );
 
+    const emailRecipients = await User.find({
+      _id: { $in: recipientIds },
+      isActive: true,
+      email: { $ne: "" },
+    }).select("_id name email role isActive");
+    const workspaceUrl = process.env.WORKSPACE_URL?.trim()?.replace(/\/$/, "");
+    await sendLeaveRequestNotification({
+      recipients: emailRecipients,
+      employee: req.user,
+      leaveRequest,
+      notificationTitle,
+      reviewUrl: workspaceUrl ? `${workspaceUrl}/dashboard?page=managerApprovals` : "",
+    });
+
     const updatedLeaveRequest =
       await LeaveRequest.findById(
         leaveRequest._id
@@ -1219,6 +1234,68 @@ export const cancelMyLeaveRequest = async (req, res) => {
       message: error.name === "CastError"
         ? "Invalid leave request ID"
         : "Unable to cancel leave request",
+    });
+  }
+};
+
+export const deleteMyLeaveRequest = async (req, res) => {
+  try {
+    const leaveRequest = await LeaveRequest.findById(req.params.id);
+    if (!leaveRequest) {
+      return res.status(404).json({ success: false, message: "Leave request not found" });
+    }
+    if (leaveRequest.employeeId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: "You can delete only your own leave request" });
+    }
+    if (!canDeleteOwnLeaveRequest({
+      ownerId: leaveRequest.employeeId,
+      userId: req.user._id,
+      finalStatus: leaveRequest.finalStatus,
+    })) {
+      return res.status(409).json({
+        success: false,
+        message: "Approved or cancelled leave requests cannot be deleted",
+      });
+    }
+
+    const now = new Date();
+    leaveRequest.isDeleted = true;
+    leaveRequest.deletedAt = now;
+    leaveRequest.deletedBy = req.user._id;
+    await leaveRequest.save();
+    await syncApprovedLeaveLedger(leaveRequest, req.user._id);
+
+    const hrUsers = await User.find({ role: "HR", isActive: true }).select("_id");
+    const recipientIds = getUniqueUserIds([
+      leaveRequest.teamLeaderId,
+      leaveRequest.managerId,
+      ...hrUsers.map((hr) => hr._id),
+    ]);
+    await Promise.all(recipientIds.map((recipientId) => createNotification({
+      recipientId,
+      title: "Leave Request Deleted",
+      message: `${req.user.name} deleted their ${leaveRequest.leaveType} leave request.`,
+      link: "/dashboard",
+    })));
+    const emailRecipients = await User.find({
+      _id: { $in: recipientIds },
+      isActive: true,
+      email: { $ne: "" },
+    }).select("_id name email role isActive");
+    await sendLeaveRequestNotification({
+      recipients: emailRecipients,
+      employee: req.user,
+      leaveRequest,
+      notificationTitle: "Leave Request Deleted",
+      reviewUrl: "",
+    });
+
+    return res.status(200).json({ success: true, message: "Leave request deleted successfully" });
+  } catch (error) {
+    console.error("DELETE LEAVE REQUEST ERROR:", error);
+    return res.status(error.name === "CastError" ? 400 : 500).json({
+      success: false,
+      message: error.name === "CastError" ? "Invalid leave request ID" : "Unable to delete leave request",
     });
   }
 };

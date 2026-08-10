@@ -4,10 +4,12 @@ import {
   Receipt,
   X,
   Trash2,
+  Pencil,
 } from "lucide-react";
 
 import api from "../api/api";
 import StatusBadge from "../components/ui/StatusBadge";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import {
   EmptyState,
   ErrorState,
@@ -68,6 +70,9 @@ const Reimbursements = () => {
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] =
     useState(false);
+  const [editingRequest, setEditingRequest] = useState(null);
+  const [requestToDelete, setRequestToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [showReasonModal, setShowReasonModal] =
     useState(false);
@@ -355,6 +360,65 @@ const Reimbursements = () => {
     });
   };
 
+  const closeRequestModal = () => {
+    if (submitting) return;
+    setShowModal(false);
+    setEditingRequest(null);
+    setFormError("");
+    resetForm();
+  };
+
+  const openCreateModal = () => {
+    setEditingRequest(null);
+    resetForm();
+    setFormError("");
+    setFeedback(null);
+    setShowModal(true);
+  };
+
+  const openEditModal = (request) => {
+    if (request.finalStatus !== "Pending Final Approval") return;
+    setEditingRequest(request);
+    setFormError("");
+    setFeedback(null);
+    setFormData({
+      expenseFrom: new Date(request.expenseFrom).toISOString().slice(0, 10),
+      expenseTo: new Date(request.expenseTo).toISOString().slice(0, 10),
+      businessPurpose: request.businessPurpose || "",
+      lessCashAdvance: request.lessCashAdvance || 0,
+      receiptFiles: [],
+      items: request.items?.length
+        ? request.items.map((item) => ({
+          description: item.description,
+          category: item.category,
+          cost: item.cost,
+        }))
+        : [{ description: "", category: "Travel", cost: "" }],
+    });
+    setShowModal(true);
+  };
+
+  const canDeleteRequest = (request) => [
+    "Pending Final Approval",
+    "Rejected by Manager",
+    "Rejected by HR",
+  ].includes(request.finalStatus);
+
+  const handleDeleteRequest = async () => {
+    if (!requestToDelete) return;
+    try {
+      setDeleting(true);
+      const { data } = await api.delete(`/reimbursements/request/${requestToDelete._id}`);
+      setRequests((current) => current.filter((request) => request._id !== requestToDelete._id));
+      setFeedback({ type: "success", message: data.message || "Reimbursement request deleted successfully." });
+      setRequestToDelete(null);
+    } catch (error) {
+      setFeedback({ type: "error", message: error.response?.data?.message || "Unable to delete reimbursement request." });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleSubmit = async (
     e
   ) => {
@@ -375,8 +439,8 @@ const Reimbursements = () => {
       return;
     }
     if (
-      !formData.receiptFiles ||
-      formData.receiptFiles.length === 0
+      (!formData.receiptFiles || formData.receiptFiles.length === 0) &&
+      !editingRequest?.receiptFiles?.length
     ) {
       setFormError("At least one receipt or invoice is required.");
 
@@ -428,21 +492,27 @@ const Reimbursements = () => {
         payload.append("receiptFiles", file);
       });
 
-      await api.post(
-        "/reimbursements/request",
-        payload,
-        {
-          headers: {
-            "Content-Type":
-              "multipart/form-data",
-          },
-        }
-      );
+      await api.request({
+        method: editingRequest ? "put" : "post",
+        url: editingRequest
+          ? `/reimbursements/request/${editingRequest._id}`
+          : "/reimbursements/request",
+        data: payload,
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
       await fetchRequests();
       setShowModal(false);
+      setEditingRequest(null);
       resetForm();
-      setFeedback({ type: "success", message: "Reimbursement submitted successfully." });
+      setFeedback({
+        type: "success",
+        message: editingRequest
+          ? "Reimbursement request updated successfully."
+          : "Reimbursement submitted successfully.",
+      });
     } catch (error) {
       setFormError(
         error.response?.data?.message ||
@@ -475,9 +545,7 @@ const Reimbursements = () => {
           type="button"
           className="btn btn-primary"
           onClick={() => {
-            setFormError("");
-            setFeedback(null);
-            setShowModal(true);
+            openCreateModal();
           }}
         >
           <Plus size={18} />
@@ -600,6 +668,7 @@ const Reimbursements = () => {
               <th>Status</th>
               <th>Approval Flow</th>
               <th>Reason</th>
+              <th>Actions</th>
             </tr>
           </thead>
 
@@ -615,7 +684,6 @@ const Reimbursements = () => {
                     <strong>{item.businessPurpose}</strong>
                   </div>
                 </td>
-
                 <td>
                   {new Date(item.expenseFrom).toLocaleDateString()} -{" "}
                   {new Date(item.expenseTo).toLocaleDateString()}
@@ -690,12 +758,29 @@ const Reimbursements = () => {
                     "-"
                   )}
                 </td>
+                <td>
+                  <div className="table-actions">
+                    {item.finalStatus === "Pending Final Approval" && (
+                      <button type="button" className="btn btn-secondary" onClick={() => openEditModal(item)}>
+                        <Pencil size={14} /> Edit
+                      </button>
+                    )}
+                    {canDeleteRequest(item) && (
+                      <button type="button" className="btn btn-danger" onClick={() => setRequestToDelete(item)}>
+                        <Trash2 size={14} /> Delete
+                      </button>
+                    )}
+                    {item.finalStatus !== "Pending Final Approval" && !canDeleteRequest(item) && (
+                      <span className="ui-muted-text">Read only</span>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
 
             {filteredRequests.length === 0 && (
               <tr>
-                <td colSpan="7" style={{ textAlign: "center", padding: "24px" }}>
+                <td colSpan="8" style={{ textAlign: "center", padding: "24px" }}>
                   <EmptyState
                     compact
                     title="No reimbursement requests found"
@@ -781,17 +866,14 @@ const Reimbursements = () => {
           >
             <div className="modal-header">
               <h3 id="reimbursement-form-title">
-                Expense Reimbursement
-                Form
+                {editingRequest ? "Edit Reimbursement Request" : "Expense Reimbursement Form"}
               </h3>
 
               <button
                 type="button"
                 aria-label="Close reimbursement form"
                 disabled={submitting}
-                onClick={() =>
-                  setShowModal(false)
-                }
+                onClick={closeRequestModal}
               >
                 <X size={18} />
               </button>
@@ -826,9 +908,14 @@ const Reimbursements = () => {
                       ),
                     })
                   }
-                  required
+                  required={!editingRequest?.receiptFiles?.length}
                 />
               </div>
+              {editingRequest?.receiptFiles?.length > 0 && formData.receiptFiles.length === 0 && (
+                <div className="alert alert-info" role="status">
+                  {editingRequest.receiptFiles.length} existing receipt(s) will be preserved. Select new files only to replace them.
+                </div>
+              )}
               {formData.receiptFiles?.length > 0 && (
                 <p
                   style={{
@@ -1115,13 +1202,22 @@ const Reimbursements = () => {
                 }}
               >
                 {submitting
-                  ? "Submitting..."
-                  : "Submit Reimbursement"}
+                  ? (editingRequest ? "Saving..." : "Submitting...")
+                  : (editingRequest ? "Save Changes" : "Submit Reimbursement")}
               </button>
             </form>
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(requestToDelete)}
+        title="Delete Reimbursement Request?"
+        description="Are you sure you want to delete this reimbursement request? It will be removed from normal views and this action cannot be undone."
+        confirmLabel="Delete Request"
+        busy={deleting}
+        onCancel={() => !deleting && setRequestToDelete(null)}
+        onConfirm={handleDeleteRequest}
+      />
       {showReasonModal && (
         <div className="modal-overlay">
           <div

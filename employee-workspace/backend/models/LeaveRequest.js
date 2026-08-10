@@ -433,11 +433,34 @@ const leaveRequestSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   {
     timestamps: true,
   },
 );
+
+leaveRequestSchema.pre(/^find/, function () {
+  if (!this.getOptions().includeDeleted && this.getQuery().isDeleted === undefined) {
+    this.where({ isDeleted: { $ne: true } });
+  }
+});
 
 leaveRequestSchema.pre("validate", function () {
   if (

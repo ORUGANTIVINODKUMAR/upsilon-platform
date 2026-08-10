@@ -61,16 +61,17 @@ export const sendLeaveRequestEmail = async ({
   reason,
   status,
   reviewUrl,
+  notificationTitle = "New Leave Request Submitted",
 }) => {
   return sendEmail({
     to,
-    subject: "New Leave Request Submitted",
-    html: buildLeaveRequestEmail({ employeeName, leaveType, startDate, endDate, workingDays, reason, status, reviewUrl }),
+    subject: notificationTitle,
+    html: buildLeaveRequestEmail({ employeeName, leaveType, startDate, endDate, workingDays, reason, status, reviewUrl, notificationTitle }),
     messageType: "leave-request",
   });
 };
 
-export const sendLeaveRequestNotification = async ({ recipients, employee, leaveRequest, reviewUrl, send = sendLeaveRequestEmail }) => {
+export const sendLeaveRequestNotification = async ({ recipients, employee, leaveRequest, reviewUrl, notificationTitle, send = sendLeaveRequestEmail }) => {
   console.info("[email] Leave notification recipients resolved", {
     leaveRequestId: leaveRequest._id?.toString(),
     recipientCount: recipients.length,
@@ -88,6 +89,7 @@ export const sendLeaveRequestNotification = async ({ recipients, employee, leave
       reason: leaveRequest.reason,
       status: leaveRequest.finalStatus,
       reviewUrl,
+      notificationTitle,
     })
   ));
   const failures = results.filter((result) => result.status === "rejected");
@@ -280,10 +282,11 @@ export const sendReimbursementRequestEmail = async ({
   totalReimbursement,
   expenseFrom,
   expenseTo,
+  notificationTitle = "New Reimbursement Request",
 }) => {
   const html = `
-    <h2>New Reimbursement Request</h2>
-    <p>A new reimbursement request has been submitted.</p>
+    <h2>${escapeHtml(notificationTitle)}</h2>
+    <p>A reimbursement request requires your attention.</p>
 
     <table border="1" cellpadding="8" cellspacing="0">
       <tr>
@@ -312,7 +315,7 @@ export const sendReimbursementRequestEmail = async ({
   await transporter.sendMail({
     from: getMailFrom(),
     to,
-    subject: "New Reimbursement Request Submitted",
+    subject: notificationTitle,
     html,
   });
 };

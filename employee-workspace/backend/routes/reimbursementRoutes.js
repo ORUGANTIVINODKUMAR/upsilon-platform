@@ -3,6 +3,8 @@ import express from "express";
 import {
   createReimbursementRequest,
   getMyReimbursementRequests,
+  updateMyReimbursementRequest,
+  deleteMyReimbursementRequest,
 
   getPendingTLReimbursements,
   getTLReimbursementHistory,
@@ -33,6 +35,17 @@ router.get(
   "/my-requests",
   protect,
   getMyReimbursementRequests
+);
+router.put(
+  "/request/:id",
+  protect,
+  upload.array("receiptFiles", 10),
+  updateMyReimbursementRequest
+);
+router.delete(
+  "/request/:id",
+  protect,
+  deleteMyReimbursementRequest
 );
 
 /* TL */

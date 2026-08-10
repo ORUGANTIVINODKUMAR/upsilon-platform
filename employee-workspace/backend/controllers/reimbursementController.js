@@ -7,6 +7,64 @@ import {
   sendFinanceReimbursementEmail,
   sendReimbursementRequestEmail,
 } from "../services/emailService.js";
+import {
+  canDeleteOwnReimbursement,
+  canEditOwnReimbursement,
+  validateReimbursementInput,
+} from "../services/reimbursementRequestPolicy.js";
+
+const reimbursementSnapshot = (request) => ({
+  expenseFrom: request.expenseFrom,
+  expenseTo: request.expenseTo,
+  businessPurpose: request.businessPurpose,
+  items: request.items?.map((item) => ({
+    description: item.description,
+    category: item.category,
+    cost: item.cost,
+  })) || [],
+  subtotal: request.subtotal,
+  lessCashAdvance: request.lessCashAdvance,
+  totalReimbursement: request.totalReimbursement,
+  receiptFiles: [...(request.receiptFiles || [])],
+});
+
+const notifyReimbursementApprovers = async ({ request, employee, title, message }) => {
+  const hrUsers = await User.find({ role: "HR", isActive: true }).select("_id name email role isActive");
+  const approverIds = [request.teamLeaderId, request.managerId, ...hrUsers.map((hr) => hr._id)]
+    .filter(Boolean)
+    .map((id) => id.toString());
+  const approvers = await User.find({ _id: { $in: [...new Set(approverIds)] }, isActive: true })
+    .select("_id name email role isActive");
+
+  await Promise.all(approvers.map((approver) => createNotification({
+    recipientId: approver._id,
+    type: "Reimbursement",
+    title,
+    message,
+    link: "/dashboard",
+  })));
+
+  const emailResults = await Promise.allSettled(approvers.filter((approver) => approver.email).map((approver) =>
+    sendReimbursementRequestEmail({
+      to: approver.email,
+      employeeName: employee.name,
+      businessPurpose: request.businessPurpose,
+      totalReimbursement: request.totalReimbursement,
+      expenseFrom: request.expenseFrom,
+      expenseTo: request.expenseTo,
+      notificationTitle: title,
+    })
+  ));
+  const failed = emailResults.filter((result) => result.status === "rejected");
+  if (failed.length) {
+    console.error("[email] Reimbursement approver notification incomplete", {
+      reimbursementRequestId: request._id.toString(),
+      attempted: emailResults.length,
+      failed: failed.length,
+      messages: failed.map((result) => result.reason?.message),
+    });
+  }
+};
 
 export const createReimbursementRequest = async (req, res) => {
   try {
@@ -25,83 +83,23 @@ export const createReimbursementRequest = async (req, res) => {
       items,
       lessCashAdvance,
     } = req.body;
-
-    let parsedItems;
-
-    try {
-      parsedItems = typeof items === "string" ? JSON.parse(items) : items;
-    } catch {
-      return res.status(400).json({
-        success: false,
-        message: "Expense items must be valid JSON",
-      });
-    }
-
-    if (!Array.isArray(parsedItems) || parsedItems.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "At least one expense item is required",
-      });
-    }
-
-    const normalizedItems = parsedItems.map((item) => ({
-      description: String(item?.description || "").trim(),
-      category: String(item?.category || "").trim(),
-      cost: Number(item?.cost),
-    }));
-
-    if (
-      normalizedItems.some(
-        (item) =>
-          !item.description ||
-          !item.category ||
-          !Number.isFinite(item.cost) ||
-          item.cost < 0
-      )
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Each expense item requires a description, category, and valid non-negative cost",
-      });
-    }
-
-    const parsedExpenseFrom = new Date(expenseFrom);
-    const parsedExpenseTo = new Date(expenseTo);
-
-    if (
-      Number.isNaN(parsedExpenseFrom.getTime()) ||
-      Number.isNaN(parsedExpenseTo.getTime()) ||
-      parsedExpenseTo < parsedExpenseFrom
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "A valid expense date range is required",
-      });
-    }
-
-    const normalizedBusinessPurpose = String(businessPurpose || "").trim();
-    const normalizedCashAdvance = Number(lessCashAdvance || 0);
-    const calculatedSubtotal = normalizedItems.reduce(
-      (sum, item) => sum + item.cost,
-      0
-    );
-    const calculatedTotal = calculatedSubtotal - normalizedCashAdvance;
-
-    if (
-      !normalizedBusinessPurpose ||
-      !Number.isFinite(normalizedCashAdvance) ||
-      normalizedCashAdvance < 0 ||
-      calculatedTotal < 0
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Business purpose and a valid cash advance are required",
-      });
-    }
-
     const uploadedReceiptFiles = req.files?.map((file) => file.path) || [];
+    const validation = validateReimbursementInput(
+      { expenseFrom, expenseTo, businessPurpose, items, lessCashAdvance },
+      { newReceiptCount: uploadedReceiptFiles.length }
+    );
+    if (!validation.valid) {
+      return res.status(400).json({ success: false, message: validation.message });
+    }
+    const {
+      expenseFrom: parsedExpenseFrom,
+      expenseTo: parsedExpenseTo,
+      businessPurpose: normalizedBusinessPurpose,
+      items: normalizedItems,
+      subtotal: calculatedSubtotal,
+      lessCashAdvance: normalizedCashAdvance,
+      totalReimbursement: calculatedTotal,
+    } = validation.value;
 
     const employee = await User.findById(req.user._id);
 
@@ -260,6 +258,121 @@ export const getMyReimbursementRequests = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message,
+    });
+  }
+};
+
+export const updateMyReimbursementRequest = async (req, res) => {
+  try {
+    const request = await ReimbursementRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ success: false, message: "Reimbursement request not found" });
+    if (request.employeeId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: "You can edit only your own reimbursement request" });
+    }
+    if (!canEditOwnReimbursement(request, req.user._id)) {
+      return res.status(409).json({ success: false, message: "Only pending reimbursement requests can be edited" });
+    }
+
+    const newReceiptFiles = req.files?.map((file) => file.path) || [];
+    const validation = validateReimbursementInput(req.body, {
+      existingReceiptCount: newReceiptFiles.length ? 0 : request.receiptFiles.length,
+      newReceiptCount: newReceiptFiles.length,
+    });
+    if (!validation.valid) return res.status(400).json({ success: false, message: validation.message });
+
+    const previousValues = reimbursementSnapshot(request);
+    const next = validation.value;
+    const updatedReceiptFiles = newReceiptFiles.length ? newReceiptFiles : request.receiptFiles;
+    const updatedValues = { ...next, receiptFiles: [...updatedReceiptFiles] };
+    const changedFields = Object.keys(updatedValues).filter((field) =>
+      JSON.stringify(previousValues[field]) !== JSON.stringify(updatedValues[field])
+    );
+    if (!changedFields.length) {
+      return res.status(400).json({ success: false, message: "No reimbursement details were changed" });
+    }
+
+    Object.assign(request, next, { receiptFiles: updatedReceiptFiles });
+    request.tlStatus = req.user.role === "TeamLeader" ? "Approved" : "Pending";
+    request.tlApprovedBy = null;
+    request.tlApprovedAt = null;
+    request.tlRejectionReason = "";
+    request.managerStatus = "Pending";
+    request.managerApprovedBy = null;
+    request.managerApprovedAt = null;
+    request.managerRejectionReason = "";
+    request.hrStatus = "Pending";
+    request.hrApprovedBy = null;
+    request.hrApprovedAt = null;
+    request.hrRejectionReason = "";
+    request.financeStatus = "Not Routed";
+    request.finalStatus = "Pending Final Approval";
+    request.rejectionReason = "";
+    request.lastEditedBy = req.user._id;
+    request.lastEditedAt = new Date();
+    request.editHistory.push({
+      editedBy: req.user._id,
+      editedAt: request.lastEditedAt,
+      changedFields,
+      previousValues,
+      updatedValues,
+    });
+    request.approvalHistory.push({
+      level: req.user.role === "TeamLeader" ? "TeamLeader" : "Employee",
+      action: "Edited",
+      actedBy: req.user._id,
+      remarks: `Updated fields: ${changedFields.join(", ")}`,
+    });
+    await request.save();
+
+    await notifyReimbursementApprovers({
+      request,
+      employee: req.user,
+      title: "Reimbursement Request Updated",
+      message: `${req.user.name} updated their reimbursement request.`,
+    }).catch((notificationError) => console.error(
+      "REIMBURSEMENT UPDATE NOTIFICATION ERROR:",
+      notificationError
+    ));
+    return res.status(200).json({ success: true, message: "Reimbursement request updated successfully", reimbursementRequest: request });
+  } catch (error) {
+    console.error("UPDATE REIMBURSEMENT ERROR:", error);
+    return res.status(error.name === "CastError" ? 400 : 500).json({
+      success: false,
+      message: error.name === "CastError" ? "Invalid reimbursement request ID" : error.message || "Unable to update reimbursement request",
+    });
+  }
+};
+
+export const deleteMyReimbursementRequest = async (req, res) => {
+  try {
+    const request = await ReimbursementRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ success: false, message: "Reimbursement request not found" });
+    if (request.employeeId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: "You can delete only your own reimbursement request" });
+    }
+    if (!canDeleteOwnReimbursement(request, req.user._id)) {
+      return res.status(409).json({ success: false, message: "Approved or paid reimbursement requests cannot be deleted" });
+    }
+
+    request.isDeleted = true;
+    request.deletedAt = new Date();
+    request.deletedBy = req.user._id;
+    await request.save();
+    await notifyReimbursementApprovers({
+      request,
+      employee: req.user,
+      title: "Reimbursement Request Deleted",
+      message: `${req.user.name} deleted their reimbursement request.`,
+    }).catch((notificationError) => console.error(
+      "REIMBURSEMENT DELETE NOTIFICATION ERROR:",
+      notificationError
+    ));
+    return res.status(200).json({ success: true, message: "Reimbursement request deleted successfully" });
+  } catch (error) {
+    console.error("DELETE REIMBURSEMENT ERROR:", error);
+    return res.status(error.name === "CastError" ? 400 : 500).json({
+      success: false,
+      message: error.name === "CastError" ? "Invalid reimbursement request ID" : "Unable to delete reimbursement request",
     });
   }
 };

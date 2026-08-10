@@ -27,10 +27,10 @@ export const getLeaveDurationLabel = (leave) => {
   return `${formatDate(leave.startDate)} to ${formatDate(leave.endDate)}`;
 };
 
-export const buildLeaveRequestEmail = ({ employeeName, leaveType, startDate, endDate, workingDays, reason, status, reviewUrl }) => `
+export const buildLeaveRequestEmail = ({ employeeName, leaveType, startDate, endDate, workingDays, reason, status, reviewUrl, notificationTitle = "New Leave Request" }) => `
   <div style="font-family:Arial,sans-serif;color:#14231d;line-height:1.5;max-width:680px;margin:auto">
-    <h2 style="color:#075b45">New Leave Request</h2>
-    <p>A new leave request has been submitted and is ready for review.</p>
+    <h2 style="color:#075b45">${escapeHtml(notificationTitle)}</h2>
+    <p>A leave request has changed and may require your attention.</p>
     ${detailsTable([
       ["Employee", employeeName], ["Leave type", leaveType],
       ["Start date", formatDate(startDate)], ["End date", formatDate(endDate)],
@@ -55,4 +55,3 @@ export const buildDailyLeaveSummaryEmail = ({ date, leaves, scopeLabel }) => {
     </table>
   </div>`;
 };
-

@@ -4,6 +4,7 @@ import {
   createLeaveRequest,
   updateMyLeaveRequest,
   cancelMyLeaveRequest,
+  deleteMyLeaveRequest,
   getMyLeaveRequests,
 
   getPendingTLRequests,
@@ -54,6 +55,11 @@ router.patch(
   "/request/:id/cancel",
   protect,
   cancelMyLeaveRequest
+);
+router.delete(
+  "/request/:id",
+  protect,
+  deleteMyLeaveRequest
 );
 
 router.get(
