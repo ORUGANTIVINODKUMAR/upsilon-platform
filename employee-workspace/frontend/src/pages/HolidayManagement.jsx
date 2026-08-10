@@ -2,19 +2,28 @@ import { useEffect, useState } from "react";
 import {
   Plus,
   Trash2,
-  CalendarDays,
   Sparkles,
   ShieldCheck,
+  X,
 } from "lucide-react";
 
 import api from "../api/api";
-import { useAuth } from "../context/AuthContext";
+import useConfirm from "../components/ui/useConfirm";
+import { useAuth } from "../context/useAuth";
+import { EmptyState, ErrorState, LoadingState } from "../components/ui/StatePanel";
 
 const HolidayManagement = () => {
+  const confirmAction = useConfirm();
   const { user } = useAuth();
 
   const [holidays, setHolidays] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState("");
+  const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
+  const [message, setMessage] = useState("");
 
   const canManageHolidays = ["Admin", "Manager", "HR"].includes(user?.role);
 
@@ -27,15 +36,20 @@ const HolidayManagement = () => {
 
   const fetchHolidays = async () => {
     try {
+      setLoading(true);
       const { data } = await api.get("/holidays");
       setHolidays(data.holidays || []);
-    } catch (error) {
-      alert(error.response?.data?.message || "Unable to fetch holidays");
+      setError("");
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to fetch holidays");
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchHolidays();
+    const initialLoad = window.setTimeout(fetchHolidays, 0);
+    return () => window.clearTimeout(initialLoad);
   }, []);
 
   const handleChange = (e) => {
@@ -58,35 +72,50 @@ const HolidayManagement = () => {
     e.preventDefault();
 
     if (!canManageHolidays) {
-      alert("You are not allowed to add holidays.");
+      setFormError("You are not allowed to add holidays.");
       return;
     }
 
     try {
+      setIsSubmitting(true);
+      setFormError("");
+      setMessage("");
       await api.post("/holidays", formData);
-      alert("Holiday added successfully");
 
       resetForm();
       setShowModal(false);
-      fetchHolidays();
-    } catch (error) {
-      alert(error.response?.data?.message || "Unable to add holiday");
+      await fetchHolidays();
+      setMessage("Holiday added successfully.");
+    } catch (requestError) {
+      setFormError(requestError.response?.data?.message || "Unable to add holiday");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id) => {
     if (!canManageHolidays) {
-      alert("You are not allowed to delete holidays.");
+      setError("You are not allowed to delete holidays.");
       return;
     }
 
-    if (!window.confirm("Delete this holiday?")) return;
+    if (!await confirmAction({
+      title: "Delete this holiday?",
+      description: "Working-day calculations for future leave requests may change after removal.",
+      confirmLabel: "Delete holiday",
+    })) return;
 
     try {
+      setDeletingId(id);
+      setError("");
+      setMessage("");
       await api.delete(`/holidays/${id}`);
-      fetchHolidays();
-    } catch (error) {
-      alert(error.response?.data?.message || "Unable to delete holiday");
+      await fetchHolidays();
+      setMessage("Holiday deleted successfully.");
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to delete holiday");
+    } finally {
+      setDeletingId("");
     }
   };
 
@@ -110,13 +139,24 @@ const HolidayManagement = () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const upcomingHolidays = holidays.filter((item) => {
+  const sortedHolidays = [...holidays].sort(
+    (first, second) => new Date(first.holidayDate) - new Date(second.holidayDate),
+  );
+
+  const upcomingHolidays = sortedHolidays.filter((item) => {
     const holidayDate = new Date(item.holidayDate);
     holidayDate.setHours(0, 0, 0, 0);
     return holidayDate >= today;
   });
 
   const nextHoliday = upcomingHolidays[0];
+
+  const closeModal = () => {
+    if (isSubmitting) return;
+    setShowModal(false);
+    setFormError("");
+    resetForm();
+  };
 
   return (
     <>
@@ -131,7 +171,10 @@ const HolidayManagement = () => {
         {canManageHolidays && (
           <button
             className="btn btn-primary"
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              setFormError("");
+              setShowModal(true);
+            }}
           >
             <Plus size={18} />
             Add Holiday
@@ -139,15 +182,19 @@ const HolidayManagement = () => {
         )}
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1.3fr 0.7fr",
-          gap: "20px",
-          marginBottom: "24px",
-        }}
-      >
+      {error && (
+        <ErrorState
+          title="Holiday calendar unavailable"
+          description={error}
+          action={<button type="button" className="btn" onClick={fetchHolidays}>Try again</button>}
+          compact
+        />
+      )}
+      {message && <div className="alert alert-success" role="status" aria-live="polite">{message}</div>}
+
+      <div className="holiday-overview-grid">
         <div
+          className="holiday-hero-card"
           style={{
             background: "linear-gradient(135deg, #064e3b, #16a34a)",
             borderRadius: "24px",
@@ -178,7 +225,7 @@ const HolidayManagement = () => {
 
             <p style={{ fontSize: "16px", opacity: 0.9 }}>
               {nextHoliday
-                ? `${formatDate(nextHoliday.holidayDate)} • ${nextHoliday.type}`
+                ? `${formatDate(nextHoliday.holidayDate)} - ${nextHoliday.type}`
                 : "No upcoming holiday configured yet."}
             </p>
           </div>
@@ -241,17 +288,11 @@ const HolidayManagement = () => {
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-          gap: "18px",
-          marginTop: "24px",
-        }}
-      >
-        {holidays.map((holiday) => (
+      <div className="holiday-card-grid">
+        {sortedHolidays.map((holiday) => (
           <div
             key={holiday._id}
+            className="holiday-card"
             style={{
               background: "#ffffff",
               border: "1px solid #e5e7eb",
@@ -328,11 +369,13 @@ const HolidayManagement = () => {
 
               {canManageHolidays ? (
                 <button
+                  type="button"
                   className="delete-icon-btn"
                   onClick={() => handleDelete(holiday._id)}
+                  disabled={deletingId === holiday._id}
                 >
                   <Trash2 size={14} />
-                  Delete
+                  {deletingId === holiday._id ? "Deleting..." : "Delete"}
                 </button>
               ) : (
                 <span className="badge badge-success">View Only</span>
@@ -341,63 +384,76 @@ const HolidayManagement = () => {
           </div>
         ))}
 
-        {holidays.length === 0 && (
-          <div className="modern-section-card">
-            <CalendarDays size={28} />
-            <h3>No holidays found</h3>
-            <p>Add company holidays to display them here.</p>
-          </div>
+        {loading && holidays.length === 0 && <LoadingState label="Loading holidays..." />}
+        {!loading && holidays.length === 0 && (
+          <EmptyState
+            title="No holidays found"
+            description={canManageHolidays ? "Add a company holiday to display it here." : "No company holidays have been configured yet."}
+          />
         )}
       </div>
 
       {showModal && canManageHolidays && (
         <div className="modal-overlay">
-          <div className="modal-card modern-department-modal">
+          <div
+            className="modal-card modern-department-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-holiday-title"
+          >
             <div className="modal-header">
-              <h3>Add Holiday</h3>
+              <h3 id="add-holiday-title">Add Holiday</h3>
 
               <button
-                onClick={() => {
-                  setShowModal(false);
-                  resetForm();
-                }}
+                type="button"
+                onClick={closeModal}
+                disabled={isSubmitting}
+                aria-label="Close add holiday dialog"
               >
-                ✕
+                <X size={18} aria-hidden="true" />
               </button>
             </div>
 
+            {formError && <ErrorState title="Holiday not saved" description={formError} compact />}
+
             <form className="auth-form" onSubmit={handleSubmit}>
               <div className="input-group">
-                <label>Holiday Name</label>
+                <label htmlFor="holiday-name">Holiday Name</label>
 
                 <input
+                  id="holiday-name"
                   name="name"
                   placeholder="Example: Diwali"
                   value={formData.name}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                   required
                 />
               </div>
 
               <div className="input-group">
-                <label>Holiday Date</label>
+                <label htmlFor="holiday-date">Holiday Date</label>
 
                 <input
+                  id="holiday-date"
                   type="date"
                   name="holidayDate"
                   value={formData.holidayDate}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                   required
                 />
               </div>
 
               <div className="input-group">
-                <label>Holiday Type</label>
+                <label htmlFor="holiday-type">Holiday Type</label>
 
                 <select
+                  id="holiday-type"
                   name="type"
                   value={formData.type}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 >
                   <option value="Company">Company</option>
                   <option value="National">National</option>
@@ -407,19 +463,21 @@ const HolidayManagement = () => {
               </div>
 
               <div className="input-group">
-                <label>Description</label>
+                <label htmlFor="holiday-description">Description</label>
 
                 <textarea
+                  id="holiday-description"
                   name="description"
                   rows="3"
                   placeholder="Optional description"
                   value={formData.description}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 />
               </div>
 
-              <button className="btn btn-primary" type="submit">
-                Create Holiday
+              <button className="btn btn-primary" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Creating..." : "Create Holiday"}
               </button>
             </form>
           </div>

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import api from "../api/api";
+import useConfirm from "../components/ui/useConfirm";
 
 const USERS_PER_PAGE = 10;
 
@@ -42,6 +43,7 @@ const EMPTY_FORM_DATA = {
 };
 
 const AdminUsers = () => {
+  const confirmAction = useConfirm();
   const [users, setUsers] =
     useState([]);
 
@@ -198,6 +200,8 @@ const AdminUsers = () => {
   };
 
   useEffect(() => {
+    // Synchronize user-management data and subscribe to related updates.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAllData();
 
     const handleTeamsUpdated =
@@ -250,6 +254,8 @@ const AdminUsers = () => {
         handleUsersUpdated
       );
     };
+    // The loader is intentionally captured for this mounted page lifecycle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeManagers =
@@ -359,6 +365,8 @@ const AdminUsers = () => {
     if (
       currentPage > totalPages
     ) {
+      // Keep pagination inside the current filtered result set.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
@@ -693,10 +701,12 @@ const AdminUsers = () => {
       return;
     }
 
-    const confirmed =
-      window.confirm(
-        `Reset the password for ${selectedResetUser.name}?`
-      );
+    const confirmed = await confirmAction({
+      title: `Reset ${selectedResetUser.name}'s password?`,
+      description: "Their existing password will stop working and they will be required to use the temporary password.",
+      confirmLabel: "Reset password",
+      tone: "warning",
+    });
 
     if (!confirmed) {
       return;
@@ -1280,10 +1290,11 @@ const AdminUsers = () => {
 
   const handleDeactivate =
     async (user) => {
-      const confirmed =
-        window.confirm(
-          `Deactivate ${user.name}? Their attendance, leave, and reimbursement records will remain available.`
-        );
+      const confirmed = await confirmAction({
+        title: `Deactivate ${user.name}?`,
+        description: "They will lose workspace access. Their leave and reimbursement records will remain available for audit purposes.",
+        confirmLabel: "Deactivate user",
+      });
 
       if (!confirmed) {
         return;

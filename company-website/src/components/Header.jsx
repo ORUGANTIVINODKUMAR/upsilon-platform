@@ -123,14 +123,14 @@ function Header() {
           >
             Resources
           </NavLink>
-{/* Temporarily hidden
+
           <NavLink
             to="/careers"
             onClick={closeMenu}
           >
             Careers
           </NavLink>
-*/}
+
           <NavLink
             to="/contact"
             className="sales-btn"

@@ -1,6 +1,16 @@
-import { useEffect, useState } from "react";
-import { Wallet } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  CalendarCheck,
+  CalendarPlus,
+  History,
+  RefreshCw,
+  TriangleAlert,
+  Wallet,
+} from "lucide-react";
 import api from "../api/api";
+import PageHeader from "./ui/PageHeader";
+import { EmptyState, ErrorState, LoadingState } from "./ui/StatePanel";
+import StatusBadge from "./ui/StatusBadge";
 
 const formatNumber = (value) => Number(value || 0).toFixed(1).replace(/\.0$/, "");
 
@@ -15,15 +25,15 @@ const PersonalLeaveBalance = ({ compact = false }) => {
   const [balance, setBalance] = useState(null);
   const [error, setError] = useState("");
 
-  const loadBalance = async () => {
+  const loadBalance = useCallback(async () => {
     try {
+      setError("");
       const { data } = await api.get("/leave-balance/me");
       setBalance(data.balance);
-      setError("");
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Unable to load leave balance");
     }
-  };
+  }, []);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(loadBalance, 0);
@@ -32,62 +42,101 @@ const PersonalLeaveBalance = ({ compact = false }) => {
       window.clearTimeout(initialLoad);
       window.removeEventListener("leave-balance-updated", loadBalance);
     };
-  }, []);
+  }, [loadBalance]);
 
   if (error) {
-    return <div className="feedback-error">{error}</div>;
+    return (
+      <div className="leave-balance-card">
+        <ErrorState
+          compact={compact}
+          title="Unable to load leave balance"
+          description={error}
+          action={(
+            <button type="button" className="btn btn-secondary" onClick={loadBalance}>
+              <RefreshCw size={16} aria-hidden="true" />
+              Try again
+            </button>
+          )}
+        />
+      </div>
+    );
   }
 
   if (!balance) {
-    return <div className="leave-balance-card">Loading leave balance...</div>;
+    return (
+      <div className="leave-balance-card">
+        <LoadingState label="Loading leave balance" compact={compact} />
+      </div>
+    );
   }
 
   const items = [
-    ["Available Paid Leave", balance.availablePaidLeave],
-    ["Monthly Allocation", balance.monthlyAllocation],
-    ["Carry Forward", balance.carryForward],
-    ["Paid Leave Used", balance.paidLeaveUsed],
-    ["Excess / LOP", balance.excessLeaveDays],
+    {
+      label: "Available Paid Leave",
+      value: balance.availablePaidLeave,
+      description: "Ready to use",
+      icon: Wallet,
+    },
+    {
+      label: "Monthly Allocation",
+      value: balance.monthlyAllocation,
+      description: "Credited this period",
+      icon: CalendarPlus,
+    },
+    {
+      label: "Carry Forward",
+      value: balance.carryForward,
+      description: "Brought forward",
+      icon: History,
+    },
+    {
+      label: "Paid Leave Used",
+      value: balance.paidLeaveUsed,
+      description: "Approved leave taken",
+      icon: CalendarCheck,
+    },
+    {
+      label: "Excess / LOP",
+      value: balance.excessLeaveDays,
+      description: "Unpaid leave recorded",
+      icon: TriangleAlert,
+    },
   ];
 
   return (
-    <div className="leave-balance-card" style={{ height: "auto" }}>
-      <div className="balance-title">
-        <Wallet size={20} />
-        My Leave Balance
-      </div>
+    <section className="leave-balance-card" aria-labelledby="personal-leave-balance-title">
+      <PageHeader
+        eyebrow="Leave"
+        title={<span id="personal-leave-balance-title">My Leave Balance</span>}
+        description={compact ? undefined : "Review your paid leave allocation, usage and balance history."}
+        icon={Wallet}
+      />
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))",
-          gap: "12px",
-          marginTop: "16px",
-        }}
-      >
-        {items.map(([label, value]) => (
-          <div
-            key={label}
-            style={{
-              padding: "14px",
-              border: "1px solid #e5e7eb",
-              borderRadius: "12px",
-              background: label === "Excess / LOP" && Number(value) > 0 ? "#fff1f2" : "#f8fafc",
-            }}
-          >
-            <span style={{ display: "block", color: "#64748b", fontSize: "12px" }}>{label}</span>
-            <strong style={{ display: "block", marginTop: "5px", fontSize: "22px" }}>
-              {formatNumber(value)}
-            </strong>
-          </div>
+      <div className="modern-stats-grid" aria-label="Personal leave balance summary">
+        {items.map(({ label, value, description, icon: Icon }) => (
+          <article className="mini-stat-card" key={label}>
+            <Icon size={18} aria-hidden="true" />
+            <span>{label}</span>
+            <h3>{formatNumber(value)}</h3>
+            <p>{description}</p>
+          </article>
         ))}
       </div>
 
       {!compact && (
-        <div style={{ marginTop: "22px" }}>
-          <h3 style={{ marginBottom: "12px" }}>Balance History</h3>
+        <section aria-labelledby="leave-balance-history-title">
+          <div className="section-header">
+            <div>
+              <h3 id="leave-balance-history-title">Balance History</h3>
+              <p className="section-subtitle">
+                A chronological record of credits, adjustments and approved leave.
+              </p>
+            </div>
+          </div>
+
           <div className="table-wrapper modern-table-wrapper">
             <table className="custom-table">
+              <caption className="sr-only">Personal leave balance transaction history</caption>
               <thead>
                 <tr>
                   <th>Date</th>
@@ -99,25 +148,38 @@ const PersonalLeaveBalance = ({ compact = false }) => {
               <tbody>
                 {(balance.history || []).map((entry) => (
                   <tr key={entry._id}>
-                    <td>{new Date(entry.effectiveDate).toLocaleDateString()}</td>
-                    <td>{entryLabel(entry)}</td>
-                    <td>{entry.reason}</td>
                     <td>
-                      <strong style={{ color: entry.amount >= 0 ? "#15803d" : "#b91c1c" }}>
-                        {entry.amount >= 0 ? "+" : ""}{formatNumber(entry.amount)}
-                      </strong>
+                      <time dateTime={entry.effectiveDate}>
+                        {new Date(entry.effectiveDate).toLocaleDateString()}
+                      </time>
+                    </td>
+                    <td>{entryLabel(entry)}</td>
+                    <td>{entry.reason || "Not provided"}</td>
+                    <td>
+                      <StatusBadge
+                        status={entry.amount >= 0 ? "paid" : "rejected"}
+                        label={`${entry.amount >= 0 ? "+" : ""}${formatNumber(entry.amount)}`}
+                      />
                     </td>
                   </tr>
                 ))}
                 {(balance.history || []).length === 0 && (
-                  <tr><td colSpan="4" style={{ textAlign: "center" }}>No balance history found.</td></tr>
+                  <tr>
+                    <td colSpan="4">
+                      <EmptyState
+                        compact
+                        title="No balance history yet"
+                        description="Credits and approved leave will appear here."
+                      />
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
       )}
-    </div>
+    </section>
   );
 };
 

@@ -8,9 +8,16 @@ import {
   Pencil,
   History,
   Upload,
+  Clock3,
+  Trash2,
 } from "lucide-react";
 
 import api from "../api/api";
+import PersonalLeaveBalance from "../components/PersonalLeaveBalance";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
+import PageHeader from "../components/ui/PageHeader";
+import { EmptyState, LoadingState } from "../components/ui/StatePanel";
+import StatusBadge from "../components/ui/StatusBadge";
 
 const REQUESTS_PER_PAGE = 10;
 
@@ -22,6 +29,13 @@ const APPROVED_STATUSES = [
 const REJECTED_STATUSES = [
   "Rejected by Manager",
   "Rejected by HR",
+];
+
+const BLOCKING_STATUSES = [
+  "Pending Final Approval",
+  "Pending Reapproval",
+  "On Hold",
+  ...APPROVED_STATUSES,
 ];
 
 const EDITABLE_STATUSES = [
@@ -67,18 +81,6 @@ const formatDisplayDate = (value) => {
   }
 
   return new Date(value).toLocaleDateString();
-};
-
-const getStatusClassName = (status) => {
-  if (APPROVED_STATUSES.includes(status)) {
-    return "badge badge-success";
-  }
-
-  if (REJECTED_STATUSES.includes(status)) {
-    return "badge badge-danger";
-  }
-
-  return "badge badge-pending";
 };
 
 const getReadableFieldName = (field) => {
@@ -166,13 +168,37 @@ const LeaveRequests = () => {
   const [error, setError] =
     useState("");
 
-  const safeRequests = Array.isArray(requests)
-    ? requests
-    : [];
+  const [retrospectivePolicy, setRetrospectivePolicy] = useState({
+    maxPastDays: 7,
+    earliestAllowedDate: "",
+    today: "",
+  });
 
-  const todayDate = new Date()
-    .toISOString()
-    .split("T")[0];
+  const [requestToCancel, setRequestToCancel] = useState(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const safeRequests = useMemo(
+    () => (Array.isArray(requests) ? requests : []),
+    [requests]
+  );
+
+  const currentLocalDate = new Date();
+  const todayDate = [
+    currentLocalDate.getFullYear(),
+    String(currentLocalDate.getMonth() + 1).padStart(2, "0"),
+    String(currentLocalDate.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  const effectiveToday = retrospectivePolicy.today || todayDate;
+  const earliestPastDate = retrospectivePolicy.earliestAllowedDate || (() => {
+    const date = new Date(`${todayDate}T00:00:00`);
+    date.setDate(date.getDate() - retrospectivePolicy.maxPastDays);
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, "0"),
+      String(date.getDate()).padStart(2, "0"),
+    ].join("-");
+  })();
 
   const clearFeedback = () => {
     setMessage("");
@@ -192,6 +218,10 @@ const LeaveRequests = () => {
         data.requests ||
         []
       );
+
+      if (data.retrospectivePolicy) {
+        setRetrospectivePolicy(data.retrospectivePolicy);
+      }
     } catch (error) {
       console.error(
         "FETCH LEAVE REQUESTS ERROR:",
@@ -209,6 +239,8 @@ const LeaveRequests = () => {
   };
 
   useEffect(() => {
+    // Load the employee's leave workflow when this page is mounted.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchRequests();
   }, []);
 
@@ -270,6 +302,8 @@ const LeaveRequests = () => {
 
   useEffect(() => {
     if (currentPage > totalPages) {
+      // Keep pagination inside the current filtered result set.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCurrentPage(totalPages);
     }
   }, [
@@ -315,6 +349,11 @@ const LeaveRequests = () => {
           item.finalStatus ===
           "Pending Reapproval"
       ).length,
+    [safeRequests]
+  );
+
+  const cancelledCount = useMemo(
+    () => safeRequests.filter((item) => item.finalStatus === "Cancelled").length,
     [safeRequests]
   );
 
@@ -507,6 +546,15 @@ const LeaveRequests = () => {
       formData.endDate
     );
 
+  const isPastLeaveRequest = Boolean(
+    formData.startDate && formData.startDate < effectiveToday
+  );
+
+  const minimumSelectableStartDate = editingRequest &&
+    formatDateForInput(editingRequest.startDate) < earliestPastDate
+    ? formatDateForInput(editingRequest.startDate)
+    : earliestPastDate;
+
   const isEditingApprovedRequest =
     Boolean(
       editingRequest &&
@@ -532,6 +580,26 @@ const LeaveRequests = () => {
       new Date(formData.startDate)
     ) {
       return "End date cannot be earlier than start date.";
+    }
+
+    if (formData.startDate < earliestPastDate) {
+      return retrospectivePolicy.maxPastDays === 0
+        ? "Past leave requests are not currently allowed."
+        : `Past leave can only be requested within the last ${retrospectivePolicy.maxPastDays} days. Select ${earliestPastDate} or a later date.`;
+    }
+
+    const overlappingRequest = safeRequests.find((request) => {
+      if (request._id === editingRequest?._id || !BLOCKING_STATUSES.includes(request.finalStatus)) {
+        return false;
+      }
+
+      const requestStart = formatDateForInput(request.startDate);
+      const requestEnd = formatDateForInput(request.endDate);
+      return requestStart <= formData.endDate && requestEnd >= formData.startDate;
+    });
+
+    if (overlappingRequest) {
+      return `These dates overlap your ${overlappingRequest.finalStatus.toLowerCase()} request from ${formatDisplayDate(overlappingRequest.startDate)} to ${formatDisplayDate(overlappingRequest.endDate)}.`;
     }
 
     if (!formData.reason.trim()) {
@@ -690,6 +758,32 @@ const LeaveRequests = () => {
       setIsSubmitting(false);
     }
   };
+
+  const handleCancelRequest = async () => {
+    if (!requestToCancel) return;
+
+    try {
+      setIsCancelling(true);
+      clearFeedback();
+      const { data } = await api.patch(`/leave/request/${requestToCancel._id}/cancel`);
+      setMessage(data.message || "Leave request cancelled successfully.");
+      setRequestToCancel(null);
+      await fetchRequests();
+      window.dispatchEvent(new CustomEvent("leave-requests-updated"));
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.message || "Unable to cancel this leave request."
+      );
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const canCancelRequest = (request) => [
+    "Pending Final Approval",
+    "Pending Reapproval",
+    "On Hold",
+  ].includes(request.finalStatus);
 
   const getActionLabel = (
     request
@@ -869,29 +963,22 @@ const LeaveRequests = () => {
     "Approved by HR",
     "Rejected by Manager",
     "Rejected by HR",
+    "Cancelled",
   ];
   return (
     <>
-      <div className="section-header">
-        <div>
-          <h2 className="card-title">
-            Leave Requests
-          </h2>
-
-          <p className="section-subtitle">
-            Submit, edit, and track your leave requests.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={openCreateModal}
-        >
-          <Plus size={18} />
-          New Request
-        </button>
-      </div>
+      <PageHeader
+        eyebrow="Time away"
+        title="Leave Requests"
+        description={`Apply for upcoming leave or report absence from the last ${retrospectivePolicy.maxPastDays} days, then follow each approval.`}
+        icon={CalendarDays}
+        actions={(
+          <button type="button" className="btn btn-primary" onClick={openCreateModal}>
+            <Plus size={18} />
+            New Request
+          </button>
+        )}
+      />
 
       {message && (
         <div className="alert alert-success">
@@ -934,6 +1021,12 @@ const LeaveRequests = () => {
           <span>Rejected</span>
           <h3>{rejectedCount}</h3>
           <p>declined</p>
+        </div>
+
+        <div className="reimbursement-summary-card">
+          <span>Cancelled</span>
+          <h3>{cancelledCount}</h3>
+          <p>withdrawn by you</p>
         </div>
       </div>
 
@@ -988,6 +1081,7 @@ const LeaveRequests = () => {
             <tr>
               <th>Leave Type</th>
               <th>Duration</th>
+              <th>Submitted</th>
               <th>Working Days</th>
               <th>Reason</th>
               <th>Status</th>
@@ -1002,13 +1096,13 @@ const LeaveRequests = () => {
             {isLoading && (
               <tr>
                 <td
-                  colSpan="9"
+                  colSpan="10"
                   style={{
                     textAlign: "center",
                     padding: "24px",
                   }}
                 >
-                  Loading leave requests...
+                  <LoadingState compact label="Loading leave requests" />
                 </td>
               </tr>
             )}
@@ -1045,6 +1139,14 @@ const LeaveRequests = () => {
                               </span>
                             </div>
                           )}
+
+                          {(item.requestKind === "Retrospective" ||
+                            formatDateForInput(item.startDate) < formatDateForInput(item.submittedAt || item.createdAt)) && (
+                            <span className="leave-request-kind">
+                              <Clock3 size={13} />
+                              Past Leave Request
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -1057,6 +1159,12 @@ const LeaveRequests = () => {
                       {formatDisplayDate(
                         item.endDate
                       )}
+                    </td>
+
+                    <td>
+                      <time dateTime={item.submittedAt || item.createdAt}>
+                        {formatDisplayDate(item.submittedAt || item.createdAt)}
+                      </time>
                     </td>
 
                     <td>
@@ -1102,13 +1210,7 @@ const LeaveRequests = () => {
                     </td>
 
                     <td>
-                      <span
-                        className={getStatusClassName(
-                          item.finalStatus
-                        )}
-                      >
-                        {item.finalStatus}
-                      </span>
+                      <StatusBadge status={item.finalStatus} />
                     </td>
 
                     <td>
@@ -1201,6 +1303,17 @@ const LeaveRequests = () => {
                           </button>
                         )}
 
+                        {canCancelRequest(item) && (
+                          <button
+                            type="button"
+                            className="btn btn-danger"
+                            onClick={() => setRequestToCancel(item)}
+                          >
+                            <Trash2 size={14} />
+                            Cancel
+                          </button>
+                        )}
+
                         {Array.isArray(
                           item.editHistory
                         ) &&
@@ -1241,13 +1354,24 @@ const LeaveRequests = () => {
               filteredRequests.length === 0 && (
                 <tr>
                   <td
-                    colSpan="9"
+                    colSpan="10"
                     style={{
                       textAlign: "center",
                       padding: "24px",
                     }}
                   >
-                    No leave requests found.
+                    <EmptyState
+                      compact
+                      title={searchTerm || activeFilter !== "All" ? "No matching requests" : "No leave requests yet"}
+                      description={searchTerm || activeFilter !== "All"
+                        ? "Try a different search term or status filter."
+                        : "Create your first request when you need time away."}
+                      action={!searchTerm && activeFilter === "All" ? (
+                        <button type="button" className="btn btn-primary" onClick={openCreateModal}>
+                          <Plus size={16} /> New request
+                        </button>
+                      ) : undefined}
+                    />
                   </td>
                 </tr>
               )}
@@ -1380,12 +1504,23 @@ const LeaveRequests = () => {
             )}
 
             <form
-              className="auth-form"
+              className="auth-form leave-request-form-shell"
               onSubmit={handleSubmit}
-              style={{
-                padding: "0 20px 20px",
-              }}
             >
+              <PersonalLeaveBalance compact />
+
+              {isPastLeaveRequest && (
+                <div className="past-leave-notice" role="status">
+                  <Clock3 size={20} aria-hidden="true" />
+                  <div>
+                    <strong>Past Leave Request</strong>
+                    <span>
+                      This absence is before today. It will be recorded as a retrospective request and follow the normal approval workflow.
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div className="grid-2">
                 <div className="input-group">
                   <label>Leave Type</label>
@@ -1433,16 +1568,15 @@ const LeaveRequests = () => {
                   <input
                     type="date"
                     name="startDate"
-                    min={
-                      editingRequest
-                        ? undefined
-                        : todayDate
-                    }
+                    min={minimumSelectableStartDate}
                     value={formData.startDate}
                     onChange={handleStartDateChange}
                     disabled={isSubmitting}
                     required
                   />
+                  <small className="leave-date-help">
+                    Past leave is accepted from {formatDisplayDate(earliestPastDate)} onward.
+                  </small>
                 </div>
 
                 <div className="input-group">
@@ -1452,10 +1586,7 @@ const LeaveRequests = () => {
                     type="date"
                     name="endDate"
                     min={
-                      formData.startDate ||
-                      (!editingRequest
-                        ? todayDate
-                        : undefined)
+                      formData.startDate || minimumSelectableStartDate
                     }
                     disabled={
                       !formData.startDate ||
@@ -1647,6 +1778,18 @@ const LeaveRequests = () => {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(requestToCancel)}
+        title="Cancel this leave request?"
+        description={requestToCancel
+          ? `The ${requestToCancel.leaveType} request for ${formatDisplayDate(requestToCancel.startDate)} to ${formatDisplayDate(requestToCancel.endDate)} will be withdrawn from the approval queue. This action cannot be undone.`
+          : ""}
+        confirmLabel="Cancel request"
+        busy={isCancelling}
+        onCancel={() => !isCancelling && setRequestToCancel(null)}
+        onConfirm={handleCancelRequest}
+      />
 
       {showHistoryModal &&
         selectedHistoryRequest && (

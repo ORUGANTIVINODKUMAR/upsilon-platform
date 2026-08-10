@@ -10,10 +10,27 @@ import {
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../api/api";
+import useConfirm from "../components/ui/useConfirm";
+import StatusBadge from "../components/ui/StatusBadge";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../components/ui/StatePanel";
+
+const loadFinanceReimbursements = async () => {
+  const { data } = await api.get("/reimbursements/finance");
+
+  return data.reimbursementRequests || [];
+};
 
 const FinanceReimbursements = () => {
+  const confirmAction = useConfirm();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [processingId, setProcessingId] = useState(null);
+  const [feedback, setFeedback] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
@@ -39,8 +56,10 @@ const FinanceReimbursements = () => {
   const totalPages =
     Math.ceil(filteredRequests.length / RECORDS_PER_PAGE) || 1;
 
+  const visiblePage = Math.min(currentPage, totalPages);
+
   const startIndex =
-    (currentPage - 1) * RECORDS_PER_PAGE;
+    (visiblePage - 1) * RECORDS_PER_PAGE;
 
   const paginatedRequests =
     filteredRequests.slice(
@@ -49,33 +68,78 @@ const FinanceReimbursements = () => {
     );
   const fetchRequests = async () => {
     try {
-      const { data } = await api.get("/reimbursements/finance");
-      setRequests(data.reimbursementRequests || []);
+      setLoading(true);
+      setError("");
+
+      setRequests(await loadFinanceReimbursements());
     } catch (error) {
-      console.error(error.response?.data);
+      console.error("FETCH FINANCE REIMBURSEMENTS ERROR:", error.response?.data);
+      setError(
+        error.response?.data?.message ||
+        "Unable to load finance reimbursement records."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRequests();
+    let isCurrent = true;
+
+    loadFinanceReimbursements()
+      .then((financeRequests) => {
+        if (isCurrent) {
+          setRequests(financeRequests);
+        }
+      })
+      .catch((error) => {
+        console.error(
+          "FETCH FINANCE REIMBURSEMENTS ERROR:",
+          error.response?.data
+        );
+
+        if (isCurrent) {
+          setError(
+            error.response?.data?.message ||
+            "Unable to load finance reimbursement records."
+          );
+        }
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
   }, []);
 
   const handleMarkAsPaid = async (id) => {
-    const confirmPayment = window.confirm(
-      "Are you sure you want to mark this reimbursement as Paid?"
-    );
+    const confirmPayment = await confirmAction({
+      title: "Mark this reimbursement as paid?",
+      description: "This records the finance payment decision and notifies the employee.",
+      confirmLabel: "Mark as paid",
+      tone: "warning",
+    });
 
     if (!confirmPayment) return;
 
     try {
+      setProcessingId(id);
+      setFeedback(null);
       await api.put(`/reimbursements/mark-paid/${id}`);
-      alert("Reimbursement marked as paid successfully.");
-      fetchRequests();
+      setFeedback({ type: "success", message: "Reimbursement marked as paid successfully." });
+      await fetchRequests();
     } catch (error) {
-      alert(error.response?.data?.message || "Unable to mark as paid");
+      setFeedback({
+        type: "error",
+        message: error.response?.data?.message || "Unable to mark this reimbursement as paid.",
+      });
       console.error(error.response?.data);
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -150,16 +214,8 @@ const FinanceReimbursements = () => {
       "Finance_Reimbursements.xlsx"
     );
   };
-  if (loading) {
-    return (
-      <div className="modern-section-card">
-        <p>Loading finance reimbursement records...</p>
-      </div>
-    );
-  }
-
   return (
-    <>
+    <div aria-busy={loading || Boolean(processingId)}>
       <div className="section-header">
         <div>
           <h2 className="card-title">Finance Reimbursements</h2>
@@ -168,13 +224,47 @@ const FinanceReimbursements = () => {
           </p>
         </div>
         <button
+          type="button"
           className="btn btn-primary"
           onClick={exportToExcel}
+          disabled={safeRequests.length === 0 || loading}
         >
           Export Excel
         </button>
       </div>
 
+      {feedback && (
+        <div
+          className={`alert ${feedback.type === "success" ? "alert-success" : "alert-error"}`}
+          role={feedback.type === "error" ? "alert" : "status"}
+          aria-live="polite"
+        >
+          {feedback.message}
+        </div>
+      )}
+
+      {error && !loading && (
+        <ErrorState
+          title="Unable to load finance reimbursements"
+          description={error}
+          action={(
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={fetchRequests}
+            >
+              Try again
+            </button>
+          )}
+        />
+      )}
+
+      {loading && (
+        <LoadingState label="Loading finance reimbursement records…" />
+      )}
+
+      {!loading && !error && (
+        <>
       <div className="modern-stats-grid">
         <div className="mini-stat-card">
           <Users size={22} />
@@ -207,6 +297,7 @@ const FinanceReimbursements = () => {
       <div style={{ marginBottom: "18px" }}>
         <input
           type="text"
+          aria-label="Search finance reimbursement records"
           placeholder="Search employee, email or business purpose..."
           value={searchTerm}
           onChange={(e) => {
@@ -227,6 +318,8 @@ const FinanceReimbursements = () => {
         {["All", "Pending Payment", "Paid"].map((filter) => (
           <button
             key={filter}
+            type="button"
+            aria-pressed={activeFilter === filter}
             className={
               activeFilter === filter
                 ? "active-filter"
@@ -296,6 +389,7 @@ const FinanceReimbursements = () => {
                           target="_blank"
                           rel="noreferrer"
                           className="file-link"
+                          aria-label={`View receipt ${index + 1} for ${request.employeeId?.name || "employee"}`}
                         >
                           View Receipt {index + 1}
                         </a>
@@ -307,43 +401,35 @@ const FinanceReimbursements = () => {
                 </td>
 
                 <td>
-                  <span className="badge badge-success">
-                    {request.finalStatus}
-                  </span>
+                  <StatusBadge status={request.finalStatus} />
                 </td>
 
                 <td>
-                  <span
-                    className={
-                      request.financeStatus === "Paid"
-                        ? "badge badge-success"
-                        : request.financeStatus === "Pending Payment"
-                          ? "badge badge-pending"
-                          : "badge badge-danger"
-                    }
-                  >
-                    {request.financeStatus}
-                  </span>
+                  <StatusBadge status={request.financeStatus} />
                 </td>
 
                 <td>
                   {request.financeStatus === "Paid" ? (
-                    <span className="badge badge-success">Paid</span>
+                    <StatusBadge status="Paid" />
                   ) : (
                     <button
                       className="approve-btn"
                       type="button"
                       onClick={() => handleMarkAsPaid(request._id)}
+                      disabled={Boolean(processingId)}
+                      aria-label={`Mark reimbursement for ${request.employeeId?.name || "employee"} as paid`}
                     >
                       <CheckCircle size={16} />
-                      Mark as Paid
+                      {processingId === request._id
+                        ? "Processing…"
+                        : "Mark as Paid"}
                     </button>
                   )}
                 </td>
               </tr>
             ))}
 
-            {safeRequests.length === 0 && (
+            {filteredRequests.length === 0 && (
               <tr>
                 <td
                   colSpan="7"
@@ -352,7 +438,15 @@ const FinanceReimbursements = () => {
                     padding: "24px",
                   }}
                 >
-                  No approved reimbursement records found.
+                  <EmptyState
+                    compact
+                    title="No reimbursement records found"
+                    description={
+                      searchTerm || activeFilter !== "All"
+                        ? "Try changing your search or payment-status filter."
+                        : "Final-approved reimbursement claims will appear here."
+                    }
+                  />
                 </td>
               </tr>
             )}
@@ -370,8 +464,9 @@ const FinanceReimbursements = () => {
           }}
         >
           <button
+            type="button"
             className="btn btn-primary"
-            disabled={currentPage === 1}
+            disabled={visiblePage === 1}
             onClick={() =>
               setCurrentPage((prev) => prev - 1)
             }
@@ -382,10 +477,12 @@ const FinanceReimbursements = () => {
           {Array.from(
             { length: totalPages },
             (_, index) => (
-              <button
-                key={index + 1}
+                <button
+                  key={index + 1}
+                  type="button"
+                  aria-current={visiblePage === index + 1 ? "page" : undefined}
                 className={
-                  currentPage === index + 1
+                  visiblePage === index + 1
                     ? "btn btn-primary"
                     : "btn"
                 }
@@ -399,8 +496,9 @@ const FinanceReimbursements = () => {
           )}
 
           <button
+            type="button"
             className="btn btn-primary"
-            disabled={currentPage === totalPages}
+            disabled={visiblePage === totalPages}
             onClick={() =>
               setCurrentPage((prev) => prev + 1)
             }
@@ -409,7 +507,9 @@ const FinanceReimbursements = () => {
           </button>
         </div>
       )}
-    </>
+        </>
+      )}
+    </div>
   );
 };
 

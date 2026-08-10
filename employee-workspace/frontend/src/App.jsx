@@ -22,7 +22,7 @@ function App() {
       <Route
         path="/finance-leaves"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={["Finance"]}>
             <FinanceLeaves />
           </ProtectedRoute>
         }
@@ -31,7 +31,7 @@ function App() {
       <Route
         path="/finance-reimbursements"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={["Finance"]}>
             <FinanceReimbursements />
           </ProtectedRoute>
         }
@@ -39,7 +39,7 @@ function App() {
       <Route
         path="/leave-calendar"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={["Admin", "Manager", "HR", "Finance"]}>
             <LeaveCalendar />
           </ProtectedRoute>
         }

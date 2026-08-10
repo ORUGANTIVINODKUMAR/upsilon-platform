@@ -1,17 +1,19 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import {
   ShieldCheck,
   CalendarCheck,
   Receipt,
   Clock,
+  LoaderCircle,
 } from "lucide-react";
 
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import logo from "../assets/logo.png";
+import { ErrorState } from "../components/ui/StatePanel";
 
 const Login = () => {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -45,13 +47,7 @@ const Login = () => {
         formData.password
       );
 
-      localStorage.removeItem("activePage");
-      localStorage.setItem(
-        "activePage",
-        "dashboard"
-      );
-
-      navigate("/dashboard");
+      navigate("/dashboard", { replace: true });
     } catch (error) {
       setError(
         error.response?.data?.message ||
@@ -61,6 +57,10 @@ const Login = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const features = [
     {
@@ -83,7 +83,7 @@ const Login = () => {
 
   return (
     <main className="login-page">
-      <section className="login-brand-panel">
+      <section className="login-brand-panel" aria-label="Upsilon Employee Workspace">
         <div className="login-brand-content">
           <img
             src={logo}
@@ -122,7 +122,7 @@ const Login = () => {
         </div>
       </section>
 
-      <section className="login-form-panel">
+      <section className="login-form-panel" aria-labelledby="login-title">
         <div className="auth-card login-card">
           <div className="auth-logo login-card-header">
             <img
@@ -131,20 +131,25 @@ const Login = () => {
               className="login-card-logo"
             />
 
-            <h1>Sign in to Upsilon</h1>
+            <h1 id="login-title">Sign in to Upsilon</h1>
 
             <p>Employee Management Portal</p>
           </div>
 
           {error && (
-            <div className="alert alert-error">
-              {error}
+            <div id="login-error">
+              <ErrorState
+                compact
+                title="Unable to sign in"
+                description={error}
+              />
             </div>
           )}
 
           <form
             className="auth-form"
             onSubmit={handleSubmit}
+            aria-busy={isSubmitting}
           >
             <div className="input-group">
               <label htmlFor="login-email">
@@ -160,6 +165,8 @@ const Login = () => {
                 onChange={handleChange}
                 autoComplete="email"
                 disabled={isSubmitting}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? "login-error" : undefined}
                 required
               />
             </div>
@@ -178,6 +185,8 @@ const Login = () => {
                 onChange={handleChange}
                 autoComplete="current-password"
                 disabled={isSubmitting}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? "login-error" : undefined}
                 required
               />
             </div>
@@ -187,9 +196,12 @@ const Login = () => {
               className="btn btn-primary login-submit-button"
               disabled={isSubmitting}
             >
-              {isSubmitting
-                ? "Signing in..."
-                : "Sign In"}
+              {isSubmitting && (
+                <LoaderCircle className="ui-spin" size={17} aria-hidden="true" />
+              )}
+              <span aria-live="polite">
+                {isSubmitting ? "Signing in…" : "Sign In"}
+              </span>
             </button>
           </form>
         </div>

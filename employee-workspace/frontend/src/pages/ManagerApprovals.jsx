@@ -23,7 +23,8 @@ import {
 } from "lucide-react";
 
 import api from "../api/api";
-import { useAuth } from "../context/AuthContext";
+import useConfirm from "../components/ui/useConfirm";
+import { useAuth } from "../context/useAuth";
 
 const STATUS_FILTERS = [
   "All",
@@ -208,6 +209,7 @@ const getApprovalDotClass = (
 };
 
 const ManagerApprovals = () => {
+  const confirmAction = useConfirm();
   const { user } = useAuth();
 
   const [allRequests, setAllRequests] =
@@ -359,7 +361,11 @@ const ManagerApprovals = () => {
   };
 
   useEffect(() => {
+    // Load the manager/HR approval queue on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadRequests();
+    // The loader intentionally captures the initial reviewer context.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -741,12 +747,14 @@ const ManagerApprovals = () => {
       request.finalStatus ===
       "Pending Reapproval";
 
-    const confirmed =
-      window.confirm(
-        isReapproval
-          ? "Reapprove this updated leave request?"
-          : "Approve this leave request?"
-      );
+    const confirmed = await confirmAction({
+      title: isReapproval
+        ? "Reapprove this updated leave request?"
+        : "Approve this leave request?",
+      description: "This records a final approval decision and may notify Finance and update the employee's leave balance.",
+      confirmLabel: isReapproval ? "Reapprove request" : "Approve request",
+      tone: "warning",
+    });
 
     if (!confirmed) {
       return;

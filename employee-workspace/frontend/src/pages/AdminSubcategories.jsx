@@ -1,20 +1,51 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Building2 } from "lucide-react";
+import {
+  Building2,
+  Crown,
+  Network,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  UserCog,
+  UsersRound,
+  X,
+} from "lucide-react";
 import api from "../api/api";
+import useConfirm from "../components/ui/useConfirm";
+import { EmptyState, ErrorState, LoadingState } from "../components/ui/StatePanel";
+import UserAvatar from "../components/ui/UserAvatar";
 
 const AdminSubcategories = () => {
+  const confirmAction = useConfirm();
   const [name, setName] = useState("");
   const [subcategories, setSubcategories] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState("");
+  const [viewingId, setViewingId] = useState("");
+  const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
+  const [message, setMessage] = useState("");
 
   const fetchSubcategories = async () => {
-    const { data } = await api.get("/admin/subcategories");
-    setSubcategories(data.subcategories || []);
+    try {
+      setLoading(true);
+      const { data } = await api.get("/admin/subcategories");
+      setSubcategories(data.subcategories || []);
+      setError("");
+      return data.subcategories || [];
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to load departments.");
+      return null;
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    fetchSubcategories();
+    const initialLoad = window.setTimeout(fetchSubcategories, 0);
 
     const handleUsersUpdated = () => {
       fetchSubcategories();
@@ -35,6 +66,7 @@ const AdminSubcategories = () => {
     );
 
     return () => {
+      window.clearTimeout(initialLoad);
       window.removeEventListener(
         "users-updated",
         handleUsersUpdated
@@ -50,31 +82,67 @@ const AdminSubcategories = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    await api.post("/admin/subcategories", {
-      name,
-    });
+    try {
+      setIsSubmitting(true);
+      setFormError("");
+      setMessage("");
+      await api.post("/admin/subcategories", {
+        name: name.trim(),
+      });
 
-    setName("");
-    setShowModal(false);
+      setName("");
+      setShowModal(false);
+      await fetchSubcategories();
+      setMessage("Department created successfully.");
 
-    await fetchSubcategories();
-
-    window.dispatchEvent(
-      new CustomEvent("departments-updated")
-    );
+      window.dispatchEvent(
+        new CustomEvent("departments-updated")
+      );
+    } catch (requestError) {
+      setFormError(requestError.response?.data?.message || "Unable to create department.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete this department?")) return;
+    if (!await confirmAction({
+      title: "Delete this department?",
+      description: "The department can only be deleted when no employees or teams depend on it.",
+      confirmLabel: "Delete department",
+    })) return;
 
     try {
+      setDeletingId(id);
+      setError("");
+      setMessage("");
       await api.delete(`/admin/subcategories/${id}`);
       await fetchSubcategories();
-    } catch (error) {
-      alert(
-        error.response?.data?.message ||
+      setMessage("Department deleted successfully.");
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.message ||
         "Users are associated with this department. You cannot delete it."
       );
+    } finally {
+      setDeletingId("");
+    }
+  };
+
+  const viewDepartment = async (department) => {
+    try {
+      setViewingId(department._id);
+      setError("");
+      const { data } = await api.get("/admin/subcategories");
+      const updated = (data.subcategories || []).find(
+        (item) => item._id === department._id
+      );
+      setSubcategories(data.subcategories || []);
+      setSelectedDepartment(updated || department);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to load department details.");
+    } finally {
+      setViewingId("");
     }
   };
 
@@ -108,11 +176,28 @@ const AdminSubcategories = () => {
           </p>
         </div>
 
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => {
+            setFormError("");
+            setShowModal(true);
+          }}
+        >
           <Plus size={18} />
           Add Department
         </button>
       </div>
+
+      {error && (
+        <ErrorState
+          title="Department management unavailable"
+          description={error}
+          action={<button type="button" className="btn" onClick={fetchSubcategories}>Try again</button>}
+          compact
+        />
+      )}
+      {message && <div className="alert alert-success" role="status" aria-live="polite">{message}</div>}
 
       <div className="reimbursement-summary-grid">
         <div className="reimbursement-summary-card">
@@ -144,15 +229,15 @@ const AdminSubcategories = () => {
         <table className="custom-table">
           <thead>
             <tr>
-              <th>Department</th>
-              <th>Employees</th>
-              <th>TL</th>
-              <th>Managers</th>
-              <th>HR</th>
-              <th>Total Users</th>
-              <th>Created</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th scope="col">Department</th>
+              <th scope="col">Employees</th>
+              <th scope="col">TL</th>
+              <th scope="col">Managers</th>
+              <th scope="col">HR</th>
+              <th scope="col">Total Users</th>
+              <th scope="col">Created</th>
+              <th scope="col">Status</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
 
@@ -201,20 +286,12 @@ const AdminSubcategories = () => {
 
                     {item.userCount > 0 && (
                       <button
+                        type="button"
                         className="btn btn-secondary"
-                        onClick={async () => {
-                          const { data } = await api.get("/admin/subcategories");
-
-                          setSubcategories(data.subcategories || []);
-
-                          const updated = data.subcategories.find(
-                            (d) => d._id === item._id
-                          );
-
-                          setSelectedDepartment(updated || item);
-                        }}
+                        onClick={() => viewDepartment(item)}
+                        disabled={viewingId === item._id}
                       >
-                        View
+                        {viewingId === item._id ? "Loading..." : "View"}
                       </button>
                     )}
                   </div>
@@ -228,21 +305,27 @@ const AdminSubcategories = () => {
 
                 <td>
                   <button
+                    type="button"
                     className="delete-icon-btn"
                     onClick={() => handleDelete(item._id)}
+                    disabled={deletingId === item._id}
                   >
                     <Trash2 size={16} />
-                    Delete
+                    {deletingId === item._id ? "Deleting..." : "Delete"}
                   </button>
                 </td>
               </tr>
             ))}
 
-            {subcategories.length === 0 && (
+            {loading && subcategories.length === 0 && (
               <tr>
-                <td colSpan="9" style={{ textAlign: "center", padding: "24px" }}>
-                  No departments found.
-                </td>
+                <td colSpan="9"><LoadingState label="Loading departments..." compact /></td>
+              </tr>
+            )}
+
+            {!loading && subcategories.length === 0 && (
+              <tr>
+                <td colSpan="9"><EmptyState title="No departments found" description="Create a department to begin organizing users and teams." compact /></td>
               </tr>
             )}
           </tbody>
@@ -251,111 +334,158 @@ const AdminSubcategories = () => {
 
       {selectedDepartment && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ maxWidth: "850px", width: "95%" }}>
-            <div className="modal-header">
-              <h3>{selectedDepartment.name} Users</h3>
+          <div
+            className="modal-card department-details-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="department-users-title"
+          >
+            <div className="modal-header department-details-header">
+              <div className="department-details-heading">
+                <span className="department-details-icon" aria-hidden="true">
+                  <Building2 size={22} />
+                </span>
+                <div>
+                  <span className="ui-eyebrow">Department overview</span>
+                  <h3 id="department-users-title">{selectedDepartment.name}</h3>
+                  <p>
+                    {selectedDepartment.userCount || 0} assigned users across{" "}
+                    {selectedDepartment.teams?.length || 0} teams
+                  </p>
+                </div>
+              </div>
 
-              <button onClick={() => setSelectedDepartment(null)}>
-                ✕
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setSelectedDepartment(null)}
+                aria-label="Close department details"
+              >
+                <X size={18} aria-hidden="true" />
               </button>
             </div>
 
-            <div style={{ padding: "20px" }}>
-              <div className="reimbursement-summary-grid">
-                <div className="reimbursement-summary-card">
-                  <span>Employees</span>
-                  <h3>{selectedDepartment.employeeCount || 0}</h3>
-                </div>
-
-                <div className="reimbursement-summary-card">
-                  <span>Team Leaders</span>
-                  <h3>{selectedDepartment.teamLeaderCount || 0}</h3>
-                </div>
-
-                <div className="reimbursement-summary-card">
-                  <span>Managers</span>
-                  <h3>{selectedDepartment.managerCount || 0}</h3>
-                </div>
-
-                <div className="reimbursement-summary-card">
-                  <span>HR</span>
-                  <h3>{selectedDepartment.hrCount || 0}</h3>
-                </div>
-              </div>
-
-              <h3 style={{ margin: "24px 0 16px" }}>
-                Department Teams
-              </h3>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))",
-                  gap: "20px",
-                }}
-              >
-                {selectedDepartment.teams?.map((team) => (
-                  <div
-                    key={team._id}
-                    className="team-hierarchy-card"
-                  >
-                    <div className="team-card-header">
-                      <h4>{team.name}</h4>
+            <div className="department-details-content">
+              <div className="department-metric-grid" aria-label="Department role summary">
+                {[
+                  ["Employees", selectedDepartment.employeeCount, UsersRound, "success"],
+                  ["Team Leaders", selectedDepartment.teamLeaderCount, Crown, "info"],
+                  ["Managers", selectedDepartment.managerCount, UserCog, "warning"],
+                  ["HR Partners", selectedDepartment.hrCount, ShieldCheck, "neutral"],
+                ].map(([label, count, Icon, tone]) => (
+                  <article className={`department-metric department-metric--${tone}`} key={label}>
+                    <span className="department-metric-icon" aria-hidden="true">
+                      <Icon size={18} />
+                    </span>
+                    <div>
+                      <span>{label}</span>
+                      <strong>{count || 0}</strong>
                     </div>
-
-                    <div className="team-card-body">
-                      <p>
-                        👨/👩 <strong>Manager:</strong>{" "}
-                        {team.managers?.length > 0
-                          ? team.managers.map((m) => m.name).join(", ")
-                          : "Not Assigned"}
-                      </p>
-
-                      <p>
-                        👨/👩 <strong>HR:</strong>{" "}
-                        {team.hrs?.length > 0
-                          ? team.hrs.map((h) => h.name).join(", ")
-                          : "Not Assigned"}
-                      </p>
-
-                      <p>
-                        🎯 <strong>Team Leader:</strong>{" "}
-                        {team.teamLeader?.name || "Not Assigned"}
-                      </p>
-
-                      <p>
-                        👥 <strong>Employees:</strong>{" "}
-                        {team.employeeCount || 0}
-                      </p>
-                      {team.employees?.length > 0 && (
-                        <div
-                          style={{
-                            marginTop: "10px",
-                            padding: "10px",
-                            background: "#f8fafc",
-                            borderRadius: "10px",
-                          }}
-                        >
-                          {team.employees.map((emp) => (
-                            <div
-                              key={emp._id}
-                              style={{
-                                fontSize: "13px",
-                                marginBottom: "6px",
-                              }}
-                            >
-                              👤 {emp.name}{" "}
-                              <span style={{ color: "#64748b" }}>
-                                ({emp.employeeId || "N/A"})
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  </article>
                 ))}
               </div>
+
+              <section className="department-teams-section" aria-labelledby="department-teams-title">
+                <div className="department-section-heading">
+                  <div>
+                    <span className="ui-eyebrow">Team structure</span>
+                    <h3 id="department-teams-title">Department teams</h3>
+                    <p>Leadership assignments and employees grouped by team.</p>
+                  </div>
+                  <span className="ui-status ui-status--info">
+                    <Network size={13} aria-hidden="true" />
+                    {selectedDepartment.teams?.length || 0} teams
+                  </span>
+                </div>
+
+                {selectedDepartment.teams?.length > 0 ? (
+                  <div className="department-team-grid">
+                    {selectedDepartment.teams.map((team) => (
+                      <article key={team._id} className="department-team-card">
+                        <header className="department-team-header">
+                          <div>
+                            <span className="department-team-icon" aria-hidden="true">
+                              <Network size={17} />
+                            </span>
+                            <div>
+                              <span>Team</span>
+                              <h4>{team.name}</h4>
+                            </div>
+                          </div>
+                          <span className="ui-status ui-status--success">
+                            {team.employeeCount || 0} employees
+                          </span>
+                        </header>
+
+                        <div className="department-leadership-grid">
+                          <div>
+                            <UserCog size={15} aria-hidden="true" />
+                            <span>Manager</span>
+                            <strong>
+                              {team.managers?.length > 0
+                                ? team.managers.map((manager) => manager.name).join(", ")
+                                : "Not assigned"}
+                            </strong>
+                          </div>
+                          <div>
+                            <ShieldCheck size={15} aria-hidden="true" />
+                            <span>HR partner</span>
+                            <strong>
+                              {team.hrs?.length > 0
+                                ? team.hrs.map((hr) => hr.name).join(", ")
+                                : "Not assigned"}
+                            </strong>
+                          </div>
+                          <div>
+                            <Crown size={15} aria-hidden="true" />
+                            <span>Team leader</span>
+                            <strong>{team.teamLeader?.name || "Not assigned"}</strong>
+                          </div>
+                        </div>
+
+                        <div className="department-employee-list">
+                          <div className="department-employee-list-heading">
+                            <span>Team members</span>
+                            <strong>{team.employees?.length || 0}</strong>
+                          </div>
+
+                          {team.employees?.length > 0 ? (
+                            <div className="department-employee-grid">
+                              {team.employees.map((employee) => (
+                                <div className="department-employee" key={employee._id}>
+                                  <UserAvatar
+                                    name={employee.name}
+                                    photoUrl={employee.profilePhoto?.url || ""}
+                                    size="small"
+                                  />
+                                  <div>
+                                    <strong>{employee.name}</strong>
+                                    <span>
+                                      {employee.employeeId || "No employee ID"}
+                                      {employee.designation ? ` · ${employee.designation}` : ""}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <EmptyState
+                              compact
+                              title="No employees assigned"
+                              description="Employees assigned to this team will appear here."
+                            />
+                          )}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    title="No teams in this department"
+                    description="Create a team and assign its leadership to see the hierarchy here."
+                  />
+                )}
+              </section>
             </div>
           </div>
         </div>
@@ -363,27 +493,48 @@ const AdminSubcategories = () => {
 
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-card modern-department-modal">
+          <div
+            className="modal-card modern-department-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-department-title"
+          >
             <div className="modal-header">
-              <h3>Create Department</h3>
-              <button onClick={() => setShowModal(false)}>✕</button>
+              <h3 id="create-department-title">Create Department</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  if (isSubmitting) return;
+                  setShowModal(false);
+                  setFormError("");
+                  setName("");
+                }}
+                disabled={isSubmitting}
+                aria-label="Close create department dialog"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
             </div>
+
+            {formError && <ErrorState title="Department not saved" description={formError} compact />}
 
             <form className="auth-form" onSubmit={handleSubmit}>
               <div className="input-group">
-                <label>Department Name</label>
+                <label htmlFor="department-name">Department Name</label>
 
                 <input
+                  id="department-name"
                   type="text"
                   placeholder="Enter department name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  disabled={isSubmitting}
                   required
                 />
               </div>
 
-              <button className="btn btn-primary" type="submit">
-                Create Department
+              <button className="btn btn-primary" type="submit" disabled={isSubmitting || !name.trim()}>
+                {isSubmitting ? "Creating..." : "Create Department"}
               </button>
             </form>
           </div>

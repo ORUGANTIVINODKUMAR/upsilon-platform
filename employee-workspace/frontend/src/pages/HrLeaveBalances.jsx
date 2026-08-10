@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import api from "../api/api";
+import { EmptyState, ErrorState, LoadingState } from "../components/ui/StatePanel";
 
 const roles = ["All", "Employee", "TeamLeader", "Manager", "HR"];
 const formatNumber = (value) => Number(value || 0).toFixed(1).replace(/\.0$/, "");
@@ -25,6 +26,7 @@ const HrLeaveBalances = () => {
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
+  const [modalError, setModalError] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -81,6 +83,7 @@ const HrLeaveBalances = () => {
     setReason("");
     setMessage("");
     setError("");
+    setModalError("");
   };
 
   const closeAdjustment = () => {
@@ -88,16 +91,24 @@ const HrLeaveBalances = () => {
     setSelected(null);
     setAmount("");
     setReason("");
+    setModalError("");
   };
 
   const submitAdjustment = async (event) => {
     event.preventDefault();
     if (!selected) return;
+
+    const numericAmount = Number(amount);
+    if (!Number.isFinite(numericAmount) || numericAmount === 0) {
+      setModalError("Enter a non-zero adjustment. Use a positive value to add leave or a negative value to reduce it.");
+      return;
+    }
+
     try {
       setSaving(true);
-      setError("");
+      setModalError("");
       await api.post(`/leave-balance/manage/${selected.user._id}/adjustments`, {
-        amount: Number(amount),
+        amount: numericAmount,
         reason,
       });
       setMessage(`Balance updated successfully for ${selected.user.name}.`);
@@ -107,7 +118,7 @@ const HrLeaveBalances = () => {
       await loadBalances();
       window.dispatchEvent(new CustomEvent("leave-balance-updated"));
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to record adjustment");
+      setModalError(requestError.response?.data?.message || "Unable to record adjustment");
     } finally {
       setSaving(false);
     }
@@ -137,8 +148,15 @@ const HrLeaveBalances = () => {
         </button>
       </div>
 
-      {error && <div className="feedback-error balance-feedback">{error}</div>}
-      {message && <div className="feedback-success balance-feedback">{message}</div>}
+      {error && (
+        <ErrorState
+          title="Unable to load leave balances"
+          description={error}
+          action={<button type="button" className="btn" onClick={loadBalances}>Try again</button>}
+          compact
+        />
+      )}
+      {message && <div className="feedback-success balance-feedback" role="status" aria-live="polite">{message}</div>}
 
       <div className="balance-summary-grid">
         {summaryCards.map(({ label, value, caption, icon: Icon, tone }) => (
@@ -157,6 +175,7 @@ const HrLeaveBalances = () => {
         <label className="balance-search-field">
           <Search size={18} />
           <input
+            aria-label="Search leave balances"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search employee, ID, department or team"
@@ -167,7 +186,7 @@ const HrLeaveBalances = () => {
         </label>
         <label className="balance-role-filter">
           <Filter size={17} />
-          <select value={role} onChange={(event) => setRole(event.target.value)}>
+          <select aria-label="Filter leave balances by role" value={role} onChange={(event) => setRole(event.target.value)}>
             {roles.map((item) => <option key={item} value={item}>{item === "All" ? "All roles" : formatRole(item)}</option>)}
           </select>
         </label>
@@ -177,18 +196,19 @@ const HrLeaveBalances = () => {
       <div className="balance-table-shell">
         <div className="table-wrapper">
           <table className="custom-table balance-management-table">
+            <caption className="sr-only">Leave balances for applicable employees</caption>
             <thead>
               <tr>
-                <th>Employee</th>
-                <th>Role</th>
-                <th>Department / Team</th>
-                <th>Monthly</th>
-                <th>Carry Forward</th>
-                <th>Available</th>
-                <th>Paid Used</th>
-                <th>Excess / LOP</th>
-                <th>Last Updated</th>
-                <th><span className="sr-only">Action</span></th>
+                <th scope="col">Employee</th>
+                <th scope="col">Role</th>
+                <th scope="col">Department / Team</th>
+                <th scope="col">Monthly</th>
+                <th scope="col">Carry Forward</th>
+                <th scope="col">Available</th>
+                <th scope="col">Paid Used</th>
+                <th scope="col">Excess / LOP</th>
+                <th scope="col">Last Updated</th>
+                <th scope="col"><span className="sr-only">Action</span></th>
               </tr>
             </thead>
             <tbody>
@@ -221,10 +241,10 @@ const HrLeaveBalances = () => {
                 );
               })}
               {!loading && filteredRows.length === 0 && (
-                <tr><td colSpan="10"><div className="balance-empty-state"><Search size={28} /><strong>No users found</strong><span>Try changing the search term or role filter.</span></div></td></tr>
+                <tr><td colSpan="10"><EmptyState title="No users found" description="Try changing the search term or role filter." compact /></td></tr>
               )}
               {loading && rows.length === 0 && (
-                <tr><td colSpan="10"><div className="balance-empty-state"><RefreshCw className="is-spinning" size={28} /><strong>Loading balances</strong></div></td></tr>
+                <tr><td colSpan="10"><LoadingState label="Loading leave balances..." compact /></td></tr>
               )}
             </tbody>
           </table>
@@ -233,12 +253,19 @@ const HrLeaveBalances = () => {
 
       {selected && (
         <div className="modal-overlay">
-          <form className="modal-box balance-adjust-modal" onSubmit={submitAdjustment}>
+          <form
+            className="modal-box balance-adjust-modal"
+            onSubmit={submitAdjustment}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="balance-adjustment-title"
+            aria-describedby="balance-adjustment-description"
+          >
             <div className="balance-modal-header">
               <div>
                 <span>Manual adjustment</span>
-                <h2>{selected.user.name}</h2>
-                <p>{selected.user.employeeId || "No employee ID"} · {formatRole(selected.user.role)}</p>
+                <h2 id="balance-adjustment-title">{selected.user.name}</h2>
+                <p id="balance-adjustment-description">{selected.user.employeeId || "No employee ID"} | {formatRole(selected.user.role)}</p>
               </div>
               <button type="button" onClick={closeAdjustment} disabled={saving} aria-label="Close modal"><X size={20} /></button>
             </div>
@@ -247,6 +274,12 @@ const HrLeaveBalances = () => {
               <span>Current available balance</span>
               <strong>{formatNumber(selected.balance.availablePaidLeave)} days</strong>
             </div>
+
+            {modalError && (
+              <div className="balance-adjustment-error">
+                <ErrorState title="Adjustment not saved" description={modalError} compact />
+              </div>
+            )}
 
             <div className="input-group">
               <label htmlFor="adjustment-days">Adjustment days</label>
@@ -267,7 +300,7 @@ const HrLeaveBalances = () => {
 
             <div className="balance-modal-actions">
               <button type="button" className="btn" onClick={closeAdjustment} disabled={saving}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving || !amount || !reason.trim()}>{saving ? "Saving adjustment..." : "Save adjustment"}</button>
+              <button type="submit" className="btn btn-primary" disabled={saving || !amount || Number(amount) === 0 || !reason.trim()}>{saving ? "Saving adjustment..." : "Save adjustment"}</button>
             </div>
           </form>
         </div>

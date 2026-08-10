@@ -182,6 +182,26 @@ const leaveRequestSchema = new mongoose.Schema(
       required: true,
     },
 
+    submittedAt: {
+      type: Date,
+      default: Date.now,
+      required: true,
+      immutable: true,
+    },
+
+    requestKind: {
+      type: String,
+      enum: ["Standard", "Retrospective"],
+      default: "Standard",
+      required: true,
+    },
+
+    retrospectiveDays: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     reason: {
       type: String,
       required: true,
@@ -284,6 +304,7 @@ const leaveRequestSchema = new mongoose.Schema(
         "Approved by HR",
         "Rejected by Manager",
         "Rejected by HR",
+        "Cancelled",
       ],
       default: "Pending Final Approval",
     },
@@ -307,6 +328,7 @@ const leaveRequestSchema = new mongoose.Schema(
             "Put On Hold",
             "Moved to Pending",
             "Status Changed",
+            "Cancelled",
           ],
           required: true,
         },
@@ -347,6 +369,7 @@ const leaveRequestSchema = new mongoose.Schema(
             "Approved by HR",
             "Rejected by Manager",
             "Rejected by HR",
+            "Cancelled",
           ],
           required: true,
         },
@@ -437,6 +460,7 @@ leaveRequestSchema.pre("validate", function () {
       "Approved by HR",
       "Rejected by Manager",
       "Rejected by HR",
+      "Cancelled",
     ].includes(this.finalStatus)
   ) {
     this.requiresReapproval = false;
@@ -446,6 +470,13 @@ leaveRequestSchema.pre("validate", function () {
 leaveRequestSchema.index({
   employeeId: 1,
   createdAt: -1,
+});
+
+leaveRequestSchema.index({
+  employeeId: 1,
+  startDate: 1,
+  endDate: 1,
+  finalStatus: 1,
 });
 
 leaveRequestSchema.index({

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import {
   LayoutDashboard,
@@ -13,11 +14,12 @@ import {
   Menu,
   X,
   UserRound,
+  ChevronRight,
 } from "lucide-react";
 
 import logo from "../assets/logo.png";
 
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import api from "../api/api";
 
 import FinanceLeaves from "./FinanceLeaves";
@@ -40,12 +42,182 @@ import ManagerApprovals from "./ManagerApprovals";
 import PersonalLeaveBalance from "../components/PersonalLeaveBalance";
 import HrLeaveBalances from "./HrLeaveBalances";
 
+const PAGE_META = {
+  dashboard: {
+    eyebrow: "Overview",
+    title: "Dashboard",
+    description: "Your people, requests, balances, and recent workspace activity at a glance.",
+  },
+  notifications: {
+    eyebrow: "Inbox",
+    title: "Notifications",
+    description: "Review important updates and keep track of changes that need your attention.",
+  },
+  departments: {
+    eyebrow: "Administration",
+    title: "Departments",
+    description: "Organize departments and review the teams and employees within each group.",
+  },
+  teams: {
+    eyebrow: "Administration",
+    title: "Teams",
+    description: "Manage team structures, leaders, managers, and HR assignments.",
+  },
+  users: {
+    eyebrow: "Administration",
+    title: "User management",
+    description: "Create accounts and maintain employee access, roles, and reporting relationships.",
+  },
+  leaveReports: {
+    eyebrow: "Reports",
+    title: "Leave reports",
+    description: "Filter, review, and export organization-wide leave activity.",
+  },
+  reimbursementReports: {
+    eyebrow: "Reports",
+    title: "Reimbursement reports",
+    description: "Review claim outcomes, amounts, receipts, and export-ready records.",
+  },
+  leave: {
+    eyebrow: "Time off",
+    title: "My leaves",
+    description: "Apply for leave, follow approval progress, and review your request history.",
+  },
+  myLeaveBalance: {
+    eyebrow: "Time off",
+    title: "My leave balance",
+    description: "See your current paid leave, carry-forward, usage, and excess leave totals.",
+  },
+  hrLeaveBalances: {
+    eyebrow: "People operations",
+    title: "Leave balance management",
+    description: "Review and adjust employee leave balances with a clear audit trail.",
+  },
+  reimbursements: {
+    eyebrow: "Expenses",
+    title: "My reimbursements",
+    description: "Submit expense claims and track each review and payment stage.",
+  },
+  tlApprovals: {
+    eyebrow: "Approvals",
+    title: "Team leave approvals",
+    description: "Review leave requests submitted by employees in your teams.",
+  },
+  managerApprovals: {
+    eyebrow: "Approvals",
+    title: "Final leave approvals",
+    description: "Make final decisions on requests that have completed team review.",
+  },
+  reimbursementApprovals: {
+    eyebrow: "Approvals",
+    title: "Reimbursement approvals",
+    description: "Review expense evidence and move claims through the correct approval stage.",
+  },
+  leaveCalendar: {
+    eyebrow: "Planning",
+    title: "Leave calendar",
+    description: "See approved absences and plan team coverage across the month.",
+  },
+  financeLeaves: {
+    eyebrow: "Finance",
+    title: "Approved leaves",
+    description: "Review final leave outcomes and the records shared with Finance.",
+  },
+  financeReimbursements: {
+    eyebrow: "Finance",
+    title: "Reimbursement payments",
+    description: "Verify approved claims, record payment details, and review completed payouts.",
+  },
+  holidays: {
+    eyebrow: "Calendar",
+    title: "Holidays",
+    description: "View the company holiday schedule and maintain it when your role allows.",
+  },
+  editProfile: {
+    eyebrow: "Account",
+    title: "Profile and security",
+    description: "Keep your personal details, profile photo, and password up to date.",
+  },
+};
+
+const formatRole = (role) =>
+  role === "TeamLeader" ? "Team Leader" : role || "Workspace member";
+
+const ROLE_PAGES = {
+  Admin: [
+    "dashboard",
+    "departments",
+    "teams",
+    "users",
+    "leaveReports",
+    "reimbursementReports",
+    "leaveCalendar",
+    "holidays",
+    "editProfile",
+  ],
+  Employee: [
+    "dashboard",
+    "notifications",
+    "leave",
+    "myLeaveBalance",
+    "reimbursements",
+    "holidays",
+    "editProfile",
+  ],
+  TeamLeader: [
+    "dashboard",
+    "notifications",
+    "leave",
+    "myLeaveBalance",
+    "reimbursements",
+    "tlApprovals",
+    "reimbursementApprovals",
+    "holidays",
+    "editProfile",
+  ],
+  Manager: [
+    "dashboard",
+    "notifications",
+    "leave",
+    "myLeaveBalance",
+    "hrLeaveBalances",
+    "managerApprovals",
+    "reimbursementApprovals",
+    "leaveCalendar",
+    "holidays",
+    "editProfile",
+  ],
+  HR: [
+    "dashboard",
+    "notifications",
+    "leave",
+    "myLeaveBalance",
+    "hrLeaveBalances",
+    "managerApprovals",
+    "reimbursementApprovals",
+    "leaveCalendar",
+    "holidays",
+    "editProfile",
+  ],
+  Finance: [
+    "dashboard",
+    "notifications",
+    "leaveCalendar",
+    "financeLeaves",
+    "financeReimbursements",
+    "holidays",
+    "editProfile",
+  ],
+};
+
 const Dashboard = () => {
   const { user, logout, updateUser } = useAuth();
-
-  const [activePage, setActivePage] = useState(
-    localStorage.getItem("activePage") || "dashboard"
-  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const allowedPages = ROLE_PAGES[user?.role] || ["dashboard"];
+  const requestedPage = searchParams.get("page") || "dashboard";
+  const activePage = allowedPages.includes(requestedPage)
+    ? requestedPage
+    : "dashboard";
 
   const [stats, setStats] = useState({});
   const [showNotifications, setShowNotifications] =
@@ -58,14 +230,17 @@ const Dashboard = () => {
     setIsMobileSidebarOpen,
   ] = useState(false);
 
-  const [showPasswordModal, setShowPasswordModal] =
-    useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(
+    user?.role === "Employee" && Boolean(user?.mustChangePassword)
+  );
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
+  const [passwordError, setPasswordError] = useState("");
+  const [workspaceFeedback, setWorkspaceFeedback] = useState("");
 
   const isAdmin = user?.role === "Admin";
   const isEmployee = user?.role === "Employee";
@@ -82,23 +257,24 @@ const Dashboard = () => {
     user?.role
   );
   const canManageLeaveBalances = isManagerOrHR;
+  const pageMeta = PAGE_META[activePage] || PAGE_META.dashboard;
+  const unreadNotificationCount = notifications.filter(
+    (notification) => !notification.isRead
+  ).length;
 
   const navigateToPage = (page) => {
-    setActivePage(page);
-    localStorage.setItem("activePage", page);
     setIsMobileSidebarOpen(false);
+
+    if (page === activePage) {
+      return;
+    }
+
+    setSearchParams(page === "dashboard" ? {} : { page });
   };
 
   useEffect(() => {
-    if (
-      user?.role === "Employee" &&
-      user?.mustChangePassword
-    ) {
-      setShowPasswordModal(true);
-    } else {
-      setShowPasswordModal(false);
-    }
-  }, [user]);
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [activePage]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -157,6 +333,25 @@ const Dashboard = () => {
     };
   }, [updateUser]);
 
+  useEffect(() => {
+    if (!isMobileSidebarOpen && !showNotifications) return undefined;
+
+    const closeTransientUi = (event) => {
+      if (event.key !== "Escape") return;
+      setIsMobileSidebarOpen(false);
+      setShowNotifications(false);
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    if (isMobileSidebarOpen) document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeTransientUi);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeTransientUi);
+    };
+  }, [isMobileSidebarOpen, showNotifications]);
+
   const menuButton = (
     key,
     icon,
@@ -172,6 +367,8 @@ const Dashboard = () => {
       onClick={() =>
         navigateToPage(key)
       }
+      aria-current={activePage === key ? "page" : undefined}
+      title={label}
     >
       {icon}
       {label}
@@ -184,9 +381,7 @@ const Dashboard = () => {
       !passwordData.newPassword ||
       !passwordData.confirmPassword
     ) {
-      window.alert(
-        "All password fields are required."
-      );
+      setPasswordError("All password fields are required.");
       return;
     }
 
@@ -194,22 +389,19 @@ const Dashboard = () => {
       passwordData.newPassword !==
       passwordData.confirmPassword
     ) {
-      window.alert(
-        "Passwords do not match."
-      );
+      setPasswordError("The new passwords do not match.");
       return;
     }
 
     if (
       passwordData.newPassword.length < 8
     ) {
-      window.alert(
-        "New password must contain at least 8 characters."
-      );
+      setPasswordError("The new password must contain at least 8 characters.");
       return;
     }
 
     try {
+      setPasswordError("");
       await api.put(
         "/auth/change-password",
         {
@@ -232,12 +424,9 @@ const Dashboard = () => {
       });
 
       setShowPasswordModal(false);
-
-      window.alert(
-        "Password updated successfully."
-      );
+      setWorkspaceFeedback("Password updated successfully.");
     } catch (error) {
-      window.alert(
+      setPasswordError(
         error.response?.data?.message ||
         "Unable to update password."
       );
@@ -261,6 +450,9 @@ const Dashboard = () => {
         <button
           type="button"
           className="mobile-menu-btn"
+          aria-label="Open workspace navigation"
+          aria-expanded={isMobileSidebarOpen}
+          aria-controls="workspace-sidebar"
           onClick={() =>
             setIsMobileSidebarOpen(true)
           }
@@ -277,8 +469,10 @@ const Dashboard = () => {
       </div>
 
       {isMobileSidebarOpen && (
-        <div
+        <button
+          type="button"
           className="mobile-sidebar-overlay"
+          aria-label="Close workspace navigation"
           onClick={() =>
             setIsMobileSidebarOpen(false)
           }
@@ -286,6 +480,8 @@ const Dashboard = () => {
       )}
 
       <aside
+        id="workspace-sidebar"
+        aria-label="Workspace navigation"
         className={`sidebar modern-sidebar ${isMobileSidebarOpen
             ? "mobile-sidebar-open"
             : ""
@@ -294,6 +490,7 @@ const Dashboard = () => {
         <button
           type="button"
           className="mobile-sidebar-close"
+          aria-label="Close workspace navigation"
           onClick={() =>
             setIsMobileSidebarOpen(false)
           }
@@ -302,26 +499,15 @@ const Dashboard = () => {
         </button>
 
         <div>
-          <div
-            className="brand-block"
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              padding: "20px 0",
-            }}
-          >
+          <div className="brand-block">
             <img
               src={logo}
               alt="Upsilon"
-              style={{
-                width: "140px",
-                height: "auto",
-                objectFit: "contain",
-              }}
             />
           </div>
 
-          <div className="sidebar-menu">
+          <nav className="sidebar-menu" aria-label="Primary">
+            <span className="sidebar-group-label">Overview</span>
             {menuButton(
               "dashboard",
               <LayoutDashboard size={18} />,
@@ -334,6 +520,10 @@ const Dashboard = () => {
                 <Bell size={18} />,
                 "Notifications"
               )}
+
+            {isAdmin && (
+              <span className="sidebar-group-label">Administration</span>
+            )}
 
             {isAdmin && (
               <>
@@ -367,6 +557,10 @@ const Dashboard = () => {
                   "Reimbursement Reports"
                 )}
               </>
+            )}
+
+            {!isAdmin && (
+              <span className="sidebar-group-label">Workspace</span>
             )}
 
             {hasPersonalLeaveBalance &&
@@ -449,6 +643,8 @@ const Dashboard = () => {
                 "Finance Reimbursements"
               )}
 
+            <span className="sidebar-group-label">Account</span>
+
             {menuButton(
               "holidays",
               <CalendarCheck size={18} />,
@@ -460,45 +656,36 @@ const Dashboard = () => {
               <UserRound size={18} />,
               "Edit Profile"
             )}
-          </div>
+          </nav>
         </div>
-        <div
-          className="sidebar-user-box"
-          onClick={openEditProfile}
-          style={{
-            cursor: "pointer",
-          }}
-        >
-          <div className="sidebar-avatar">
-            {user?.profilePhoto?.url ? (
-              <img
-                src={user.profilePhoto.url}
-                alt={user?.name || "Profile"}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  borderRadius: "50%",
-                }}
-              />
-            ) : (
-              user?.name
-                ?.charAt(0)
-                ?.toUpperCase() || "U"
-            )}
-          </div>
+        <div className="sidebar-user-box">
+          <button
+            type="button"
+            className="sidebar-profile-button"
+            onClick={openEditProfile}
+            aria-label="Open profile settings"
+          >
+            <div className="sidebar-avatar">
+              {user?.profilePhoto?.url ? (
+                <img
+                  src={user.profilePhoto.url}
+                  alt=""
+                />
+              ) : (
+                user?.name
+                  ?.charAt(0)
+                  ?.toUpperCase() || "U"
+              )}
+            </div>
 
-          <div>
-            <strong>
-              {user?.name || "User"}
-            </strong>
+            <div>
+              <strong>
+                {user?.name || "User"}
+              </strong>
 
-            <span>
-              {user?.role === "TeamLeader"
-                ? "Team Leader"
-                : user?.role}
-            </span>
-          </div>
+              <span>{formatRole(user?.role)}</span>
+            </div>
+          </button>
 
           <button
             type="button"
@@ -513,34 +700,38 @@ const Dashboard = () => {
 
       <main className="dashboard-main modern-main">
         <div className="modern-page-header">
-          <span className="eyebrow">
-            {isEmployee
-              ? "PERSONAL"
-              : isAdmin
-                ? "ADMIN"
-                : isFinance
-                  ? "FINANCE"
-                  : isTeamLeader
-                    ? "TEAM LEADER"
-                    : "APPROVALS"}
-          </span>
+          <div className="header-copy">
+            <div className="page-breadcrumb" aria-label="Breadcrumb">
+              <span>Workspace</span>
+              <ChevronRight size={13} aria-hidden="true" />
+              <span aria-current="page">{pageMeta.title}</span>
+            </div>
 
-          <h1>
-            Hello,{" "}
-            {user?.firstName ||
-              user?.name ||
-              "User"}
-          </h1>
+            <span className="eyebrow">{pageMeta.eyebrow}</span>
 
-          <p>
-            Here&apos;s a snapshot of your
-            profile and recent activity.
-          </p>
+            <h1>
+              {activePage === "dashboard" ? (
+                <>
+                  Welcome back, <span>{user?.firstName || user?.name || "User"}</span>
+                </>
+              ) : (
+                pageMeta.title
+              )}
+            </h1>
 
-          <div className="notification-wrapper">
+            <p>{pageMeta.description}</p>
+          </div>
+
+          <div className="header-actions">
+            <span className="header-role-chip">{formatRole(user?.role)}</span>
+
+            {!isAdmin && <div className="notification-wrapper">
             <button
               type="button"
               className="notification-bell"
+              aria-label={`Notifications${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ""}`}
+              aria-expanded={showNotifications}
+              aria-haspopup="dialog"
               onClick={() =>
                 setShowNotifications(
                   (previousValue) =>
@@ -550,23 +741,19 @@ const Dashboard = () => {
             >
               <Bell size={22} />
 
-              {notifications.filter(
-                (notification) =>
-                  !notification.isRead
-              ).length > 0 && (
+              {unreadNotificationCount > 0 && (
                   <span className="notification-count">
-                    {
-                      notifications.filter(
-                        (notification) =>
-                          !notification.isRead
-                      ).length
-                    }
+                    {unreadNotificationCount}
                   </span>
                 )}
             </button>
 
             {showNotifications && (
-              <div className="notification-dropdown">
+              <div
+                className="notification-dropdown"
+                role="dialog"
+                aria-label="Recent notifications"
+              >
                 <div className="notification-dropdown-header">
                   <h4>Notifications</h4>
 
@@ -651,8 +838,15 @@ const Dashboard = () => {
                 </div>
               </div>
             )}
+            </div>}
           </div>
         </div>
+
+        {workspaceFeedback && (
+          <div className="alert alert-success workspace-feedback" role="status" aria-live="polite">
+            {workspaceFeedback}
+          </div>
+        )}
 
         {activePage === "dashboard" && (
           <>
@@ -2595,60 +2789,35 @@ const Dashboard = () => {
           </>
         )}
 
-        {isAdmin && (
-          <div
-            className={`modern-section-card ${activePage === "departments"
-                ? "page-visible"
-                : "page-hidden"
-              }`}
-          >
+        {isAdmin && activePage === "departments" && (
+          <div className="modern-section-card">
             <AdminSubcategories />
           </div>
         )}
 
-        {isAdmin && (
-          <div
-            className={`modern-section-card ${activePage === "teams"
-                ? "page-visible"
-                : "page-hidden"
-              }`}
-          >
+        {isAdmin && activePage === "teams" && (
+          <div className="modern-section-card">
             <AdminTeams />
           </div>
         )}
 
-        {isAdmin && (
-          <div
-            className={`modern-section-card ${activePage === "users"
-                ? "page-visible"
-                : "page-hidden"
-              }`}
-          >
+        {isAdmin && activePage === "users" && (
+          <div className="modern-section-card">
             <AdminUsers />
           </div>
         )}
 
-        {isTeamLeader && (
-          <div
-            className={`modern-section-card ${activePage === "tlApprovals"
-                ? "page-visible"
-                : "page-hidden"
-              }`}
-          >
+        {isTeamLeader && activePage === "tlApprovals" && (
+          <div className="modern-section-card">
             <TLApprovals />
           </div>
         )}
 
-        {hasPersonalLeaveBalance && (
-            <div
-              className={`modern-section-card ${activePage === "leave"
-                  ? "page-visible"
-                  : "page-hidden"
-                }`}
-            >
-              <LeaveRequests />
-            </div>
-          )}
+        {hasPersonalLeaveBalance && activePage === "leave" && (
+          <div className="modern-section-card">
+            <LeaveRequests />
+          </div>
+        )}
 
         {hasPersonalLeaveBalance && activePage === "myLeaveBalance" && (
           <div className="modern-section-card">
@@ -2662,63 +2831,32 @@ const Dashboard = () => {
           </div>
         )}
 
-        {(isEmployee ||
-          isTeamLeader) && (
-            <div
-              className={`modern-section-card ${activePage ===
-                  "reimbursements"
-                  ? "page-visible"
-                  : "page-hidden"
-                }`}
-            >
-              <Reimbursements />
-            </div>
-          )}
+        {(isEmployee || isTeamLeader) && activePage === "reimbursements" && (
+          <div className="modern-section-card">
+            <Reimbursements />
+          </div>
+        )}
 
-        {isManagerOrHR && (
-          <div
-            className={`modern-section-card ${activePage ===
-                "managerApprovals"
-                ? "page-visible"
-                : "page-hidden"
-              }`}
-          >
+        {isManagerOrHR && activePage === "managerApprovals" && (
+          <div className="modern-section-card">
             <ManagerApprovals />
           </div>
         )}
 
-        {(isManagerOrHR ||
-          isTeamLeader) && (
-            <div
-              className={`modern-section-card ${activePage ===
-                  "reimbursementApprovals"
-                  ? "page-visible"
-                  : "page-hidden"
-                }`}
-            >
-              <ReimbursementApprovals />
-            </div>
-          )}
+        {(isManagerOrHR || isTeamLeader) && activePage === "reimbursementApprovals" && (
+          <div className="modern-section-card">
+            <ReimbursementApprovals />
+          </div>
+        )}
 
-        {isAdmin && (
-          <div
-            className={`modern-section-card ${activePage === "leaveReports"
-                ? "page-visible"
-                : "page-hidden"
-              }`}
-          >
+        {isAdmin && activePage === "leaveReports" && (
+          <div className="modern-section-card">
             <AdminLeaveReports />
           </div>
         )}
 
-        {isAdmin && (
-          <div
-            className={`modern-section-card ${activePage ===
-                "reimbursementReports"
-                ? "page-visible"
-                : "page-hidden"
-              }`}
-          >
+        {isAdmin && activePage === "reimbursementReports" && (
+          <div className="modern-section-card">
             <AdminReimbursementReports />
           </div>
         )}
@@ -2741,9 +2879,7 @@ const Dashboard = () => {
 
         {activePage ===
           "leaveCalendar" && (
-            <div className="modern-section-card">
-              <LeaveCalendar />
-            </div>
+            <LeaveCalendar />
           )}
 
         {activePage ===
@@ -2754,42 +2890,47 @@ const Dashboard = () => {
             </div>
           )}
 
-        <div
-          className={`modern-section-card ${activePage === "holidays"
-              ? "page-visible"
-              : "page-hidden"
-            }`}
-        >
-          <HolidayManagement />
-        </div>
+        {activePage === "holidays" && (
+          <div className="modern-section-card">
+            <HolidayManagement />
+          </div>
+        )}
 
-        <div
-          className={`modern-section-card ${activePage === "editProfile"
-              ? "page-visible"
-              : "page-hidden"
-            }`}
-        >
-          <EditProfile
-            onSuccess={(updatedUser) => {
-              if (updatedUser) {
-                updateUser(updatedUser);
-              }
-            }}
-          />
-        </div>
+        {activePage === "editProfile" && (
+          <div className="modern-section-card">
+            <EditProfile
+              onSuccess={(updatedUser) => {
+                if (updatedUser) {
+                  updateUser(updatedUser);
+                }
+              }}
+            />
+          </div>
+        )}
         {showPasswordModal && (
           <div className="modal-overlay">
-            <div className="modal-box">
-              <h2>Change Password</h2>
+            <div
+              className="modal-box"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="required-password-title"
+              aria-describedby="required-password-description"
+            >
+              <h2 id="required-password-title">Change password</h2>
 
-              <p>
+              <p id="required-password-description">
                 You must change your password before continuing.
               </p>
 
+              {passwordError && (
+                <div className="alert alert-error" role="alert">{passwordError}</div>
+              )}
+
               <div className="input-group">
-                <label>Current Password</label>
+                <label htmlFor="required-current-password">Current password</label>
 
                 <input
+                  id="required-current-password"
                   type="password"
                   value={passwordData.currentPassword}
                   onChange={(event) =>
@@ -2806,9 +2947,10 @@ const Dashboard = () => {
               </div>
 
               <div className="input-group">
-                <label>New Password</label>
+                <label htmlFor="required-new-password">New password</label>
 
                 <input
+                  id="required-new-password"
                   type="password"
                   value={passwordData.newPassword}
                   onChange={(event) =>
@@ -2826,9 +2968,10 @@ const Dashboard = () => {
               </div>
 
               <div className="input-group">
-                <label>Confirm Password</label>
+                <label htmlFor="required-confirm-password">Confirm password</label>
 
                 <input
+                  id="required-confirm-password"
                   type="password"
                   value={passwordData.confirmPassword}
                   onChange={(event) =>

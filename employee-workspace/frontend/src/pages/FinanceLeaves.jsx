@@ -6,10 +6,23 @@ import {
 } from "lucide-react";
 
 import api from "../api/api";
+import StatusBadge from "../components/ui/StatusBadge";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../components/ui/StatePanel";
+
+const loadFinanceLeaves = async () => {
+  const { data } = await api.get("/leave/finance");
+
+  return data.leaveRequests || [];
+};
 
 const FinanceLeaves = () => {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -19,17 +32,49 @@ const FinanceLeaves = () => {
 
   const fetchLeaves = async () => {
     try {
-      const { data } = await api.get("/leave/finance");
-      setLeaveRequests(data.leaveRequests || []);
+      setLoading(true);
+      setError("");
+
+      setLeaveRequests(await loadFinanceLeaves());
     } catch (error) {
-      console.error(error.response?.data);
+      console.error("FETCH FINANCE LEAVES ERROR:", error.response?.data);
+      setError(
+        error.response?.data?.message ||
+        "Unable to load finance leave records."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchLeaves();
+    let isCurrent = true;
+
+    loadFinanceLeaves()
+      .then((financeLeaves) => {
+        if (isCurrent) {
+          setLeaveRequests(financeLeaves);
+        }
+      })
+      .catch((error) => {
+        console.error("FETCH FINANCE LEAVES ERROR:", error.response?.data);
+
+        if (isCurrent) {
+          setError(
+            error.response?.data?.message ||
+            "Unable to load finance leave records."
+          );
+        }
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
   }, []);
 
   const filteredLeaves = safeLeaves.filter((leave) => {
@@ -54,7 +99,10 @@ const FinanceLeaves = () => {
   );
 
   const approvedCount = safeLeaves.filter(
-    (item) => item.status === "Approved"
+    (item) =>
+      ["Approved by Manager", "Approved by HR"].includes(
+        item.finalStatus
+      )
   ).length;
 
   const totalDays = safeLeaves.reduce(
@@ -62,16 +110,8 @@ const FinanceLeaves = () => {
     0
   );
 
-  if (loading) {
-    return (
-      <div className="modern-section-card">
-        <p>Loading finance leave records...</p>
-      </div>
-    );
-  }
-
   return (
-    <>
+    <div aria-busy={loading}>
       <div className="section-header">
         <div>
           <h2 className="card-title">Finance Leave Records</h2>
@@ -82,6 +122,28 @@ const FinanceLeaves = () => {
         </div>
       </div>
 
+      {error && !loading && (
+        <ErrorState
+          title="Unable to load finance leave records"
+          description={error}
+          action={(
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={fetchLeaves}
+            >
+              Try again
+            </button>
+          )}
+        />
+      )}
+
+      {loading && (
+        <LoadingState label="Loading finance leave records…" />
+      )}
+
+      {!loading && !error && (
+        <>
       <div className="modern-stats-grid">
         <div className="mini-stat-card">
           <Users size={22} />
@@ -108,6 +170,7 @@ const FinanceLeaves = () => {
       <div style={{ marginBottom: "18px" }}>
         <input
           type="text"
+          aria-label="Search finance leave records"
           placeholder="Search by employee, email, leave type or status..."
           value={searchTerm}
           onChange={(e) => {
@@ -170,7 +233,7 @@ const FinanceLeaves = () => {
                 <td>{leave.workingDays}</td>
 
                 <td>
-                  <span className="badge badge-success">{leave.status}</span>
+                  <StatusBadge status={leave.finalStatus} />
                 </td>
               </tr>
             ))}
@@ -184,7 +247,15 @@ const FinanceLeaves = () => {
                     padding: "24px",
                   }}
                 >
-                  No approved leave records found.
+                  <EmptyState
+                    compact
+                    title="No approved leave records found"
+                    description={
+                      searchTerm
+                        ? "Try a different employee, email, leave type, or status."
+                        : "Final-approved leave records will appear here."
+                    }
+                  />
                 </td>
               </tr>
             )}
@@ -204,6 +275,7 @@ const FinanceLeaves = () => {
           }}
         >
           <button
+            type="button"
             className="btn btn-primary"
             disabled={currentPage === 1}
             onClick={() => setCurrentPage((prev) => prev - 1)}
@@ -214,6 +286,8 @@ const FinanceLeaves = () => {
           {Array.from({ length: totalPages }, (_, index) => (
             <button
               key={index + 1}
+              type="button"
+              aria-current={currentPage === index + 1 ? "page" : undefined}
               className={currentPage === index + 1 ? "btn btn-primary" : "btn"}
               onClick={() => setCurrentPage(index + 1)}
             >
@@ -222,6 +296,7 @@ const FinanceLeaves = () => {
           ))}
 
           <button
+            type="button"
             className="btn btn-primary"
             disabled={currentPage === totalPages}
             onClick={() => setCurrentPage((prev) => prev + 1)}
@@ -230,7 +305,9 @@ const FinanceLeaves = () => {
           </button>
         </div>
       )}
-    </>
+        </>
+      )}
+    </div>
   );
 };
 

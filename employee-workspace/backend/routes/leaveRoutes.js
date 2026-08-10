@@ -3,6 +3,7 @@ import express from "express";
 import {
   createLeaveRequest,
   updateMyLeaveRequest,
+  cancelMyLeaveRequest,
   getMyLeaveRequests,
 
   getPendingTLRequests,
@@ -48,6 +49,11 @@ router.put(
   protect,
   upload.single("proofFile"),
   updateMyLeaveRequest
+);
+router.patch(
+  "/request/:id/cancel",
+  protect,
+  cancelMyLeaveRequest
 );
 
 router.get(

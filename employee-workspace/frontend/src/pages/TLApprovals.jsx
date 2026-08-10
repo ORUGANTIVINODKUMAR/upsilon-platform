@@ -7,9 +7,45 @@ import {
 } from "lucide-react";
 
 import api from "../api/api";
+import StatusBadge from "../components/ui/StatusBadge";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../components/ui/StatePanel";
+
+const loadTlRequests = async (activeTab) => {
+  if (activeTab === "Pending Review") {
+    const { data } = await api.get("/leave/tl-pending");
+    return data.leaveRequests || [];
+  }
+
+  const { data } = await api.get("/leave/tl/history");
+  let rows = data.leaveRequests || [];
+
+  if (activeTab === "Final Approved") {
+    rows = rows.filter((request) =>
+      ["Approved by Manager", "Approved by HR"].includes(
+        request.finalStatus
+      )
+    );
+  }
+
+  if (activeTab === "Final Rejected") {
+    rows = rows.filter((request) =>
+      request.finalStatus?.includes("Rejected")
+    );
+  }
+
+  return rows;
+};
 
 const TLApprovals = () => {
   const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [processingId, setProcessingId] = useState(null);
+  const [isRejecting, setIsRejecting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showReasonModal, setShowReasonModal] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
@@ -18,42 +54,67 @@ const TLApprovals = () => {
   const [rejectLeaveId, setRejectLeaveId] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [activeTab, setActiveTab] = useState("Pending Review");
+  const [feedback, setFeedback] = useState(null);
 
   const fetchRequests = async () => {
     try {
-      let data;
+      setLoading(true);
+      setLoadError("");
 
-      if (activeTab === "Pending Review") {
-        data = await api.get("/leave/tl-pending");
-        setRequests(data.data.leaveRequests || []);
-        return;
-      }
-
-      data = await api.get("/leave/tl/history");
-
-      let rows = data.data.leaveRequests || [];
-
-      if (activeTab === "Final Approved") {
-        rows = rows.filter((x) =>
-          ["Approved by Manager", "Approved by HR"].includes(x.finalStatus)
-        );
-      }
-
-      if (activeTab === "Final Rejected") {
-        rows = rows.filter((x) =>
-          x.finalStatus?.includes("Rejected")
-        );
-      }
-
-      setRequests(rows);
+      setRequests(await loadTlRequests(activeTab));
     } catch (error) {
-      console.log(error.response?.data);
+      console.error("FETCH TL LEAVE REQUESTS ERROR:", error.response?.data);
+      setLoadError(
+        error.response?.data?.message ||
+        "Unable to load Team Leader leave requests."
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRequests();
+    let isCurrent = true;
+
+    loadTlRequests(activeTab)
+      .then((leaveRequests) => {
+        if (isCurrent) {
+          setRequests(leaveRequests);
+        }
+      })
+      .catch((error) => {
+        console.error("FETCH TL LEAVE REQUESTS ERROR:", error.response?.data);
+
+        if (isCurrent) {
+          setLoadError(
+            error.response?.data?.message ||
+            "Unable to load Team Leader leave requests."
+          );
+        }
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!showReasonModal && !showRejectModal) return undefined;
+
+    const closeOnEscape = (event) => {
+      if (event.key !== "Escape" || isRejecting) return;
+      setShowReasonModal(false);
+      setShowRejectModal(false);
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [isRejecting, showReasonModal, showRejectModal]);
 
   const filteredRequests = requests.filter((item) => {
     const search = searchTerm.toLowerCase();
@@ -76,31 +137,40 @@ const TLApprovals = () => {
   const openRejectModal = (id) => {
     setRejectLeaveId(id);
     setRejectionReason("");
+    setFeedback(null);
     setShowRejectModal(true);
   };
 
   const approveLeave = async (id) => {
     try {
+      setProcessingId(id);
+      setFeedback(null);
       await api.put(`/leave/tl-approve/${id}`);
-      alert("Leave approved by Team Leader");
+      setFeedback({ type: "success", message: "Leave approved by the Team Leader." });
       await fetchRequests();
     } catch (error) {
-      alert(error.response?.data?.message || "Approval failed");
+      setFeedback({
+        type: "error",
+        message: error.response?.data?.message || "The leave approval could not be saved.",
+      });
+    } finally {
+      setProcessingId(null);
     }
   };
 
   const submitRejection = async () => {
     if (!rejectionReason.trim()) {
-      alert("Rejection reason is required.");
+      setFeedback({ type: "error", message: "A rejection reason is required." });
       return;
     }
 
     try {
+      setIsRejecting(true);
       await api.put(`/leave/tl-reject/${rejectLeaveId}`, {
         rejectionReason,
       });
 
-      alert("Leave rejected by Team Leader");
+      setFeedback({ type: "success", message: "Leave rejected by the Team Leader." });
 
       setShowRejectModal(false);
       setRejectLeaveId(null);
@@ -108,12 +178,17 @@ const TLApprovals = () => {
 
       await fetchRequests();
     } catch (error) {
-      alert(error.response?.data?.message || "Rejection failed");
+      setFeedback({
+        type: "error",
+        message: error.response?.data?.message || "The rejection could not be saved.",
+      });
+    } finally {
+      setIsRejecting(false);
     }
   };
 
   return (
-    <>
+    <div aria-busy={loading || Boolean(processingId) || isRejecting}>
       <div className="section-header">
         <div>
           <h2 className="card-title">Team Leader Leave Review</h2>
@@ -122,6 +197,16 @@ const TLApprovals = () => {
           </p>
         </div>
       </div>
+
+      {feedback && !showRejectModal && (
+        <div
+          className={`alert ${feedback.type === "success" ? "alert-success" : "alert-error"}`}
+          role={feedback.type === "error" ? "alert" : "status"}
+          aria-live="polite"
+        >
+          {feedback.message}
+        </div>
+      )}
 
       <div className="leave-filter-tabs">
         {[
@@ -132,8 +217,15 @@ const TLApprovals = () => {
         ].map((tab) => (
           <button
             key={tab}
+            type="button"
+            aria-pressed={activeTab === tab}
+            disabled={loading || Boolean(processingId) || isRejecting}
             className={activeTab === tab ? "active-filter" : ""}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              setLoading(true);
+              setLoadError("");
+              setActiveTab(tab);
+            }}
           >
             {tab}
           </button>
@@ -143,6 +235,7 @@ const TLApprovals = () => {
       <div style={{ marginBottom: "18px" }}>
         <input
           type="text"
+          aria-label="Search Team Leader leave requests"
           placeholder="Search by employee, email, leave type or status..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -156,6 +249,23 @@ const TLApprovals = () => {
         />
       </div>
 
+      {loadError && !loading && (
+        <ErrorState
+          title="Unable to load leave requests"
+          description={loadError}
+          action={(
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={fetchRequests}
+            >
+              Try again
+            </button>
+          )}
+        />
+      )}
+
+      {!loadError && (
       <div className="table-wrapper modern-table-wrapper">
         <table className="custom-table">
           <thead>
@@ -174,7 +284,18 @@ const TLApprovals = () => {
           </thead>
 
           <tbody>
-            {filteredRequests.map((item) => (
+            {loading && (
+              <tr>
+                <td colSpan="10">
+                  <LoadingState
+                    compact
+                    label="Loading Team Leader leave requests…"
+                  />
+                </td>
+              </tr>
+            )}
+
+            {!loading && filteredRequests.map((item) => (
               <tr key={item._id}>
                 <td>
                   <div className="user-cell">
@@ -213,59 +334,19 @@ const TLApprovals = () => {
                 </td>
 
                 <td>
-                  <span
-                    className={
-                      item.tlStatus === "Approved"
-                        ? "badge badge-success"
-                        : item.tlStatus === "Rejected"
-                          ? "badge badge-danger"
-                          : "badge badge-pending"
-                    }
-                  >
-                    {item.tlStatus}
-                  </span>
+                  <StatusBadge status={item.tlStatus} />
                 </td>
 
                 <td>
-                  <span
-                    className={
-                      item.managerStatus === "Approved"
-                        ? "badge badge-success"
-                        : item.managerStatus === "Rejected"
-                          ? "badge badge-danger"
-                          : "badge badge-pending"
-                    }
-                  >
-                    {item.managerStatus}
-                  </span>
+                  <StatusBadge status={item.managerStatus} />
                 </td>
 
                 <td>
-                  <span
-                    className={
-                      item.hrStatus === "Approved"
-                        ? "badge badge-success"
-                        : item.hrStatus === "Rejected"
-                          ? "badge badge-danger"
-                          : "badge badge-pending"
-                    }
-                  >
-                    {item.hrStatus}
-                  </span>
+                  <StatusBadge status={item.hrStatus} />
                 </td>
 
                 <td>
-                  <span
-                    className={
-                      ["Approved by Manager", "Approved by HR"].includes(item.finalStatus)
-                        ? "badge badge-success"
-                        : item.finalStatus?.includes("Rejected")
-                          ? "badge badge-danger"
-                          : "badge badge-pending"
-                    }
-                  >
-                    {item.finalStatus}
-                  </span>
+                  <StatusBadge status={item.finalStatus} />
                 </td>
 
                 <td>
@@ -273,16 +354,20 @@ const TLApprovals = () => {
                     item.finalStatus === "Pending Final Approval" ? (
                     <div className="action-buttons">
                       <button
+                        type="button"
                         className="approve-btn"
                         onClick={() => approveLeave(item._id)}
+                        disabled={Boolean(processingId)}
                       >
                         <CheckCircle size={16} />
-                        Approve
+                        {processingId === item._id ? "Approving…" : "Approve"}
                       </button>
 
                       <button
+                        type="button"
                         className="reject-btn"
                         onClick={() => openRejectModal(item._id)}
+                        disabled={Boolean(processingId)}
                       >
                         <XCircle size={16} />
                         Reject
@@ -301,24 +386,43 @@ const TLApprovals = () => {
               </tr>
             ))}
 
-            {filteredRequests.length === 0 && (
+            {!loading && filteredRequests.length === 0 && (
               <tr>
-                <td colSpan="8" style={{ textAlign: "center", padding: "24px" }}>
-                  No leave requests found.
+                <td colSpan="10" style={{ textAlign: "center", padding: "24px" }}>
+                  <EmptyState
+                    compact
+                    title="No leave requests found"
+                    description={
+                      searchTerm
+                        ? "Try a different employee, email, leave type, or status."
+                        : `There are no requests in ${activeTab.toLowerCase()}.`
+                    }
+                  />
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+      )}
 
       {showReasonModal && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ maxWidth: "500px" }}>
+          <div
+            className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tl-reason-title"
+            style={{ maxWidth: "500px" }}
+          >
             <div className="modal-header">
-              <h3>{modalTitle}</h3>
+              <h3 id="tl-reason-title">{modalTitle}</h3>
 
-              <button onClick={() => setShowReasonModal(false)}>
+              <button
+                type="button"
+                aria-label="Close leave reason"
+                onClick={() => setShowReasonModal(false)}
+              >
                 <X size={18} />
               </button>
             </div>
@@ -341,35 +445,54 @@ const TLApprovals = () => {
 
       {showRejectModal && (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ maxWidth: "600px", width: "90%" }}>
+          <div
+            className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tl-reject-title"
+            style={{ maxWidth: "600px", width: "90%" }}
+          >
             <div className="modal-header">
-              <h3>Reject Leave Recommendation</h3>
+              <h3 id="tl-reject-title">Reject Leave Recommendation</h3>
 
-              <button onClick={() => setShowRejectModal(false)}>
+              <button
+                type="button"
+                aria-label="Close rejection form"
+                onClick={() => setShowRejectModal(false)}
+                disabled={isRejecting}
+              >
                 <X size={18} />
               </button>
             </div>
 
             <div style={{ padding: "20px" }}>
+              {feedback?.type === "error" && (
+                <div className="alert alert-error" role="alert">{feedback.message}</div>
+              )}
+              <label htmlFor="tl-rejection-reason">Rejection reason</label>
               <textarea
+                id="tl-rejection-reason"
                 rows="4"
                 placeholder="Enter TL rejection reason"
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
                 style={{ width: "100%" }}
+                disabled={isRejecting}
               />
               <button
+                type="button"
                 className="reject-btn"
                 style={{ marginTop: "16px" }}
                 onClick={submitRejection}
+                disabled={isRejecting}
               >
-                Submit Rejection
+                {isRejecting ? "Submitting…" : "Submit Rejection"}
               </button>
             </div>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

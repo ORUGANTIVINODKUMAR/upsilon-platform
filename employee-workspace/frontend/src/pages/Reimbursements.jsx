@@ -7,6 +7,12 @@ import {
 } from "lucide-react";
 
 import api from "../api/api";
+import StatusBadge from "../components/ui/StatusBadge";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../components/ui/StatePanel";
 
 const defaultCategories = [
   "Business Cards",
@@ -31,6 +37,20 @@ const defaultCategories = [
   "Other",
 ];
 
+const formatLocalDateInput = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+const loadReimbursementRequests = async () => {
+  const { data } = await api.get("/reimbursements/my-requests");
+
+  return data.reimbursementRequests || data.reimbursements || [];
+};
+
 const Reimbursements = () => {
 
   const [requests, setRequests] = useState([]);
@@ -42,6 +62,10 @@ const Reimbursements = () => {
   const REQUESTS_PER_PAGE = 10;
   const [showModal, setShowModal] =
     useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [feedback, setFeedback] = useState(null);
+  const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] =
     useState(false);
 
@@ -52,7 +76,7 @@ const Reimbursements = () => {
     useState("");
   const [categories, setCategories] =
     useState(defaultCategories);
-  const todayDate = new Date().toISOString().split("T")[0];
+  const todayDate = formatLocalDateInput();
   const filteredRequests = (requests || []).filter((item) => {
     const matchesFilter =
       activeFilter === "All"
@@ -74,21 +98,13 @@ const Reimbursements = () => {
   const totalSubmitted = (requests || []).length;
 
   const approvedAmount = requests
-    .filter((item) => <span
-      className={
-        [
-          "Approved by Manager",
-          "Approved by HR",
-          "Paid by Finance",
-        ].includes(item.finalStatus)
-          ? "badge badge-success"
-          : item.finalStatus?.includes("Rejected")
-            ? "badge badge-danger"
-            : "badge badge-pending"
-      }
-    >
-      {item.finalStatus}
-    </span>)
+    .filter((item) =>
+      [
+        "Approved by Manager",
+        "Approved by HR",
+        "Paid by Finance",
+      ].includes(item.finalStatus)
+    )
     .reduce((sum, item) => sum + Number(item.totalReimbursement || 0), 0);
 
   const pendingAmount = requests
@@ -146,26 +162,69 @@ const Reimbursements = () => {
 
   const fetchRequests = async () => {
     try {
-      const { data } =
-        await api.get(
-          "/reimbursements/my-requests"
-        );
+      setIsLoading(true);
+      setLoadError("");
 
-      setRequests(
-        data.reimbursementRequests ||
-        data.reimbursements ||
-        []
-      );
+      setRequests(await loadReimbursementRequests());
     } catch (error) {
-      console.log(
+      console.error(
+        "FETCH REIMBURSEMENTS ERROR:",
         error.response?.data
       );
+      setLoadError(
+        error.response?.data?.message ||
+        "Unable to load reimbursement requests."
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRequests();
+    let isCurrent = true;
+
+    loadReimbursementRequests()
+      .then((reimbursementRequests) => {
+        if (isCurrent) {
+          setRequests(reimbursementRequests);
+        }
+      })
+      .catch((error) => {
+        console.error(
+          "FETCH REIMBURSEMENTS ERROR:",
+          error.response?.data
+        );
+
+        if (isCurrent) {
+          setLoadError(
+            error.response?.data?.message ||
+            "Unable to load reimbursement requests."
+          );
+        }
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!showModal && !showReasonModal) return undefined;
+
+    const closeOnEscape = (event) => {
+      if (event.key !== "Escape" || submitting) return;
+      setShowModal(false);
+      setShowReasonModal(false);
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [showModal, showReasonModal, submitting]);
 
   const handleMainChange = (
     e
@@ -307,27 +366,26 @@ const Reimbursements = () => {
     const expenseTo = new Date(formData.expenseTo);
 
     if (expenseFrom > today || expenseTo > today) {
-      alert("Reimbursement expense dates cannot be after today's date.");
+      setFormError("Reimbursement expense dates cannot be after today's date.");
       return;
     }
 
     if (expenseTo < expenseFrom) {
-      alert("Expense To date cannot be before Expense From date.");
+      setFormError("The expense end date cannot be before the start date.");
       return;
     }
     if (
       !formData.receiptFiles ||
       formData.receiptFiles.length === 0
     ) {
-      alert(
-        "At least one receipt / invoice upload is required."
-      );
+      setFormError("At least one receipt or invoice is required.");
 
       return;
     }
 
     try {
       setSubmitting(true);
+      setFormError("");
       const payload =
         new FormData();
 
@@ -381,33 +439,26 @@ const Reimbursements = () => {
         }
       );
 
+      await fetchRequests();
       setShowModal(false);
-
       resetForm();
-
-      fetchRequests();
-
-      setSubmitting(false);
-
-      alert(
-        "Reimbursement submitted successfully"
-      );
+      setFeedback({ type: "success", message: "Reimbursement submitted successfully." });
     } catch (error) {
-      setSubmitting(false);
-      alert(
-        error.response?.data
-          ?.message ||
-        "Submission failed"
+      setFormError(
+        error.response?.data?.message ||
+        "The reimbursement could not be submitted. Please try again."
       );
 
       console.log(
         error.response?.data
       );
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <>
+    <div aria-busy={isLoading}>
       <div className="section-header">
         <div>
           <h2 className="card-title">
@@ -421,15 +472,49 @@ const Reimbursements = () => {
         </div>
 
         <button
+          type="button"
           className="btn btn-primary"
-          onClick={() =>
-            setShowModal(true)
-          }
+          onClick={() => {
+            setFormError("");
+            setFeedback(null);
+            setShowModal(true);
+          }}
         >
           <Plus size={18} />
           New Request
         </button>
       </div>
+      {feedback && (
+        <div
+          className={`alert ${feedback.type === "success" ? "alert-success" : "alert-error"}`}
+          role={feedback.type === "error" ? "alert" : "status"}
+          aria-live="polite"
+        >
+          {feedback.message}
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <ErrorState
+          title="Unable to load reimbursements"
+          description={loadError}
+          action={(
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={fetchRequests}
+            >
+              Try again
+            </button>
+          )}
+        />
+      )}
+
+      {isLoading && (
+        <LoadingState label="Loading reimbursement requests…" />
+      )}
+
+      {!isLoading && !loadError && (
+        <>
       <div className="reimbursement-summary-grid">
         <div className="reimbursement-summary-card">
           <span>Total Submitted</span>
@@ -440,7 +525,7 @@ const Reimbursements = () => {
         <div className="reimbursement-summary-card">
           <span>Approved</span>
           <h3>₹ {approvedAmount}</h3>
-          <p>total paid</p>
+          <p>approved value</p>
         </div>
 
         <div className="reimbursement-summary-card">
@@ -463,6 +548,7 @@ const Reimbursements = () => {
       >
         <input
           type="text"
+          aria-label="Search reimbursement requests"
           placeholder="Search by purpose or status..."
           value={searchTerm}
           onChange={(e) => {
@@ -491,6 +577,8 @@ const Reimbursements = () => {
         ].map((filter) => (
           <button
             key={filter}
+            type="button"
+            aria-pressed={activeFilter === filter}
             className={activeFilter === filter ? "active-filter" : ""}
             onClick={() => {
               setActiveFilter(filter);
@@ -562,21 +650,7 @@ const Reimbursements = () => {
                 </td>
 
                 <td>
-                  <span
-                    className={
-                      [
-                        "Approved by Manager",
-                        "Approved by HR",
-                        "Paid by Finance",
-                      ].includes(item.finalStatus)
-                        ? "badge badge-success"
-                        : item.status === "Rejected"
-                          ? "badge badge-danger"
-                          : "badge badge-pending"
-                    }
-                  >
-                    {item.status}
-                  </span>
+                  <StatusBadge status={item.finalStatus} />
                 </td>
 
                 <td>
@@ -622,7 +696,15 @@ const Reimbursements = () => {
             {filteredRequests.length === 0 && (
               <tr>
                 <td colSpan="7" style={{ textAlign: "center", padding: "24px" }}>
-                  No reimbursement requests found.
+                  <EmptyState
+                    compact
+                    title="No reimbursement requests found"
+                    description={
+                      searchTerm || activeFilter !== "All"
+                        ? "Try changing your search or status filter."
+                        : "Your submitted reimbursement claims will appear here."
+                    }
+                  />
                 </td>
               </tr>
             )}
@@ -643,6 +725,7 @@ const Reimbursements = () => {
             }}
           >
             <button
+              type="button"
               className="btn btn-primary"
               disabled={currentPage === 1}
               onClick={() =>
@@ -657,6 +740,8 @@ const Reimbursements = () => {
               (_, index) => (
                 <button
                   key={index + 1}
+                  type="button"
+                  aria-current={currentPage === index + 1 ? "page" : undefined}
                   className={
                     currentPage === index + 1
                       ? "btn btn-primary"
@@ -672,6 +757,7 @@ const Reimbursements = () => {
             )}
 
             <button
+              type="button"
               className="btn btn-primary"
               disabled={currentPage === totalPages}
               onClick={() =>
@@ -682,17 +768,27 @@ const Reimbursements = () => {
             </button>
           </div>
         )}
+        </>
+      )}
 
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-card reimbursement-modal">
+          <div
+            className="modal-card reimbursement-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reimbursement-form-title"
+          >
             <div className="modal-header">
-              <h3>
+              <h3 id="reimbursement-form-title">
                 Expense Reimbursement
                 Form
               </h3>
 
               <button
+                type="button"
+                aria-label="Close reimbursement form"
+                disabled={submitting}
                 onClick={() =>
                   setShowModal(false)
                 }
@@ -704,14 +800,21 @@ const Reimbursements = () => {
             <form
               className="auth-form"
               onSubmit={handleSubmit}
+              aria-describedby={formError ? "reimbursement-form-error" : undefined}
             >
+              {formError && (
+                <div id="reimbursement-form-error" className="alert alert-error" role="alert">
+                  {formError}
+                </div>
+              )}
               <div className="input-group">
-                <label>
+                <label htmlFor="reimbursement-receipts">
                   Upload Receipt /
                   Invoice
                 </label>
 
                 <input
+                  id="reimbursement-receipts"
                   type="file"
                   multiple
                   accept=".pdf,.jpg,.jpeg,.png"
@@ -739,11 +842,12 @@ const Reimbursements = () => {
               )}
               <div className="grid-2">
                 <div className="input-group">
-                  <label>
+                  <label htmlFor="reimbursement-expense-from">
                     Expense From
                   </label>
 
                   <input
+                    id="reimbursement-expense-from"
                     type="date"
                     name="expenseFrom"
                     max={todayDate}
@@ -758,11 +862,12 @@ const Reimbursements = () => {
                 </div>
 
                 <div className="input-group">
-                  <label>
+                  <label htmlFor="reimbursement-expense-to">
                     Expense To
                   </label>
 
                   <input
+                    id="reimbursement-expense-to"
                     type="date"
                     name="expenseTo"
                     min={formData.expenseFrom || ""}
@@ -779,11 +884,12 @@ const Reimbursements = () => {
               </div>
 
               <div className="input-group">
-                <label>
+                <label htmlFor="reimbursement-business-purpose">
                   Business Purpose
                 </label>
 
                 <textarea
+                  id="reimbursement-business-purpose"
                   rows="3"
                   name="businessPurpose"
                   placeholder="Enter business purpose"
@@ -1020,14 +1126,19 @@ const Reimbursements = () => {
         <div className="modal-overlay">
           <div
             className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reimbursement-reason-title"
             style={{
               maxWidth: "500px",
             }}
           >
             <div className="modal-header">
-              <h3>Rejection Reason</h3>
+              <h3 id="reimbursement-reason-title">Rejection Reason</h3>
 
               <button
+                type="button"
+                aria-label="Close rejection reason"
                 onClick={() =>
                   setShowReasonModal(false)
                 }
@@ -1050,7 +1161,7 @@ const Reimbursements = () => {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

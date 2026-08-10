@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 
 import api from "../api/api";
+import useConfirm from "../components/ui/useConfirm";
+import { ErrorState, LoadingState } from "../components/ui/StatePanel";
 
 const MAX_PROFILE_PHOTO_SIZE =
   5 * 1024 * 1024;
@@ -27,6 +29,7 @@ const compactInputStyle = {
 };
 
 const EditProfile = ({ onSuccess }) => {
+  const confirmAction = useConfirm();
   const fileInputRef = useRef(null);
 
   const [profile, setProfile] =
@@ -159,7 +162,8 @@ const EditProfile = ({ onSuccess }) => {
   };
 
   useEffect(() => {
-    fetchProfile();
+    const initialLoad = window.setTimeout(fetchProfile, 0);
+    return () => window.clearTimeout(initialLoad);
   }, []);
 
   useEffect(() => {
@@ -465,10 +469,11 @@ const EditProfile = ({ onSuccess }) => {
     async () => {
       clearFeedback();
 
-      const confirmed =
-        window.confirm(
-          "Remove your current profile photo?"
-        );
+      const confirmed = await confirmAction({
+        title: "Remove your profile photo?",
+        description: "Your initials will be shown until you upload another photo.",
+        confirmLabel: "Remove photo",
+      });
 
       if (!confirmed) {
         return;
@@ -523,8 +528,8 @@ const EditProfile = ({ onSuccess }) => {
 
   if (isLoading) {
     return (
-      <div className="page-container">
-        <p>Loading profile...</p>
+      <div className="page-container" aria-busy="true">
+        <LoadingState label="Loading profile..." />
       </div>
     );
   }
@@ -532,18 +537,15 @@ const EditProfile = ({ onSuccess }) => {
   if (!profile) {
     return (
       <div className="page-container">
-        <div className="alert alert-error">
-          {error ||
-            "Profile could not be loaded."}
-        </div>
-
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={fetchProfile}
-        >
-          Try Again
-        </button>
+        <ErrorState
+          title="Profile could not be loaded"
+          description={error || "Please try loading your profile again."}
+          action={(
+            <button type="button" className="btn btn-primary" onClick={fetchProfile}>
+              Try Again
+            </button>
+          )}
+        />
       </div>
     );
   }
@@ -576,6 +578,8 @@ const EditProfile = ({ onSuccess }) => {
       {message && (
         <div
           className="alert alert-success"
+          role="status"
+          aria-live="polite"
           style={{
             marginBottom: "12px",
           }}
@@ -587,6 +591,7 @@ const EditProfile = ({ onSuccess }) => {
       {error && (
         <div
           className="alert alert-error"
+          role="alert"
           style={{
             marginBottom: "12px",
           }}
@@ -661,6 +666,7 @@ const EditProfile = ({ onSuccess }) => {
             </h3>
 
             <p
+              id="profile-photo-help"
               style={{
                 margin:
                   "0 0 10px",
@@ -673,8 +679,11 @@ const EditProfile = ({ onSuccess }) => {
             </p>
 
             <input
+              id="profile-photo-input"
               ref={fileInputRef}
               type="file"
+              aria-label="Choose a profile photo"
+              aria-describedby="profile-photo-help"
               accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
               onChange={
                 handlePhotoSelection
@@ -772,6 +781,8 @@ const EditProfile = ({ onSuccess }) => {
 
             {selectedPhoto && (
               <p
+                role="status"
+                aria-live="polite"
                 style={{
                   margin:
                     "8px 0 0",
@@ -786,15 +797,7 @@ const EditProfile = ({ onSuccess }) => {
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit, minmax(320px, 1fr))",
-          gap: "16px",
-          marginTop: "16px",
-        }}
-      >
+      <div className="profile-settings-grid">
         <div
           className="card"
           style={compactCardStyle}
@@ -808,16 +811,7 @@ const EditProfile = ({ onSuccess }) => {
             Employee Details
           </h3>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(2, minmax(0, 1fr))",
-              columnGap: "18px",
-              rowGap: "9px",
-              fontSize: "14px",
-            }}
-          >
+          <div className="profile-details-grid">
             <div>
               <strong>Name:</strong>{" "}
               {profile.name ||
@@ -916,6 +910,9 @@ const EditProfile = ({ onSuccess }) => {
             className="auth-form"
             onSubmit={updateMobile}
           >
+            <label className="sr-only" htmlFor="profile-mobile-number">
+              Mobile number
+            </label>
             <div
               style={{
                 display: "flex",
@@ -925,6 +922,7 @@ const EditProfile = ({ onSuccess }) => {
               }}
             >
               <span
+                aria-hidden="true"
                 style={{
                   padding:
                     "10px 12px",
@@ -939,7 +937,9 @@ const EditProfile = ({ onSuccess }) => {
               </span>
 
               <input
+                id="profile-mobile-number"
                 type="text"
+                aria-label="Mobile number without country code"
                 value={phone}
                 onChange={(
                   event
@@ -1010,20 +1010,14 @@ const EditProfile = ({ onSuccess }) => {
           className="auth-form"
           onSubmit={changePassword}
         >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(3, minmax(220px, 1fr))",
-              gap: "12px",
-            }}
-          >
+          <div className="password-fields-grid">
             <div className="input-group">
-              <label>
+              <label htmlFor="current-password">
                 Current Password
               </label>
 
               <input
+                id="current-password"
                 type="password"
                 value={
                   currentPassword
@@ -1048,11 +1042,12 @@ const EditProfile = ({ onSuccess }) => {
             </div>
 
             <div className="input-group">
-              <label>
+              <label htmlFor="new-password">
                 New Password
               </label>
 
               <input
+                id="new-password"
                 type="password"
                 value={newPassword}
                 onChange={(
@@ -1076,11 +1071,12 @@ const EditProfile = ({ onSuccess }) => {
             </div>
 
             <div className="input-group">
-              <label>
+              <label htmlFor="confirm-password">
                 Confirm Password
               </label>
 
               <input
+                id="confirm-password"
                 type="password"
                 value={
                   confirmPassword

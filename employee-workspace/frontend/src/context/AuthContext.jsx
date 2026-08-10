@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../api/api";
-
-const AuthContext = createContext();
+import { LoadingState } from "../components/ui/StatePanel";
+import AuthContext from "./auth-context";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -29,6 +29,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    // Synchronize the initial client session with the server.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     checkAuth();
   }, []);
 
@@ -91,6 +93,8 @@ export const AuthProvider = ({ children }) => {
       window.addEventListener(event, resetIdleTimer);
     });
 
+    // Start the idle lifecycle after listeners are attached.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     resetIdleTimer();
 
     return () => {
@@ -100,6 +104,8 @@ export const AuthProvider = ({ children }) => {
 
       clearIdleTimers();
     };
+    // The timer callback intentionally captures the current authenticated user.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const login = async (email, password) => {
@@ -121,7 +127,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <main className="auth-loading-screen">
+        <LoadingState label="Preparing your workspace…" />
+      </main>
+    );
   }
 
   return (
@@ -138,27 +148,26 @@ export const AuthProvider = ({ children }) => {
 
       {showSessionWarning && user && (
         <div className="modal-overlay">
-          <div className="modal-box">
-            <h2>Session Expiring</h2>
+          <div
+            className="modal-box"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="session-expiring-title"
+            aria-describedby="session-expiring-description"
+          >
+            <h2 id="session-expiring-title">Session expiring</h2>
 
-            <p>
+            <p id="session-expiring-description">
               Your session will expire in 1 minute due to inactivity.
             </p>
 
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                justifyContent: "flex-end",
-                marginTop: "20px",
-              }}
-            >
-              <button className="btn" onClick={logout}>
-                Logout
+            <div className="form-actions session-actions">
+              <button type="button" className="btn" onClick={logout}>
+                Sign out
               </button>
 
-              <button className="btn btn-primary" onClick={stayLoggedIn}>
-                Stay Logged In
+              <button type="button" className="btn btn-primary" onClick={stayLoggedIn} autoFocus>
+                Stay signed in
               </button>
             </div>
           </div>
@@ -167,5 +176,3 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-
-export const useAuth = () => useContext(AuthContext);

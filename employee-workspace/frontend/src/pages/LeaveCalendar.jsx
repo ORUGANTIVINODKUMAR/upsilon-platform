@@ -1,29 +1,85 @@
 import { useEffect, useState } from "react";
+import {
+  Building2,
+  CalendarCheck2,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  FileSpreadsheet,
+  RotateCw,
+  UsersRound,
+  X,
+} from "lucide-react";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 import api from "../api/api";
+import { useAuth } from "../context/useAuth";
+import PageHeader from "../components/ui/PageHeader";
+import StatusBadge from "../components/ui/StatusBadge";
+import { EmptyState, ErrorState, LoadingState } from "../components/ui/StatePanel";
+
+const LEAVE_COLORS = {
+  Sick: "#dc4c4c",
+  Vacation: "#3478c8",
+  Personal: "#25845e",
+  Travel: "#c47b13",
+  Casual: "#7c5cc4",
+  Earned: "#16828e",
+  Emergency: "#c04d7c",
+};
+
+const EXPORT_ROLES = ["Admin", "HR", "Manager"];
 
 const LeaveCalendar = () => {
+  const { user } = useAuth();
   const [events, setEvents] = useState([]);
   const [todayLeaves, setTodayLeaves] = useState([]);
   const [activeView, setActiveView] = useState("Monthly");
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedDateLeaves, setSelectedDateLeaves] = useState([]);
+  const [viewDate, setViewDate] = useState(() => new Date());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const fetchCalendarData = async () => {
+    setLoading(true);
+    setError("");
+
     try {
-      const calendarRes = await api.get("/leave/calendar");
-      const todayRes = await api.get("/leave/today-leaves");
+      const [calendarRes, todayRes] = await Promise.all([
+        api.get("/leave/calendar"),
+        api.get("/leave/today-leaves"),
+      ]);
 
       setEvents(calendarRes.data.calendarEvents || []);
       setTodayLeaves(todayRes.data.leaveRequests || []);
     } catch (error) {
       console.log(error.response?.data);
-      alert(error.response?.data?.message || "Unable to load leave calendar");
+      setError(error.response?.data?.message || "Unable to load the leave calendar.");
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
+    // Initial server synchronization for this standalone view.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCalendarData();
   }, []);
+
+  useEffect(() => {
+    if (!selectedDate) return undefined;
+
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        setSelectedDate(null);
+        setSelectedDateLeaves([]);
+      }
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selectedDate]);
 
   const formatDate = (date) =>
     new Date(date).toLocaleDateString("en-IN", {
@@ -32,16 +88,22 @@ const LeaveCalendar = () => {
       year: "numeric",
     });
 
+  const toDateInputValue = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const parseLocalDate = (value) => {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const getLeaveColor = (leaveType) => {
-    if (leaveType === "Sick") return "#ef4444";
-    if (leaveType === "Vacation") return "#2563eb";
-    if (leaveType === "Personal") return "#16a34a";
-    if (leaveType === "Travel") return "#f59e0b";
-    return "#64748b";
-  };
+  const getLeaveColor = (leaveType) => LEAVE_COLORS[leaveType] || "#66736d";
 
   const isDateInLeaveRange = (date, event) => {
     const checkDate = new Date(date);
@@ -55,9 +117,10 @@ const LeaveCalendar = () => {
     return checkDate >= start && checkDate <= end;
   };
 
-  const getWeekRange = () => {
-    const start = new Date(today);
-    start.setDate(today.getDate() - today.getDay());
+  const getWeekRange = (date = viewDate) => {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - start.getDay());
 
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
@@ -74,17 +137,19 @@ const LeaveCalendar = () => {
     end.setHours(23, 59, 59, 999);
 
     if (activeView === "Daily") {
-      return today >= start && today <= end;
+      const selectedDay = new Date(viewDate);
+      selectedDay.setHours(0, 0, 0, 0);
+      return selectedDay >= start && selectedDay <= end;
     }
 
     if (activeView === "Weekly") {
-      const { start: weekStart, end: weekEnd } = getWeekRange();
+      const { start: weekStart, end: weekEnd } = getWeekRange(viewDate);
       return start <= weekEnd && end >= weekStart;
     }
 
     if (activeView === "Monthly") {
-      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      const monthStart = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+      const monthEnd = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
       monthEnd.setHours(23, 59, 59, 999);
 
       return start <= monthEnd && end >= monthStart;
@@ -93,9 +158,51 @@ const LeaveCalendar = () => {
     return true;
   });
 
+  const visibleEmployeeCount = new Set(
+    filteredEvents.map((event) => event.employeeName).filter(Boolean)
+  ).size;
+  const visibleDepartmentCount = new Set(
+    filteredEvents.map((event) => event.department).filter(Boolean)
+  ).size;
+
+  const exportCalendar = () => {
+    if (!EXPORT_ROLES.includes(user?.role) || filteredEvents.length === 0) return;
+
+    const exportRows = filteredEvents.map((event) => ({
+      Employee: event.employeeName || "N/A",
+      Department: event.department || "N/A",
+      "Leave Type": event.leaveType || "N/A",
+      "Start Date": formatDate(event.start),
+      "End Date": formatDate(event.end),
+      Status: event.status || "Approved",
+      View: activeView,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    worksheet["!cols"] = [
+      { wch: 24 },
+      { wch: 22 },
+      { wch: 16 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 22 },
+      { wch: 12 },
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Leave Calendar");
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const fileData = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+    });
+    const period = activeView === "Monthly"
+      ? toDateInputValue(viewDate).slice(0, 7)
+      : toDateInputValue(viewDate);
+
+    saveAs(fileData, `Leave_Calendar_${activeView}_${period}.xlsx`);
+  };
+
   const getMonthDays = () => {
-    const year = today.getFullYear();
-    const month = today.getMonth();
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
 
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
@@ -126,83 +233,235 @@ const LeaveCalendar = () => {
 
   const monthDays = getMonthDays();
 
+  const selectedMonthValue = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, "0")}`;
+  const selectedDateValue = toDateInputValue(viewDate);
+  const selectedPeriodLabel = (() => {
+    if (activeView === "Daily") return formatDate(viewDate);
+    if (activeView === "Weekly") {
+      const { start, end } = getWeekRange(viewDate);
+      return `${formatDate(start)} – ${formatDate(end)}`;
+    }
+    return viewDate.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+  })();
+
+  const selectSpecificDate = (value) => {
+    if (!value) return;
+    setViewDate(parseLocalDate(value));
+    setActiveView("Daily");
+  };
+
+  const selectMonth = (value) => {
+    if (!value) return;
+    const [year, month] = value.split("-").map(Number);
+    setViewDate(new Date(year, month - 1, 1));
+    setActiveView("Monthly");
+  };
+
+  const moveMonth = (offset) => {
+    setViewDate((currentDate) =>
+      new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1)
+    );
+  };
+
+  if (loading) {
+    return <LoadingState label="Loading the organization leave calendar…" />;
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        title="The leave calendar could not be loaded"
+        description={error}
+        action={(
+          <button type="button" className="btn btn-secondary" onClick={fetchCalendarData}>
+            <RotateCw size={15} aria-hidden="true" />
+            Try again
+          </button>
+        )}
+      />
+    );
+  }
+
   return (
     <>
-      <div className="section-header">
-        <div>
-          <h2 className="card-title">Organization Leave Calendar</h2>
-          <p className="section-subtitle">
-            View manager-approved employee leaves across the organization.
-          </p>
-        </div>
+      <PageHeader
+        eyebrow="Workforce availability"
+        title="Organization Leave Calendar"
+        description="Review approved employee leave by day, week, or month and plan team coverage with confidence."
+        icon={CalendarDays}
+        actions={EXPORT_ROLES.includes(user?.role) ? (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={exportCalendar}
+            disabled={filteredEvents.length === 0}
+            aria-label={`Export ${filteredEvents.length} visible leave records to Excel`}
+          >
+            <FileSpreadsheet size={17} aria-hidden="true" />
+            Export Excel
+          </button>
+        ) : undefined}
+      />
+
+      <div className="calendar-summary-grid reimbursement-summary-grid" aria-label="Leave calendar summary">
+        <article className="calendar-summary-card calendar-summary-card--accent reimbursement-summary-card">
+          <CalendarCheck2 size={20} aria-hidden="true" />
+          <div>
+            <span>On leave today</span>
+            <strong>{todayLeaves.length}</strong>
+            <small>approved employees</small>
+          </div>
+        </article>
+        <article className="calendar-summary-card reimbursement-summary-card">
+          <CalendarDays size={20} aria-hidden="true" />
+          <div>
+            <span>{activeView} records</span>
+            <strong>{filteredEvents.length}</strong>
+            <small>approved leaves shown</small>
+          </div>
+        </article>
+        <article className="calendar-summary-card reimbursement-summary-card">
+          <UsersRound size={20} aria-hidden="true" />
+          <div>
+            <span>Employees away</span>
+            <strong>{visibleEmployeeCount}</strong>
+            <small>in the selected view</small>
+          </div>
+        </article>
+        <article className="calendar-summary-card reimbursement-summary-card">
+          <Building2 size={20} aria-hidden="true" />
+          <div>
+            <span>Departments</span>
+            <strong>{visibleDepartmentCount}</strong>
+            <small>with scheduled leave</small>
+          </div>
+        </article>
       </div>
 
-      <div className="modern-section-card">
-        <h3>Today&apos;s Leaves</h3>
+      <section className="modern-section-card calendar-today-card" aria-labelledby="today-leaves-title">
+        <div className="section-header">
+          <div>
+            <span className="ui-eyebrow">Today</span>
+            <h3 id="today-leaves-title">Who&apos;s away</h3>
+            <p className="section-subtitle">A quick view of approved absences for today.</p>
+          </div>
+          <StatusBadge
+            status={todayLeaves.length > 0 ? "pending" : "active"}
+            label={todayLeaves.length > 0 ? `${todayLeaves.length} away` : "Full attendance"}
+          />
+        </div>
 
         {todayLeaves.length > 0 ? (
-          <div className="modern-stats-grid">
+          <div className="calendar-people-grid">
             {todayLeaves.map((leave) => (
-              <div className="mini-stat-card" key={leave._id}>
-                <span>{leave.employeeId?.name}</span>
-                <h3>{leave.leaveType}</h3>
-                <p>
-                  {formatDate(leave.startDate)} - {formatDate(leave.endDate)}
-                </p>
-              </div>
+              <article className="calendar-person-card mini-stat-card" key={leave._id}>
+                <span
+                  className="calendar-person-marker"
+                  style={{ "--event-color": getLeaveColor(leave.leaveType) }}
+                  aria-hidden="true"
+                />
+                <div>
+                  <strong>{leave.employeeId?.name || "Employee"}</strong>
+                  <span>{leave.leaveType} leave</span>
+                  <small>{formatDate(leave.startDate)} – {formatDate(leave.endDate)}</small>
+                </div>
+              </article>
             ))}
           </div>
         ) : (
-          <p>No employees are on leave today.</p>
+          <EmptyState
+            compact
+            title="Everyone is available today"
+            description="There are no approved leaves scheduled for today."
+          />
         )}
-      </div>
+      </section>
 
-      <div className="leave-filter-tabs">
-        {["Daily", "Weekly", "Monthly"].map((view) => (
-          <button
-            key={view}
-            className={activeView === view ? "active-filter" : ""}
-            onClick={() => setActiveView(view)}
-          >
-            {view}
-          </button>
-        ))}
-      </div>
+      <section className="calendar-view-toolbar modern-section-card" aria-label="Calendar view options">
+        <div className="calendar-view-controls">
+          <div className="leave-filter-tabs" aria-label="Calendar period type">
+            {["Daily", "Weekly", "Monthly"].map((view) => (
+              <button
+                type="button"
+                key={view}
+                className={activeView === view ? "active-filter" : ""}
+                onClick={() => setActiveView(view)}
+                aria-pressed={activeView === view}
+              >
+                {view}
+              </button>
+            ))}
+          </div>
 
-      <div className="modern-section-card">
-        <h3>
-          {activeView} View - {filteredEvents.length} Approved Leave
-          {filteredEvents.length !== 1 ? "s" : ""}
-        </h3>
-      </div>
+          <div className="calendar-date-selectors">
+            <label className="calendar-date-field">
+              <span>Specific date</span>
+              <input
+                type="date"
+                value={selectedDateValue}
+                onChange={(event) => selectSpecificDate(event.target.value)}
+                aria-label="Show leave for a specific date"
+              />
+            </label>
+            <label className="calendar-date-field">
+              <span>Month</span>
+              <input
+                type="month"
+                value={selectedMonthValue}
+                onChange={(event) => selectMonth(event.target.value)}
+                aria-label="Show leave for a selected month"
+              />
+            </label>
+            <button
+              type="button"
+              className="btn btn-secondary calendar-today-button"
+              onClick={() => setViewDate(new Date())}
+            >
+              Today
+            </button>
+          </div>
+        </div>
+
+        <div className="calendar-legend" aria-label="Leave type colors">
+          {Object.entries(LEAVE_COLORS).map(([leaveType, color]) => (
+            <span key={leaveType} className="ui-status ui-status--neutral">
+              <i style={{ "--legend-color": color }} aria-hidden="true" />
+              {leaveType}
+            </span>
+          ))}
+        </div>
+      </section>
 
       {activeView === "Monthly" && (
-        <div className="modern-section-card">
-          <h3>
-            {today.toLocaleDateString("en-IN", {
-              month: "long",
-              year: "numeric",
-            })}
-          </h3>
+        <section className="modern-section-card calendar-month-card">
+          <div className="calendar-toolbar">
+            <div>
+              <span className="ui-eyebrow">Monthly schedule</span>
+              <h3>
+                {viewDate.toLocaleDateString("en-IN", {
+                  month: "long",
+                  year: "numeric",
+                })}
+              </h3>
+            </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(7, 1fr)",
-              gap: "10px",
-              marginTop: "16px",
-            }}
-          >
+            <div className="calendar-navigation" aria-label="Calendar month navigation">
+              <button type="button" onClick={() => moveMonth(-1)} aria-label="Previous month">
+                <ChevronLeft size={18} aria-hidden="true" />
+              </button>
+              <button type="button" onClick={() => setViewDate(new Date())}>
+                Today
+              </button>
+              <button type="button" onClick={() => moveMonth(1)} aria-label="Next month">
+                <ChevronRight size={18} aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+
+          <div className="calendar-scroll" role="region" aria-label="Monthly leave calendar" tabIndex="0">
+          <div className="leave-calendar-grid">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-              <div
-                key={day}
-                style={{
-                  fontWeight: "700",
-                  textAlign: "center",
-                  padding: "10px",
-                  color: "#64748b",
-                }}
-              >
+              <div key={day} className="leave-calendar-weekday">
                 {day}
               </div>
             ))}
@@ -217,71 +476,56 @@ const LeaveCalendar = () => {
                 date.toDateString() === today.toDateString();
 
               return (
-                <div
+                <button
+                  type="button"
                   key={index}
                   onClick={() => openDateModal(date)}
-                  style={{
-                    minHeight: "110px",
-                    border: isToday
-                      ? "2px solid #2563eb"
-                      : "1px solid #e5e7eb",
-                    borderRadius: "14px",
-                    padding: "10px",
-                    background: date ? "#ffffff" : "#f8fafc",
-                    cursor: date ? "pointer" : "default",
-                    boxShadow: date ? "0 8px 18px rgba(15,23,42,0.06)" : "none",
-                  }}
+                  disabled={!date}
+                  className={`leave-calendar-day${isToday ? " is-today" : ""}${!date ? " is-empty" : ""}`}
+                  aria-label={date ? `${formatDate(date)}, ${dayLeaves.length} approved leave${dayLeaves.length === 1 ? "" : "s"}` : undefined}
                 >
-                  <div
-                    style={{
-                      fontWeight: "700",
-                      marginBottom: "8px",
-                      color: isToday ? "#2563eb" : "#0f172a",
-                    }}
-                  >
+                  <span className="leave-calendar-date">
                     {date ? date.getDate() : ""}
-                  </div>
+                  </span>
 
                   {dayLeaves.slice(0, 3).map((event) => (
-                    <div
+                    <span
                       key={`${event.id}-${event.employeeName}`}
-                      style={{
-                        background: getLeaveColor(event.leaveType),
-                        color: "white",
-                        borderRadius: "8px",
-                        padding: "4px 6px",
-                        fontSize: "12px",
-                        marginBottom: "5px",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
+                      className="leave-calendar-event"
+                      style={{ "--event-color": getLeaveColor(event.leaveType) }}
                       title={`${event.employeeName} - ${event.leaveType}`}
                     >
                       {event.employeeName}
-                    </div>
+                    </span>
                   ))}
 
                   {dayLeaves.length > 3 && (
-                    <div
-                      style={{
-                        fontSize: "12px",
-                        color: "#64748b",
-                        marginTop: "4px",
-                      }}
-                    >
+                    <span className="leave-calendar-more">
                       +{dayLeaves.length - 3} more
-                    </div>
+                    </span>
                   )}
-                </div>
+                </button>
               );
             })}
           </div>
-        </div>
+          </div>
+        </section>
       )}
 
-      <div className="table-wrapper modern-table-wrapper">
-        <table className="custom-table">
+      <section className="modern-section-card calendar-list-card" aria-labelledby="calendar-list-title">
+        <div className="section-header">
+          <div>
+            <span className="ui-eyebrow">Approved schedule</span>
+            <h3 id="calendar-list-title">{activeView} leave details</h3>
+            <p className="section-subtitle">
+              {selectedPeriodLabel} · {filteredEvents.length} approved leave {filteredEvents.length === 1 ? "record" : "records"}.
+            </p>
+          </div>
+        </div>
+
+        <div className="table-wrapper modern-table-wrapper">
+          <table className="custom-table">
+          <caption className="sr-only">Approved employee leave in the selected calendar view</caption>
           <thead>
             <tr>
               <th>Employee</th>
@@ -302,70 +546,70 @@ const LeaveCalendar = () => {
                 <td>{formatDate(event.start)}</td>
                 <td>{formatDate(event.end)}</td>
                 <td>
-                  <span className="badge badge-success">
-                    Approved by Manager
-                  </span>
+                  <StatusBadge status={event.status || "Approved"} />
                 </td>
               </tr>
             ))}
 
             {filteredEvents.length === 0 && (
               <tr>
-                <td colSpan="6" style={{ textAlign: "center", padding: "24px" }}>
-                  No approved leaves found for {activeView.toLowerCase()} view.
+                <td colSpan="6">
+                  <EmptyState
+                    compact
+                    title={`No approved leaves in the ${activeView.toLowerCase()} view`}
+                    description="Choose another specific date or month to review scheduled leave."
+                  />
                 </td>
               </tr>
             )}
           </tbody>
-        </table>
-      </div>
+          </table>
+        </div>
+      </section>
 
       {selectedDate && (
         <div className="modal-overlay">
           <div
             className="modal-card"
-            style={{
-              maxWidth: "600px",
-              width: "90%",
-            }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="calendar-day-dialog-title"
           >
             <div className="modal-header">
-              <h3>Leaves on {formatDate(selectedDate)}</h3>
+              <h3 id="calendar-day-dialog-title">Leaves on {formatDate(selectedDate)}</h3>
 
               <button
+                type="button"
+                aria-label="Close leave details"
                 onClick={() => {
                   setSelectedDate(null);
                   setSelectedDateLeaves([]);
                 }}
               >
-                ✕
+                <X size={18} aria-hidden="true" />
               </button>
             </div>
 
-            <div style={{ padding: "20px" }}>
+            <div className="calendar-day-details">
               {selectedDateLeaves.length > 0 ? (
                 selectedDateLeaves.map((leave) => (
                   <div
                     key={leave.id}
-                    style={{
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "12px",
-                      padding: "14px",
-                      marginBottom: "12px",
-                    }}
+                    className="calendar-leave-detail"
                   >
-                    <strong>{leave.employeeName}</strong>
-                    <p>{leave.leaveType}</p>
-                    <p>
-                      {formatDate(leave.start)} - {formatDate(leave.end)}
-                    </p>
-                    <span className="badge badge-success">
-                      {leave.status}
-                    </span>
+                    <CalendarDays size={18} aria-hidden="true" />
+                    <div>
+                      <strong>{leave.employeeName}</strong>
+                      <p>{leave.leaveType}</p>
+                      <p>
+                        {formatDate(leave.start)} - {formatDate(leave.end)}
+                      </p>
+                      <StatusBadge status={leave.status || "Approved"} />
+                    </div>
                   </div>
                 ))
               ) : (
-                <p>No employees on leave for this date.</p>
+                <EmptyState compact title="No approved leaves on this date" />
               )}
             </div>
           </div>

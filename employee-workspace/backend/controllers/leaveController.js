@@ -10,12 +10,21 @@ import {
 import {
   sendDecisionEmail,
   sendFinanceLeaveEmail,
-  sendLeaveRequestEmail,
+  sendLeaveRequestNotification,
 } from "../services/emailService.js";
+import { getLeaveNotificationRecipients } from "../services/leaveEmailRecipientService.js";
 import {
   PERSONAL_LEAVE_ROLES,
   syncApprovedLeaveLedger,
 } from "../services/leaveBalanceService.js";
+import {
+  buildOverlapQuery,
+  canCancelOwnLeaveRequest,
+  describeLeaveTiming,
+  getOverlapMessage,
+  getRetrospectivePolicy,
+  validateLeaveDateRange,
+} from "../services/leaveRequestPolicy.js";
 
 const APPROVED_LEAVE_STATUSES = [
   "Approved by Manager",
@@ -349,35 +358,37 @@ export const createLeaveRequest = async (
       });
     }
 
-    const parsedStartDate =
-      new Date(startDate);
+    const submittedAt = new Date();
+    const dateValidation = validateLeaveDateRange({
+      startDate,
+      endDate,
+      now: submittedAt,
+    });
 
-    const parsedEndDate =
-      new Date(endDate);
-
-    if (
-      Number.isNaN(
-        parsedStartDate.getTime()
-      ) ||
-      Number.isNaN(
-        parsedEndDate.getTime()
-      )
-    ) {
+    if (!dateValidation.valid) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid leave dates",
+        code: dateValidation.code || "INVALID_LEAVE_DATES",
+        message: dateValidation.message,
       });
     }
 
-    if (
-      parsedEndDate <
-      parsedStartDate
-    ) {
-      return res.status(400).json({
+    const parsedStartDate = dateValidation.startDate;
+    const parsedEndDate = dateValidation.endDate;
+
+    const overlappingRequest = await LeaveRequest.findOne(
+      buildOverlapQuery({
+        employeeId: employee._id,
+        startDate: parsedStartDate,
+        endDate: parsedEndDate,
+      })
+    ).select("startDate endDate finalStatus");
+
+    if (overlappingRequest) {
+      return res.status(409).json({
         success: false,
-        message:
-          "End date cannot be earlier than start date",
+        code: "LEAVE_DATE_OVERLAP",
+        message: getOverlapMessage(overlappingRequest),
       });
     }
 
@@ -448,6 +459,14 @@ export const createLeaveRequest = async (
         endDate:
           parsedEndDate,
 
+        submittedAt,
+
+        requestKind:
+          dateValidation.requestKind,
+
+        retrospectiveDays:
+          dateValidation.retrospectiveDays,
+
         reason:
           reason.trim(),
 
@@ -488,7 +507,9 @@ export const createLeaveRequest = async (
               employee._id,
 
             remarks:
-              "Leave request submitted",
+              dateValidation.requestKind === "Retrospective"
+                ? `Past leave request submitted ${dateValidation.retrospectiveDays} day(s) after the leave start date`
+                : "Leave request submitted",
           },
         ],
       });
@@ -544,42 +565,27 @@ export const createLeaveRequest = async (
       )
     );
 
-    Promise.all(
-      uniqueNotificationUsers
-        .filter(
-          (approver) =>
-            approver.email
-        )
-        .map((approver) =>
-          sendLeaveRequestEmail({
-            to: approver.email,
-
-            employeeName:
-              employee.name,
-
-            leaveType,
-
-            startDate:
-              parsedStartDate,
-
-            endDate:
-              parsedEndDate,
-
-            workingDays,
-          })
-        )
-    ).catch((emailError) => {
-      console.log(
-        "Leave request email failed:",
-        emailError.message
-      );
+    const emailRecipients = getLeaveNotificationRecipients({
+      team,
+      hrUsers,
+      employeeId: employee._id,
+    });
+    const workspaceUrl = process.env.WORKSPACE_URL?.trim()?.replace(/\/$/, "");
+    const emailNotification = await sendLeaveRequestNotification({
+      recipients: emailRecipients,
+      employee,
+      leaveRequest,
+      reviewUrl: workspaceUrl ? `${workspaceUrl}/dashboard?page=managerApprovals` : "",
     });
 
     return res.status(201).json({
       success: true,
       message:
-        "Leave request submitted successfully",
+        dateValidation.requestKind === "Retrospective"
+          ? "Past leave request submitted successfully and sent for approval"
+          : "Leave request submitted successfully",
       leaveRequest,
+      emailNotification,
     });
   } catch (error) {
     console.error(
@@ -720,39 +726,43 @@ export const updateMyLeaveRequest = async (
       });
     }
 
-    const parsedStartDate =
-      new Date(
-        normalizedStartDate
-      );
+    const datesChanged =
+      normalizeDateForComparison(normalizedStartDate) !==
+        normalizeDateForComparison(leaveRequest.startDate) ||
+      normalizeDateForComparison(normalizedEndDate) !==
+        normalizeDateForComparison(leaveRequest.endDate);
 
-    const parsedEndDate =
-      new Date(
-        normalizedEndDate
-      );
+    const dateValidation = validateLeaveDateRange({
+      startDate: normalizedStartDate,
+      endDate: normalizedEndDate,
+      enforceRetrospectiveLimit: datesChanged,
+    });
 
-    if (
-      Number.isNaN(
-        parsedStartDate.getTime()
-      ) ||
-      Number.isNaN(
-        parsedEndDate.getTime()
-      )
-    ) {
+    if (!dateValidation.valid) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid leave date",
+        code: dateValidation.code || "INVALID_LEAVE_DATES",
+        message: dateValidation.message,
       });
     }
 
-    if (
-      parsedEndDate <
-      parsedStartDate
-    ) {
-      return res.status(400).json({
+    const parsedStartDate = dateValidation.startDate;
+    const parsedEndDate = dateValidation.endDate;
+
+    const overlappingRequest = await LeaveRequest.findOne(
+      buildOverlapQuery({
+        employeeId: req.user._id,
+        startDate: parsedStartDate,
+        endDate: parsedEndDate,
+        excludeId: leaveRequest._id,
+      })
+    ).select("startDate endDate finalStatus");
+
+    if (overlappingRequest) {
+      return res.status(409).json({
         success: false,
-        message:
-          "End date cannot be earlier than start date",
+        code: "LEAVE_DATE_OVERLAP",
+        message: getOverlapMessage(overlappingRequest),
       });
     }
 
@@ -848,6 +858,14 @@ export const updateMyLeaveRequest = async (
 
     leaveRequest.endDate =
       updatedValues.endDate;
+
+    const timing = describeLeaveTiming(
+      updatedValues.startDate,
+      leaveRequest.submittedAt || leaveRequest.createdAt,
+    );
+
+    leaveRequest.requestKind = timing.requestKind;
+    leaveRequest.retrospectiveDays = timing.retrospectiveDays;
 
     leaveRequest.reason =
       updatedValues.reason;
@@ -1135,6 +1153,76 @@ export const updateMyLeaveRequest = async (
   }
 };
 
+export const cancelMyLeaveRequest = async (req, res) => {
+  try {
+    const leaveRequest = await LeaveRequest.findById(req.params.id);
+
+    if (!leaveRequest) {
+      return res.status(404).json({
+        success: false,
+        message: "Leave request not found",
+      });
+    }
+
+    if (leaveRequest.employeeId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You can cancel only your own leave request",
+      });
+    }
+
+    if (!canCancelOwnLeaveRequest({
+      ownerId: leaveRequest.employeeId,
+      userId: req.user._id,
+      finalStatus: leaveRequest.finalStatus,
+    })) {
+      return res.status(400).json({
+        success: false,
+        message: "Only a pending leave request can be cancelled",
+      });
+    }
+
+    const previousStatus = leaveRequest.finalStatus;
+    const now = new Date();
+    leaveRequest.finalStatus = "Cancelled";
+    leaveRequest.requiresReapproval = false;
+    leaveRequest.lastStatusChangedBy = req.user._id;
+    leaveRequest.lastStatusChangedAt = now;
+    leaveRequest.approvalHistory.push({
+      level: "Employee",
+      action: "Cancelled",
+      actedBy: req.user._id,
+      actedAt: now,
+      remarks: "Leave request cancelled by employee",
+    });
+    leaveRequest.statusHistory.push({
+      previousStatus,
+      newStatus: "Cancelled",
+      changedBy: req.user._id,
+      changedAt: now,
+      remarks: "Cancelled by employee",
+    });
+
+    await leaveRequest.save();
+    await syncApprovedLeaveLedger(leaveRequest, req.user._id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Leave request cancelled successfully",
+      leaveRequest,
+    });
+  } catch (error) {
+    console.error("CANCEL LEAVE REQUEST ERROR:", error);
+
+    return res.status(error.name === "CastError" ? 400 : 500).json({
+      success: false,
+      message: error.name === "CastError"
+        ? "Invalid leave request ID"
+        : "Unable to cancel leave request",
+    });
+  }
+};
+
 export const getMyLeaveRequests = async (
   req,
   res
@@ -1168,6 +1256,14 @@ export const getMyLeaveRequests = async (
     return res.status(200).json({
       success: true,
       leaveRequests,
+      retrospectivePolicy: (() => {
+        const policy = getRetrospectivePolicy();
+        return {
+          maxPastDays: policy.maxPastDays,
+          earliestAllowedDate: policy.earliestAllowedDateValue,
+          today: policy.todayDate,
+        };
+      })(),
     });
   } catch (error) {
     console.error(
