@@ -37,7 +37,8 @@ import Auditing from "./pages/service-details/Auditing";
 import AdminSupport from "./pages/service-details/AdminSupport";
 
 /* New isolated Careers public pages */
-import CareersModule from "./careers/pages/Careers";
+// Careers is on hold. Restore this import when re-enabling the /careers route.
+// import CareersModule from "./careers/pages/Careers";
 import JobDetails from "./careers/pages/JobDetails";
 import ApplyJob from "./careers/pages/ApplyJob";
 
@@ -160,7 +161,7 @@ function App() {
           {/* Careers public pages */}
           <Route
             path="/careers"
-            element={<CareersModule />}
+            element={<Navigate to="/" replace />}
           />
 
           <Route

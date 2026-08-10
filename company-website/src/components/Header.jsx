@@ -124,12 +124,14 @@ function Header() {
             Resources
           </NavLink>
 
+          {/* Temporarily hidden while the Careers page is on hold.
           <NavLink
             to="/careers"
             onClick={closeMenu}
           >
             Careers
           </NavLink>
+          */}
 
           <NavLink
             to="/contact"
