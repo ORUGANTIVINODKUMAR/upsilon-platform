@@ -5,16 +5,23 @@ import {
   X,
   Trash2,
   Pencil,
+  CircleCheck,
+  Clock3,
+  CircleX,
 } from "lucide-react";
 
 import api from "../api/api";
 import StatusBadge from "../components/ui/StatusBadge";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import PageHeader from "../components/ui/PageHeader";
+import FileAttachment from "../components/ui/FileAttachment";
+import MetricCard from "../components/ui/MetricCard";
+import SearchField from "../components/ui/SearchField";
 import {
   EmptyState,
   ErrorState,
-  LoadingState,
 } from "../components/ui/StatePanel";
+import { TableSkeleton } from "../components/ui/Skeleton";
 
 const defaultCategories = [
   "Business Cards",
@@ -45,6 +52,25 @@ const formatLocalDateInput = (date = new Date()) => {
   const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+};
+
+const formatCurrency = (value) => new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 2,
+}).format(Number(value || 0));
+
+const formatShortDate = (value) => new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+}).format(new Date(value));
+
+const getApprovalTone = (status = "") => {
+  if (/approved|paid/i.test(status)) return "approved";
+  if (/rejected/i.test(status)) return "rejected";
+  if (/pending/i.test(status)) return "pending";
+  return "neutral";
 };
 
 const loadReimbursementRequests = async () => {
@@ -529,29 +555,18 @@ const Reimbursements = () => {
 
   return (
     <div aria-busy={isLoading}>
-      <div className="section-header">
-        <div>
-          <h2 className="card-title">
-            Reimbursements
-          </h2>
-
-          <p className="section-subtitle">
-            Submit and track
-            reimbursement claims.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => {
-            openCreateModal();
-          }}
-        >
-          <Plus size={18} />
-          New Request
-        </button>
-      </div>
+      <PageHeader
+        eyebrow="Expenses"
+        title="Reimbursements"
+        description="Submit expense claims, keep receipts organized, and follow every approval stage."
+        icon={Receipt}
+        actions={(
+          <button type="button" className="btn btn-primary" onClick={openCreateModal}>
+            <Plus size={18} />
+            New Request
+          </button>
+        )}
+      />
       {feedback && (
         <div
           className={`alert ${feedback.type === "success" ? "alert-success" : "alert-error"}`}
@@ -578,62 +593,35 @@ const Reimbursements = () => {
       )}
 
       {isLoading && (
-        <LoadingState label="Loading reimbursement requests…" />
+        <TableSkeleton columns={8} rows={6} label="Loading reimbursement requests" />
       )}
 
       {!isLoading && !loadError && (
         <>
       <div className="reimbursement-summary-grid">
-        <div className="reimbursement-summary-card">
-          <span>Total Submitted</span>
-          <h3>{totalSubmitted}</h3>
-          <p>claims</p>
-        </div>
-
-        <div className="reimbursement-summary-card">
-          <span>Approved</span>
-          <h3>₹ {approvedAmount}</h3>
-          <p>approved value</p>
-        </div>
-
-        <div className="reimbursement-summary-card">
-          <span>Pending</span>
-          <h3>₹ {pendingAmount}</h3>
-          <p>awaiting review</p>
-        </div>
-
-        <div className="reimbursement-summary-card">
-          <span>Rejected</span>
-          <h3>{rejectedCount}</h3>
-          <p>claims</p>
-        </div>
+        <MetricCard label="Total submitted" value={totalSubmitted} detail="Claims" icon={Receipt} tone="brand" />
+        <MetricCard label="Approved" value={formatCurrency(approvedAmount)} detail="Approved value" icon={CircleCheck} tone="success" />
+        <MetricCard label="Pending" value={formatCurrency(pendingAmount)} detail="Awaiting review" icon={Clock3} tone="warning" />
+        <MetricCard label="Rejected" value={rejectedCount} detail="Claims" icon={CircleX} tone="danger" />
       </div>
 
-      <div
-        style={{
-          marginBottom: "18px",
-        }}
-      >
-        <input
-          type="text"
-          aria-label="Search reimbursement requests"
-          placeholder="Search by purpose or status..."
+      <section className="modern-section-card reimbursement-filter-card" aria-label="Reimbursement filters">
+        <SearchField
+          id="reimbursement-search"
+          label="Search reimbursement requests"
+          placeholder="Search by purpose or status…"
           value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
+          onChange={(event) => {
+            setSearchTerm(event.target.value);
             setCurrentPage(1);
           }}
-          style={{
-            width: "100%",
-            padding: "14px",
-            borderRadius: "12px",
-            border: "1px solid #d1d5db",
-            fontSize: "14px",
+          onClear={() => {
+            setSearchTerm("");
+            setCurrentPage(1);
           }}
         />
-      </div>
 
-      <div className="leave-filter-tabs">
+      <div className="leave-filter-tabs" aria-label="Filter reimbursements by status">
         {[
           "All",
           "Pending Final Approval",
@@ -657,8 +645,27 @@ const Reimbursements = () => {
           </button>
         ))}
       </div>
+        <div className="reimbursement-filter-summary">
+          <span>
+            Showing <strong>{filteredRequests.length}</strong> of {requests.length} claims
+          </span>
+          {(searchTerm || activeFilter !== "All") && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setSearchTerm("");
+                setActiveFilter("All");
+                setCurrentPage(1);
+              }}
+            >
+              <X size={14} /> Clear filters
+            </button>
+          )}
+        </div>
+      </section>
       <div className="table-wrapper modern-table-wrapper">
-        <table className="custom-table">
+        <table className="custom-table reimbursement-request-table">
           <thead>
             <tr>
               <th>Purpose</th>
@@ -675,41 +682,37 @@ const Reimbursements = () => {
           <tbody>
             {paginatedRequests.map((item) => (
               <tr key={item._id}>
-                <td>
+                <td data-label="Purpose">
                   <div className="user-cell">
                     <div className="avatar-circle">
                       <Receipt size={16} />
                     </div>
 
-                    <strong>{item.businessPurpose}</strong>
+                    <div className="reimbursement-purpose-copy">
+                      <strong>{item.businessPurpose}</strong>
+                      <small>{item.items?.length || 0} expense item{item.items?.length === 1 ? "" : "s"}</small>
+                    </div>
                   </div>
                 </td>
-                <td>
-                  {new Date(item.expenseFrom).toLocaleDateString()} -{" "}
-                  {new Date(item.expenseTo).toLocaleDateString()}
+                <td data-label="Period">
+                  <div className="reimbursement-period">
+                    <span>{formatShortDate(item.expenseFrom)}</span>
+                    <small>to {formatShortDate(item.expenseTo)}</small>
+                  </div>
                 </td>
 
-                <td>₹ {item.totalReimbursement}</td>
+                <td data-label="Total"><strong className="reimbursement-amount">{formatCurrency(item.totalReimbursement)}</strong></td>
 
-                <td>
+                <td data-label="Receipts">
                   {item.receiptFiles?.length > 0 ? (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "6px",
-                      }}
-                    >
+                    <div className="reimbursement-receipts">
                       {item.receiptFiles.map((file, index) => (
-                        <a
+                        <FileAttachment
                           key={index}
-                          href={file}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="file-link"
-                        >
-                          View Receipt {index + 1}
-                        </a>
+                          url={file}
+                          label={`Receipt ${index + 1}`}
+                          compact
+                        />
                       ))}
                     </div>
                   ) : (
@@ -717,30 +720,26 @@ const Reimbursements = () => {
                   )}
                 </td>
 
-                <td>
+                <td data-label="Status">
                   <StatusBadge status={item.finalStatus} />
                 </td>
 
-                <td>
+                <td data-label="Approval Flow">
                   <div className="approval-flow">
-                    <span>
-                      TL: {item.tlStatus || "Pending"}
-                    </span>
-
-                    <span>
-                      Manager: {item.managerStatus || "Pending"}
-                    </span>
-
-                    <span>
-                      HR: {item.hrStatus || "Pending"}
-                    </span>
-
-                    <span>
-                      Finance: {item.financeStatus || "Not Routed"}
-                    </span>
+                    {[
+                      ["TL", item.tlStatus || "Pending"],
+                      ["Manager", item.managerStatus || "Pending"],
+                      ["HR", item.hrStatus || "Pending"],
+                      ["Finance", item.financeStatus || "Not Routed"],
+                    ].map(([label, status]) => (
+                      <span className="reimbursement-approval-step" key={label}>
+                        <i className={`is-${getApprovalTone(status)}`} aria-hidden="true" />
+                        <span><small>{label}</small><strong>{status}</strong></span>
+                      </span>
+                    ))}
                   </div>
                 </td>
-                <td>
+                <td data-label="Reason">
                   {item.rejectionReason ? (
                     <button
                       className="btn btn-secondary"
@@ -758,7 +757,7 @@ const Reimbursements = () => {
                     "-"
                   )}
                 </td>
-                <td>
+                <td data-label="Actions">
                   <div className="table-actions">
                     {item.finalStatus === "Pending Final Approval" && (
                       <button type="button" className="btn btn-secondary" onClick={() => openEditModal(item)}>
@@ -779,7 +778,7 @@ const Reimbursements = () => {
             ))}
 
             {filteredRequests.length === 0 && (
-              <tr>
+              <tr className="reimbursement-empty-row">
                 <td colSpan="8" style={{ textAlign: "center", padding: "24px" }}>
                   <EmptyState
                     compact
@@ -799,16 +798,7 @@ const Reimbursements = () => {
 
       {filteredRequests.length >
         REQUESTS_PER_PAGE && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: "10px",
-              marginTop: "24px",
-              flexWrap: "wrap",
-            }}
-          >
+          <div className="ui-pagination" aria-label="Reimbursement pagination">
             <button
               type="button"
               className="btn btn-primary"

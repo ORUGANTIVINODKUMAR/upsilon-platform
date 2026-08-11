@@ -456,6 +456,195 @@ code {
   background: #e6eeea;
 }
 
+/* Approval export */
+
+.approval-export-panel {
+  margin-bottom: 20px;
+  overflow: hidden;
+  border: 1px solid #dce9e3;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fbfefd 0%, #f3faf6 100%);
+  box-shadow: 0 8px 24px rgba(24, 83, 57, 0.05);
+}
+
+.approval-export-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 17px 20px;
+  border-bottom: 1px solid #e2ede7;
+}
+
+.approval-export-heading-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.approval-export-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #dff5e9;
+  color: #087443;
+}
+
+.approval-export-heading h3 {
+  margin: 0;
+  color: #123c2c;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.approval-export-heading p {
+  margin: 3px 0 0;
+  color: #708078;
+  font-size: 12px;
+}
+
+.approval-export-view-count {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid #d7e8df;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #537064;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.approval-export-body {
+  padding: 16px 20px 17px;
+}
+
+.approval-export-periods {
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 4px;
+  border: 1px solid #dce8e2;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.approval-export-periods button {
+  min-height: 34px;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #617068;
+  font-size: 12px;
+  font-weight: 750;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.approval-export-periods button:hover:not(:disabled) {
+  background: #f0f7f3;
+  color: #15583d;
+}
+
+.approval-export-periods button.active {
+  background: #153f30;
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(21, 63, 48, 0.18);
+}
+
+.approval-export-periods button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.approval-export-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.approval-export-field {
+  flex: 1 1 260px;
+  max-width: 360px;
+}
+
+.approval-export-controls.is-custom .approval-export-field {
+  max-width: 300px;
+}
+
+.approval-export-field label {
+  display: block;
+  margin-bottom: 6px;
+  color: #345447;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.approval-export-field input {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid #cfddd6;
+  border-radius: 11px;
+  outline: none;
+  background: #ffffff;
+  color: #153d2e;
+  font: inherit;
+  font-size: 13px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.approval-export-field input:focus {
+  border-color: #3ca66f;
+  box-shadow: 0 0 0 3px rgba(60, 166, 111, 0.11);
+}
+
+.approval-export-date-separator {
+  padding-bottom: 13px;
+  color: #819087;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.approval-export-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid #0c6b42;
+  border-radius: 11px;
+  background: #0e7047;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 7px 16px rgba(14, 112, 71, 0.18);
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.approval-export-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #095e3b;
+  box-shadow: 0 9px 20px rgba(14, 112, 71, 0.23);
+}
+
+.approval-export-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  box-shadow: none;
+}
+
+.approval-export-note {
+  margin: 10px 0 0;
+  color: #718179;
+  font-size: 11px;
+}
+
 /* Table container */
 
 .leave-approval-table-card {
@@ -959,6 +1148,10 @@ code {
   .leave-status-summary-grid {
     grid-template-columns: repeat(2, minmax(150px, 1fr));
   }
+
+  .approval-export-controls {
+    flex-wrap: wrap;
+  }
 }
 
 @media (max-width: 640px) {
@@ -971,6 +1164,41 @@ code {
   }
 
   .manager-refresh-btn {
+    width: 100%;
+  }
+
+  .approval-export-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .approval-export-body {
+    padding: 14px 16px 16px;
+  }
+
+  .approval-export-periods {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .approval-export-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .approval-export-field,
+  .approval-export-controls.is-custom .approval-export-field {
+    flex-basis: auto;
+    max-width: none;
+  }
+
+  .approval-export-date-separator {
+    display: none;
+  }
+
+  .approval-export-button {
     width: 100%;
   }
 

@@ -16,8 +16,11 @@ import api from "../api/api";
 import PersonalLeaveBalance from "../components/PersonalLeaveBalance";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import PageHeader from "../components/ui/PageHeader";
-import { EmptyState, LoadingState } from "../components/ui/StatePanel";
+import { EmptyState } from "../components/ui/StatePanel";
 import StatusBadge from "../components/ui/StatusBadge";
+import MetricCard from "../components/ui/MetricCard";
+import SearchField from "../components/ui/SearchField";
+import { TableSkeleton } from "../components/ui/Skeleton";
 
 const REQUESTS_PER_PAGE = 10;
 
@@ -996,62 +999,27 @@ const LeaveRequests = () => {
       )}
 
       <div className="reimbursement-summary-grid">
-        <div className="reimbursement-summary-card">
-          <span>Total Requests</span>
-          <h3>{safeRequests.length}</h3>
-          <p>leave applications</p>
-        </div>
-
-        <div className="reimbursement-summary-card">
-          <span>Pending</span>
-          <h3>{pendingCount}</h3>
-          <p>under review</p>
-        </div>
-
-        <div className="reimbursement-summary-card">
-          <span>Pending Reapproval</span>
-          <h3>{reapprovalCount}</h3>
-          <p>edited after approval</p>
-        </div>
-
-        <div className="reimbursement-summary-card">
-          <span>Approved</span>
-          <h3>{approvedCount}</h3>
-          <p>accepted</p>
-        </div>
-
-        <div className="reimbursement-summary-card">
-          <span>Rejected</span>
-          <h3>{rejectedCount}</h3>
-          <p>declined</p>
-        </div>
-
-        <div className="reimbursement-summary-card">
-          <span>Cancelled</span>
-          <h3>{cancelledCount}</h3>
-          <p>withdrawn by you</p>
-        </div>
+        <MetricCard label="Total requests" value={safeRequests.length} detail="Leave applications" icon={ClipboardList} tone="brand" />
+        <MetricCard label="Pending" value={pendingCount} detail="Under review" icon={Clock3} tone="warning" />
+        <MetricCard label="Pending reapproval" value={reapprovalCount} detail="Edited after approval" icon={History} tone="info" />
+        <MetricCard label="Approved" value={approvedCount} detail="Accepted" icon={CalendarDays} tone="success" />
+        <MetricCard label="Rejected" value={rejectedCount} detail="Declined" icon={X} tone="danger" />
+        <MetricCard label="Cancelled" value={cancelledCount} detail="Withdrawn by you" icon={Trash2} tone="neutral" />
       </div>
 
-      <div
-        style={{
-          marginBottom: "18px",
-        }}
-      >
-        <input
-          type="text"
-          placeholder="Search by leave type, status, reason, or explanation..."
+      <div className="ui-filter-search-row">
+        <SearchField
+          id="leave-request-search"
+          label="Search leave requests"
+          placeholder="Search by leave type, status, reason, or explanation…"
           value={searchTerm}
           onChange={(event) => {
             setSearchTerm(event.target.value);
             setCurrentPage(1);
           }}
-          style={{
-            width: "100%",
-            padding: "14px",
-            borderRadius: "12px",
-            border: "1px solid #d1d5db",
-            fontSize: "14px",
+          onClear={() => {
+            setSearchTerm("");
+            setCurrentPage(1);
           }}
         />
       </div>
@@ -1105,7 +1073,7 @@ const LeaveRequests = () => {
                     padding: "24px",
                   }}
                 >
-                  <LoadingState compact label="Loading leave requests" />
+                  <TableSkeleton columns={10} rows={5} label="Loading leave requests" />
                 </td>
               </tr>
             )}

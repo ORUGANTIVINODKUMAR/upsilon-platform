@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { ClipboardList, FileSpreadsheet, RefreshCw } from "lucide-react";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
 
 import api from "../api/api";
 import PageHeader from "../components/ui/PageHeader";
@@ -95,8 +93,10 @@ const AdminLeaveReports = () => {
     setCurrentPage(1);
   };
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (filteredRequests.length === 0) return;
+    const [XLSX, fileSaver] = await Promise.all([import("xlsx"), import("file-saver")]);
+    const saveAs = fileSaver.saveAs || fileSaver.default;
 
     const exportData = filteredRequests.map((item) => ({
       Employee: item.employeeId?.name || "N/A",

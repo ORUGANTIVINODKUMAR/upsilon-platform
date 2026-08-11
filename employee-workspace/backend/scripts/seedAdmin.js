@@ -1,11 +1,9 @@
-import dotenv from "dotenv";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
+import "../config/env.js";
 import connectDB from "../config/db.js";
 import User from "../models/User.js";
-
-dotenv.config();
 
 const seedAdmin = async () => {
   try {
@@ -26,8 +24,15 @@ const seedAdmin = async () => {
     });
 
     if (existingAdmin) {
-      console.log("Admin already exists");
-      process.exit();
+      existingAdmin.name = adminName;
+      existingAdmin.passwordHash = await bcrypt.hash(adminPassword, 10);
+      existingAdmin.role = "Admin";
+      existingAdmin.isActive = true;
+      existingAdmin.mustChangePassword = false;
+      await existingAdmin.save();
+      console.log("Admin credentials updated successfully");
+      await mongoose.disconnect();
+      process.exit(0);
     }
 
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
@@ -37,11 +42,14 @@ const seedAdmin = async () => {
       email: adminEmail,
       passwordHash: hashedPassword,
       role: "Admin",
+      isActive: true,
+      mustChangePassword: false,
     });
 
     console.log("Admin created successfully");
 
-    process.exit();
+    await mongoose.disconnect();
+    process.exit(0);
   } catch (error) {
     console.error(error);
     process.exit(1);

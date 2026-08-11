@@ -10,8 +10,6 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
 import api from "../api/api";
 import { useAuth } from "../context/useAuth";
 import PageHeader from "../components/ui/PageHeader";
@@ -165,8 +163,10 @@ const LeaveCalendar = () => {
     filteredEvents.map((event) => event.department).filter(Boolean)
   ).size;
 
-  const exportCalendar = () => {
+  const exportCalendar = async () => {
     if (!EXPORT_ROLES.includes(user?.role) || filteredEvents.length === 0) return;
+    const [XLSX, fileSaver] = await Promise.all([import("xlsx"), import("file-saver")]);
+    const saveAs = fileSaver.saveAs || fileSaver.default;
 
     const exportRows = filteredEvents.map((event) => ({
       Employee: event.employeeName || "N/A",

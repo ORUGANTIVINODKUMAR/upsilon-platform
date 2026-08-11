@@ -7,8 +7,6 @@ import {
   CheckCircle,
 } from "lucide-react";
 
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
 import api from "../api/api";
 import useConfirm from "../components/ui/useConfirm";
 import StatusBadge from "../components/ui/StatusBadge";
@@ -155,7 +153,9 @@ const FinanceReimbursements = () => {
     (sum, item) => sum + Number(item.totalReimbursement || 0),
     0
   );
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
+    const [XLSX, fileSaver] = await Promise.all([import("xlsx"), import("file-saver")]);
+    const saveAs = fileSaver.saveAs || fileSaver.default;
     const exportData = safeRequests.map(
       (item) => ({
         Employee:

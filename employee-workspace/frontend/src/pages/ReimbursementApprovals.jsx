@@ -12,6 +12,10 @@ import api from "../api/api";
 import { useAuth } from "../context/useAuth";
 import StatusBadge from "../components/ui/StatusBadge";
 import { ErrorState, LoadingState } from "../components/ui/StatePanel";
+import PageHeader from "../components/ui/PageHeader";
+import MetricCard from "../components/ui/MetricCard";
+import SearchField from "../components/ui/SearchField";
+import FileAttachment from "../components/ui/FileAttachment";
 
 const ReimbursementApprovals = () => {
   const { user } = useAuth();
@@ -344,17 +348,12 @@ const ReimbursementApprovals = () => {
 
   return (
     <>
-      <div className="section-header">
-        <div>
-          <h2 className="card-title">
-            Reimbursement Approvals
-          </h2>
-
-          <p className="section-subtitle">
-            Review employee reimbursement claims.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Approvals"
+        title="Reimbursement Approvals"
+        description="Review employee claims, inspect receipts, and move each request through the existing approval flow."
+        icon={Receipt}
+      />
       {feedback && (
         <div
           className={`alert ${feedback.type === "success" ? "alert-success" : "alert-error"}`}
@@ -385,53 +384,25 @@ const ReimbursementApprovals = () => {
         </div>
       )}
       <div className="reimbursement-summary-grid">
-        <div className="reimbursement-summary-card">
-          <span>Total Claims</span>
-          <h3>
-            {safeRequests.length}
-          </h3>
-          <p>submitted</p>
-        </div>
-
-        <div className="reimbursement-summary-card">
-          <span>Pending</span>
-          <h3>{pendingCount}</h3>
-          <p>
-            awaiting review
-          </p>
-        </div>
-
-        <div className="reimbursement-summary-card">
-          <span>Approved</span>
-          <h3>{approvedCount}</h3>
-          <p>completed</p>
-        </div>
-
-        <div className="reimbursement-summary-card">
-          <span>Rejected</span>
-          <h3>{rejectedCount}</h3>
-          <p>rejected</p>
-        </div>
-
-        <div className="reimbursement-summary-card">
-          <span>Total Amount</span>
-          <h3>₹ {totalAmount.toLocaleString("en-IN")}</h3>
-          <p>claims value</p>
-        </div>
+        <MetricCard label="Total claims" value={safeRequests.length} detail="Submitted" icon={Receipt} tone="brand" />
+        <MetricCard label="Pending" value={pendingCount} detail="Awaiting review" icon={RotateCw} tone="warning" />
+        <MetricCard label="Approved" value={approvedCount} detail="Completed" icon={CheckCircle} tone="success" />
+        <MetricCard label="Rejected" value={rejectedCount} detail="Declined" icon={XCircle} tone="danger" />
+        <MetricCard label="Total amount" value={`₹${totalAmount.toLocaleString("en-IN")}`} detail="Claims value" icon={Receipt} tone="neutral" />
       </div>
 
-      <div className="input-group approvals-search">
-        <label htmlFor="reimbursement-approval-search">Search claims</label>
-        <input
+      <div className="ui-filter-search-row approvals-search">
+        <SearchField
           id="reimbursement-approval-search"
-          type="text"
-          placeholder="Search by employee, email or business purpose..."
+          label="Search claims"
+          placeholder="Search by employee, email, or business purpose…"
           value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(
-              e.target.value
-            );
-
+          onChange={(event) => {
+            setSearchTerm(event.target.value);
+            setCurrentPage(1);
+          }}
+          onClear={() => {
+            setSearchTerm("");
             setCurrentPage(1);
           }}
         />
@@ -551,22 +522,12 @@ const ReimbursementApprovals = () => {
                             file,
                             index
                           ) => (
-                            <a
-                              key={
-                                index
-                              }
-                              href={
-                                file
-                              }
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="file-link"
-                            >
-                              View
-                              Receipt{" "}
-                              {index +
-                                1}
-                            </a>
+                            <FileAttachment
+                              key={index}
+                              url={file}
+                              label={`Receipt ${index + 1}`}
+                              compact
+                            />
                           )
                         )}
                       </div>

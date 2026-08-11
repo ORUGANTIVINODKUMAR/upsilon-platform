@@ -43,6 +43,10 @@ export const loginUser = async (req, res) => {
     }).select("+passwordHash");
 
     if (!user) {
+      console.warn("[auth] Login rejected", {
+        reason: "USER_NOT_FOUND",
+        email: normalizedEmail,
+      });
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
@@ -64,6 +68,11 @@ export const loginUser = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.passwordHash);
 
     if (!isMatch) {
+      console.warn("[auth] Login rejected", {
+        reason: "PASSWORD_MISMATCH",
+        userId: user._id.toString(),
+        email: normalizedEmail,
+      });
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
@@ -80,6 +89,10 @@ export const loginUser = async (req, res) => {
     const token = generateToken(user._id);
 
     res.cookie("token", token, getCookieOptions());
+    console.info("[auth] Login successful", {
+      userId: user._id.toString(),
+      role: user.role,
+    });
 
     return res.status(200).json({
       success: true,

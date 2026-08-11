@@ -26,6 +26,12 @@ import {
   getRetrospectivePolicy,
   validateLeaveDateRange,
 } from "../services/leaveRequestPolicy.js";
+import {
+  getLeaveApprovalExportRange,
+  getLeaveApprovalStatusFilter,
+  getLeaveApprovalVisibilityFilter,
+  leaveRequestMatchesSearch,
+} from "../services/leaveApprovalExportPolicy.js";
 
 const APPROVED_LEAVE_STATUSES = [
   "Approved by Manager",
@@ -3242,19 +3248,14 @@ export const getTodayLeaves = async (
 };
 export const getAllManagerLeaveRequests = async (req, res) => {
   try {
-    if (!["Manager", "HR"].includes(req.user.role)) {
+    if (!["TeamLeader", "Manager", "HR", "Admin"].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: "Only Manager or HR can view leave requests",
+        message: "You are not allowed to view final leave approvals",
       });
     }
 
-    const filter =
-      req.user.role === "HR"
-        ? {}
-        : {
-            managerId: req.user._id,
-          };
+    const filter = getLeaveApprovalVisibilityFilter(req.user);
 
     const leaveRequests = await LeaveRequest.find(filter)
       .populate(
@@ -3282,6 +3283,61 @@ export const getAllManagerLeaveRequests = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Unable to retrieve leave requests",
+    });
+  }
+};
+
+export const exportFinalLeaveApprovals = async (req, res) => {
+  try {
+    const range = getLeaveApprovalExportRange(req.query);
+    const visibilityFilter = getLeaveApprovalVisibilityFilter(req.user);
+    const statusFilter = getLeaveApprovalStatusFilter(req.query.statusFilter);
+    const search = String(req.query.search || "").trim();
+
+    if (search.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Search text cannot exceed 100 characters",
+      });
+    }
+
+    const leaveRequests = await LeaveRequest.find({
+      ...visibilityFilter,
+      ...statusFilter,
+      startDate: { $lte: range.endDate },
+      endDate: { $gte: range.startDate },
+    })
+      .populate("employeeId", "name email employeeId designation role")
+      .populate("subcategoryId", "name")
+      .populate("teamId", "name")
+      .populate("teamLeaderId", "name email role")
+      .populate("managerApprovedBy", "name email role")
+      .populate("hrApprovedBy", "name email role")
+      .sort({ startDate: 1, updatedAt: -1 })
+      .lean();
+
+    const matchingRequests = leaveRequests.filter((request) =>
+      leaveRequestMatchesSearch(request, search)
+    );
+
+    return res.status(200).json({
+      success: true,
+      filter: {
+        filterType: range.filterType,
+        startDate: range.startDate.toISOString(),
+        endDate: range.endDate.toISOString(),
+      },
+      leaveRequests: matchingRequests,
+    });
+  } catch (error) {
+    if (error instanceof RangeError) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+
+    console.error("EXPORT FINAL LEAVE APPROVALS ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to export final leave approvals",
     });
   }
 };

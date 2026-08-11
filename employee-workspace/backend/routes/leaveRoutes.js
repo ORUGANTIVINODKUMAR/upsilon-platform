@@ -21,9 +21,11 @@ import {
   getFinanceLeaves,
   getApprovedLeaveCalendar,
   getTodayLeaves,
+  exportFinalLeaveApprovals,
 } from "../controllers/leaveController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
+import { authorizeRoles } from "../middleware/roleMiddleware.js";
 import upload from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
@@ -44,6 +46,12 @@ router.get(
   "/manager-all",
   protect,
   getAllManagerLeaveRequests
+);
+router.get(
+  "/final-approvals/export",
+  protect,
+  authorizeRoles("TeamLeader", "Manager", "HR", "Admin"),
+  exportFinalLeaveApprovals
 );
 router.put(
   "/request/:id",

@@ -5,8 +5,6 @@ import {
   Receipt,
   RefreshCw,
 } from "lucide-react";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
 
 import api from "../api/api";
 import PageHeader from "../components/ui/PageHeader";
@@ -134,8 +132,10 @@ const AdminReimbursementReports = () => {
     setCurrentPage(1);
   };
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (filteredRequests.length === 0) return;
+    const [XLSX, fileSaver] = await Promise.all([import("xlsx"), import("file-saver")]);
+    const saveAs = fileSaver.saveAs || fileSaver.default;
 
     const exportData = filteredRequests.map((item) => {
       const totalAmount = Number(item.totalReimbursement);

@@ -302,9 +302,15 @@ export const getSubcategories = async (req, res) => {
       };
     });
 
+    const userSummary = {
+      managerCount: users.filter((user) => user.role === "Manager").length,
+      hrCount: users.filter((user) => user.role === "HR").length,
+    };
+
     return res.status(200).json({
       success: true,
       subcategories: subcategoriesWithUsers,
+      userSummary,
     });
   } catch (error) {
     console.error("GET SUBCATEGORIES ERROR:", error);

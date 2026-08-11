@@ -4,13 +4,9 @@ import Team from "../models/Team.js";
 import DailyEmailDispatch from "../models/DailyEmailDispatch.js";
 import { sendDailyLeaveSummary } from "./emailService.js";
 import { deduplicateRecipients, getManagerVisibleTeamIds } from "./leaveEmailRecipientService.js";
+import { FINAL_APPROVED_LEAVE_STATUSES } from "./leaveBalanceService.js";
 
-export const DAILY_SUMMARY_STATUSES = [
-  "Pending Final Approval",
-  "Pending Reapproval",
-  "Approved by Manager",
-  "Approved by HR",
-];
+export const DAILY_SUMMARY_STATUSES = [...FINAL_APPROVED_LEAVE_STATUSES];
 
 export const leaveAppliesToDate = (leave, date) => {
   const target = new Date(date).getTime();
@@ -73,7 +69,7 @@ export const claimDailyEmailDispatch = async ({
       $or: [{ status: "Failed" }, { lockedAt: { $lt: staleBefore } }],
     },
     { $set: { status: "Sending", lockedAt: now, lastError: "" }, $inc: { attempts: 1 } },
-    { new: true }
+    { returnDocument: "after" }
   );
 };
 
@@ -128,4 +124,3 @@ export const runDailyLeaveSummary = async ({ dateKey }) => {
   if (failed.length) console.error("[daily-leave-summary] Delivery failures", { dateKey, failed: failed.length, messages: failed.map((item) => item.reason?.message) });
   return { employeeCount: leaves.length, recipients: results.length, sent, skipped, failed: failed.length };
 };
-

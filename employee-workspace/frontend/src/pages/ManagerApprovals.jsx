@@ -9,6 +9,7 @@ import {
   AlertCircle,
   CheckCircle,
   Clock3,
+  FileSpreadsheet,
   FileClock,
   History,
   ListFilter,
@@ -49,6 +50,21 @@ const REJECTED_STATUSES = [
   "Rejected by Manager",
   "Rejected by HR",
 ];
+
+const EXPORT_ROLES = ["TeamLeader", "Manager", "HR", "Admin"];
+const EXPORT_PERIODS = [
+  { value: "day", label: "Day" },
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+  { value: "custom", label: "Custom range" },
+];
+
+const getTodayDateKey = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+};
+
+const getCurrentMonthKey = () => getTodayDateKey().slice(0, 7);
 
 const SUMMARY_CARDS = [
   {
@@ -316,6 +332,13 @@ const ManagerApprovals = () => {
     setOpenActionMenuId,
   ] = useState(null);
 
+  const [exportFilterType, setExportFilterType] = useState("day");
+  const [exportDate, setExportDate] = useState(getTodayDateKey);
+  const [exportMonth, setExportMonth] = useState(getCurrentMonthKey);
+  const [exportStartDate, setExportStartDate] = useState(getTodayDateKey);
+  const [exportEndDate, setExportEndDate] = useState(getTodayDateKey);
+  const [isExporting, setIsExporting] = useState(false);
+
   const actionMenuRef =
     useRef(null);
 
@@ -510,6 +533,7 @@ const ManagerApprovals = () => {
     request
   ) => {
     return (
+      ["Manager", "HR"].includes(user?.role) &&
       request.employeeId?._id !== user?._id &&
       PENDING_STATUSES.includes(request.finalStatus)
     );
@@ -519,6 +543,7 @@ const ManagerApprovals = () => {
     request
   ) => {
     return (
+      ["Manager", "HR"].includes(user?.role) &&
       request.employeeId?._id !== user?._id &&
       [
         "On Hold",
@@ -526,6 +551,106 @@ const ManagerApprovals = () => {
         ...REJECTED_STATUSES,
       ].includes(request.finalStatus)
     );
+  };
+
+  const validateExportSelection = () => {
+    if (exportFilterType === "month") {
+      return exportMonth ? "" : "Select a month before exporting.";
+    }
+
+    if (exportFilterType === "custom") {
+      if (!exportStartDate || !exportEndDate) {
+        return "Select both a start date and an end date before exporting.";
+      }
+      if (exportEndDate < exportStartDate) {
+        return "The export end date cannot be earlier than the start date.";
+      }
+      return "";
+    }
+
+    return exportDate ? "" : "Select a date before exporting.";
+  };
+
+  const exportToExcel = async () => {
+    if (!EXPORT_ROLES.includes(user?.role)) {
+      setError("You are not allowed to export final leave approvals.");
+      return;
+    }
+
+    const validationError = validateExportSelection();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    try {
+      setIsExporting(true);
+      clearFeedback();
+
+      const params = {
+        filterType: exportFilterType,
+        statusFilter,
+        search: searchTerm.trim(),
+      };
+
+      if (exportFilterType === "month") params.month = exportMonth;
+      else if (exportFilterType === "custom") {
+        params.startDate = exportStartDate;
+        params.endDate = exportEndDate;
+      } else params.date = exportDate;
+
+      const { data } = await api.get("/leave/final-approvals/export", { params });
+      const requests = Array.isArray(data.leaveRequests) ? data.leaveRequests : [];
+
+      if (requests.length === 0) {
+        setError("No leave approval records match the selected export filters.");
+        return;
+      }
+
+      const [XLSX, fileSaver] = await Promise.all([
+        import("xlsx"),
+        import("file-saver"),
+      ]);
+      const saveAs = fileSaver.saveAs || fileSaver.default;
+      const rows = requests.map((item) => ({
+        "Employee ID": item.employeeId?.employeeId || "N/A",
+        Employee: item.employeeId?.name || "Unknown employee",
+        Email: item.employeeId?.email || "N/A",
+        Department: item.subcategoryId?.name || "N/A",
+        Team: item.teamId?.name || "N/A",
+        "Leave Type": item.leaveType || "N/A",
+        "Start Date": formatDisplayDate(item.startDate),
+        "End Date": formatDisplayDate(item.endDate),
+        "Working Days": item.workingDays ?? "N/A",
+        Reason: item.reason || "N/A",
+        "TL Status": item.tlStatus || "Pending",
+        "Manager Status": item.managerStatus || "Pending",
+        "HR Status": item.hrStatus || "Pending",
+        "Final Status": item.finalStatus || "N/A",
+        "Last Updated": formatDateTime(item.updatedAt),
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Final Leave Approvals");
+      const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+      const fileData = new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+      });
+      const rangeLabel = exportFilterType === "month"
+        ? exportMonth
+        : exportFilterType === "custom"
+          ? `${exportStartDate}_to_${exportEndDate}`
+          : exportDate;
+
+      saveAs(fileData, `Final_Leave_Approvals_${exportFilterType}_${rangeLabel}.xlsx`);
+      setMessage(`Exported ${requests.length} leave approval record${requests.length === 1 ? "" : "s"}.`);
+    } catch (exportError) {
+      console.error("EXPORT FINAL LEAVE APPROVALS ERROR:", exportError.response?.data || exportError.message);
+      setError(exportError.response?.data?.message || "Unable to export final leave approvals.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const getEmployeePhoto = (
@@ -1450,6 +1575,118 @@ const ManagerApprovals = () => {
           />
         </div>
       </div>
+
+      {EXPORT_ROLES.includes(user?.role) && (
+        <section className="approval-export-panel" aria-labelledby="approval-export-title">
+          <div className="approval-export-heading">
+            <div className="approval-export-heading-main">
+              <span className="approval-export-icon" aria-hidden="true">
+                <FileSpreadsheet size={20} />
+              </span>
+              <div>
+                <h3 id="approval-export-title">Export approval data</h3>
+                <p>Choose a period and download the matching records as an Excel file.</p>
+              </div>
+            </div>
+            <span className="approval-export-view-count">
+              {filteredRequests.length} in current view
+            </span>
+          </div>
+
+          <div className="approval-export-body">
+            <div
+              className="approval-export-periods"
+              role="group"
+              aria-label="Choose export period"
+            >
+              {EXPORT_PERIODS.map((period) => (
+                <button
+                  key={period.value}
+                  type="button"
+                  className={exportFilterType === period.value ? "active" : ""}
+                  aria-pressed={exportFilterType === period.value}
+                  onClick={() => setExportFilterType(period.value)}
+                  disabled={isExporting}
+                >
+                  {period.label}
+                </button>
+              ))}
+            </div>
+
+            <div className={`approval-export-controls ${exportFilterType === "custom" ? "is-custom" : ""}`}>
+              {(exportFilterType === "day" || exportFilterType === "week") && (
+                <div className="approval-export-field">
+                  <label htmlFor="leave-export-date">
+                    {exportFilterType === "week" ? "Choose any date in the week" : "Export date"}
+                  </label>
+                  <input
+                    id="leave-export-date"
+                    type="date"
+                    value={exportDate}
+                    onChange={(event) => setExportDate(event.target.value)}
+                    disabled={isExporting}
+                  />
+                </div>
+              )}
+
+              {exportFilterType === "month" && (
+                <div className="approval-export-field">
+                  <label htmlFor="leave-export-month">Export month</label>
+                  <input
+                    id="leave-export-month"
+                    type="month"
+                    value={exportMonth}
+                    onChange={(event) => setExportMonth(event.target.value)}
+                    disabled={isExporting}
+                  />
+                </div>
+              )}
+
+              {exportFilterType === "custom" && (
+                <>
+                  <div className="approval-export-field">
+                    <label htmlFor="leave-export-start-date">Start date</label>
+                    <input
+                      id="leave-export-start-date"
+                      type="date"
+                      value={exportStartDate}
+                      max={exportEndDate || undefined}
+                      onChange={(event) => setExportStartDate(event.target.value)}
+                      disabled={isExporting}
+                    />
+                  </div>
+                  <span className="approval-export-date-separator" aria-hidden="true">to</span>
+                  <div className="approval-export-field">
+                    <label htmlFor="leave-export-end-date">End date</label>
+                    <input
+                      id="leave-export-end-date"
+                      type="date"
+                      value={exportEndDate}
+                      min={exportStartDate || undefined}
+                      onChange={(event) => setExportEndDate(event.target.value)}
+                      disabled={isExporting}
+                    />
+                  </div>
+                </>
+              )}
+
+              <button
+                type="button"
+                className="approval-export-button"
+                onClick={exportToExcel}
+                disabled={isExporting || isLoading}
+              >
+                <FileSpreadsheet size={18} aria-hidden="true" />
+                {isExporting ? "Preparing file..." : "Export Excel"}
+              </button>
+            </div>
+
+            <p className="approval-export-note">
+              Your selected status tab and search text are included automatically.
+            </p>
+          </div>
+        </section>
+      )}
 
       <div className="leave-approval-table-card">
         <div className="leave-approval-table-scroll">

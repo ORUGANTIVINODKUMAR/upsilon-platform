@@ -17,6 +17,7 @@ import {
 import { sendLeaveRequestNotification } from "../services/emailService.js";
 import {
   claimDailyEmailDispatch,
+  DAILY_SUMMARY_STATUSES,
   leaveAppliesToDate,
 } from "../services/dailyLeaveSummaryService.js";
 
@@ -77,6 +78,19 @@ test("date filtering includes current and spanning leave but excludes unrelated 
   assert.equal(leaveAppliesToDate({ startDate: "2026-08-11", endDate: "2026-08-12" }, target), false);
 });
 
+test("daily summary includes only final approved leave statuses", () => {
+  assert.deepEqual(DAILY_SUMMARY_STATUSES, ["Approved by Manager", "Approved by HR"]);
+  for (const excludedStatus of [
+    "Pending Final Approval",
+    "Pending Reapproval",
+    "Rejected by Manager",
+    "Rejected by HR",
+    "Cancelled",
+  ]) {
+    assert.equal(DAILY_SUMMARY_STATUSES.includes(excludedStatus), false);
+  }
+});
+
 test("daily template represents half-day leave accurately", () => {
   const leave = { employeeName: "Jane Smith", leaveType: "Casual", startDate: "2026-08-10", endDate: "2026-08-10", workingDays: 0.5, finalStatus: "Approved by HR" };
   assert.equal(getLeaveDurationLabel(leave), "Half Day");
@@ -119,4 +133,3 @@ test("manager visibility is limited to managed or assigned teams while HR can us
   assert.deepEqual(allLeaves.filter((leave) => visible.has(leave.teamId)), [{ teamId: "team-a" }]);
   assert.equal(allLeaves.length, 2); // HR organization-wide view
 });
-

@@ -4,8 +4,6 @@ import {
   useState,
 } from "react";
 
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
 
 import {
   KeyRound,
@@ -507,7 +505,9 @@ const AdminUsers = () => {
     ]);
 
   const exportUsersToExcel =
-    () => {
+    async () => {
+      const [XLSX, fileSaver] = await Promise.all([import("xlsx"), import("file-saver")]);
+      const saveAs = fileSaver.saveAs || fileSaver.default;
       const exportData =
         filteredUsers.map(
           (user) => ({

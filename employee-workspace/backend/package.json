@@ -7,7 +7,7 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "test:leave-balance": "node --test tests/leaveBalanceService.test.js",
-    "test": "node --test tests/leaveBalanceService.test.js tests/leaveRequestPolicy.test.js tests/leaveEmailSystem.test.js tests/requestModificationPolicy.test.js",
+    "test": "node --test tests/leaveBalanceService.test.js tests/leaveRequestPolicy.test.js tests/leaveEmailSystem.test.js tests/leaveApprovalExportPolicy.test.js tests/requestModificationPolicy.test.js",
     "migrate:leave-balances": "node scripts/migrateLeaveBalances.js",
     "migrate:retrospective-leave": "node scripts/migrateRetrospectiveLeaveFields.js",
     "seed:admin": "node scripts/seedAdmin.js",

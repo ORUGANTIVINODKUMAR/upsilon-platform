@@ -15,6 +15,8 @@ import {
   X,
   UserRound,
   ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 
 import logo from "../assets/logo.png";
@@ -149,6 +151,7 @@ const ROLE_PAGES = {
     "departments",
     "teams",
     "users",
+    "managerApprovals",
     "leaveReports",
     "reimbursementReports",
     "leaveCalendar",
@@ -171,6 +174,7 @@ const ROLE_PAGES = {
     "myLeaveBalance",
     "reimbursements",
     "tlApprovals",
+    "managerApprovals",
     "reimbursementApprovals",
     "holidays",
     "editProfile",
@@ -229,6 +233,9 @@ const Dashboard = () => {
     isMobileSidebarOpen,
     setIsMobileSidebarOpen,
   ] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem("workspace-sidebar-collapsed") === "true"
+  );
 
   const [showPasswordModal, setShowPasswordModal] = useState(
     user?.role === "Employee" && Boolean(user?.mustChangePassword)
@@ -256,6 +263,9 @@ const Dashboard = () => {
   const isManagerOrHR = ["Manager", "HR"].includes(
     user?.role
   );
+  const canUseFinalApprovals = ["TeamLeader", "Manager", "HR", "Admin"].includes(
+    user?.role
+  );
   const canManageLeaveBalances = isManagerOrHR;
   const pageMeta = PAGE_META[activePage] || PAGE_META.dashboard;
   const unreadNotificationCount = notifications.filter(
@@ -275,6 +285,10 @@ const Dashboard = () => {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [activePage]);
+
+  useEffect(() => {
+    localStorage.setItem("workspace-sidebar-collapsed", String(isSidebarCollapsed));
+  }, [isSidebarCollapsed]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -371,7 +385,8 @@ const Dashboard = () => {
       title={label}
     >
       {icon}
-      {label}
+      <span className="sidebar-item-label">{label}</span>
+      <span className="sidebar-tooltip" role="tooltip">{label}</span>
     </button>
   );
 
@@ -445,7 +460,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="dashboard-layout portal-redesign">
+    <div className={`dashboard-layout portal-redesign ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <div className="mobile-topbar">
         <button
           type="button"
@@ -485,7 +500,7 @@ const Dashboard = () => {
         className={`sidebar modern-sidebar ${isMobileSidebarOpen
             ? "mobile-sidebar-open"
             : ""
-          }`}
+          } ${isSidebarCollapsed ? "is-collapsed" : ""}`}
       >
         <button
           type="button"
@@ -504,6 +519,16 @@ const Dashboard = () => {
               src={logo}
               alt="Upsilon"
             />
+            <span className="sidebar-brand-monogram" aria-hidden="true">U</span>
+            <button
+              type="button"
+              className="sidebar-collapse-button"
+              aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-pressed={isSidebarCollapsed}
+              onClick={() => setIsSidebarCollapsed((collapsed) => !collapsed)}
+            >
+              {isSidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+            </button>
           </div>
 
           <nav className="sidebar-menu" aria-label="Primary">
@@ -606,7 +631,7 @@ const Dashboard = () => {
                 "TL Reimbursement Approvals"
               )}
 
-            {isManagerOrHR &&
+            {canUseFinalApprovals &&
               menuButton(
                 "managerApprovals",
                 <CalendarCheck size={18} />,
@@ -678,7 +703,7 @@ const Dashboard = () => {
               )}
             </div>
 
-            <div>
+            <div className="sidebar-user-copy">
               <strong>
                 {user?.name || "User"}
               </strong>
@@ -693,7 +718,7 @@ const Dashboard = () => {
             onClick={handleLogout}
           >
             <LogOut size={17} />
-            Sign out
+            <span className="sidebar-item-label">Sign out</span>
           </button>
         </div>
       </aside>
@@ -839,6 +864,24 @@ const Dashboard = () => {
               </div>
             )}
             </div>}
+            <button
+              type="button"
+              className="header-profile-button"
+              onClick={openEditProfile}
+              aria-label="Open profile and security settings"
+            >
+              <span className="header-profile-avatar" aria-hidden="true">
+                {user?.profilePhoto?.url ? (
+                  <img src={user.profilePhoto.url} alt="" />
+                ) : (
+                  user?.name?.charAt(0)?.toUpperCase() || "U"
+                )}
+              </span>
+              <span className="header-profile-copy">
+                <strong>{user?.name || "User"}</strong>
+                <small>Profile</small>
+              </span>
+            </button>
           </div>
         </div>
 
@@ -2837,7 +2880,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {isManagerOrHR && activePage === "managerApprovals" && (
+        {canUseFinalApprovals && activePage === "managerApprovals" && (
           <div className="modern-section-card">
             <ManagerApprovals />
           </div>

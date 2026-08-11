@@ -1,7 +1,5 @@
-import dotenv from "dotenv";
+import "./env.js";
 import nodemailer from "nodemailer";
-
-dotenv.config();
 export const REQUIRED_SMTP_VARIABLES = [
   "SMTP_HOST",
   "SMTP_PORT",

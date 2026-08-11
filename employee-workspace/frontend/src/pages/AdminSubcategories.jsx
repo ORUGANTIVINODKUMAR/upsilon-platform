@@ -4,6 +4,7 @@ import {
   Crown,
   Network,
   Plus,
+  Search,
   ShieldCheck,
   Trash2,
   UserCog,
@@ -19,8 +20,10 @@ const AdminSubcategories = () => {
   const confirmAction = useConfirm();
   const [name, setName] = useState("");
   const [subcategories, setSubcategories] = useState([]);
+  const [approvalUserCount, setApprovalUserCount] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState(null);
+  const [departmentSearch, setDepartmentSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState("");
@@ -34,6 +37,10 @@ const AdminSubcategories = () => {
       setLoading(true);
       const { data } = await api.get("/admin/subcategories");
       setSubcategories(data.subcategories || []);
+      setApprovalUserCount(
+        Number(data.userSummary?.managerCount || 0) +
+        Number(data.userSummary?.hrCount || 0)
+      );
       setError("");
       return data.subcategories || [];
     } catch (requestError) {
@@ -138,6 +145,11 @@ const AdminSubcategories = () => {
         (item) => item._id === department._id
       );
       setSubcategories(data.subcategories || []);
+      setApprovalUserCount(
+        Number(data.userSummary?.managerCount || 0) +
+        Number(data.userSummary?.hrCount || 0)
+      );
+      setDepartmentSearch("");
       setSelectedDepartment(updated || department);
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Unable to load department details.");
@@ -156,15 +168,47 @@ const AdminSubcategories = () => {
     0
   );
 
-  const totalManagers = subcategories.reduce(
-    (sum, item) => sum + (item.managerCount || 0),
-    0
-  );
+  const closeDepartmentDetails = () => {
+    setSelectedDepartment(null);
+    setDepartmentSearch("");
+  };
 
-  const totalHRs = subcategories.reduce(
-    (sum, item) => sum + (item.hrCount || 0),
-    0
-  );
+  useEffect(() => {
+    if (!selectedDepartment) return undefined;
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setSelectedDepartment(null);
+        setDepartmentSearch("");
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [selectedDepartment]);
+
+  const normalizedDepartmentSearch = departmentSearch.trim().toLowerCase();
+  const visibleDepartmentTeams = (selectedDepartment?.teams || [])
+    .map((team) => {
+      const leadership = [
+        ...(team.managers || []),
+        ...(team.hrs || []),
+        ...(team.teamLeader ? [team.teamLeader] : []),
+      ];
+      const teamMatches = [team.name, ...leadership.map((user) => user.name)]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedDepartmentSearch));
+      const employees = !normalizedDepartmentSearch || teamMatches
+        ? team.employees || []
+        : (team.employees || []).filter((employee) =>
+          [employee.name, employee.employeeId, employee.designation]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(normalizedDepartmentSearch))
+        );
+
+      return { ...team, employees, matchesSearch: teamMatches || employees.length > 0 };
+    })
+    .filter((team) => !normalizedDepartmentSearch || team.matchesSearch);
 
   return (
     <>
@@ -220,8 +264,8 @@ const AdminSubcategories = () => {
 
         <div className="reimbursement-summary-card">
           <span>Managers / HR</span>
-          <h3>{totalManagers + totalHRs}</h3>
-          <p>approval users</p>
+          <h3>{approvalUserCount}</h3>
+          <p>unique user accounts</p>
         </div>
       </div>
 
@@ -333,12 +377,13 @@ const AdminSubcategories = () => {
       </div>
 
       {selectedDepartment && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" onMouseDown={closeDepartmentDetails}>
           <div
             className="modal-card department-details-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="department-users-title"
+            onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="modal-header department-details-header">
               <div className="department-details-heading">
@@ -358,7 +403,7 @@ const AdminSubcategories = () => {
               <button
                 type="button"
                 className="modal-close"
-                onClick={() => setSelectedDepartment(null)}
+                onClick={closeDepartmentDetails}
                 aria-label="Close department details"
               >
                 <X size={18} aria-hidden="true" />
@@ -385,6 +430,33 @@ const AdminSubcategories = () => {
                 ))}
               </div>
 
+              <div className="department-directory-toolbar">
+                <label className="department-directory-search">
+                  <Search size={17} aria-hidden="true" />
+                  <span className="sr-only">Search department people and teams</span>
+                  <input
+                    type="search"
+                    value={departmentSearch}
+                    onChange={(event) => setDepartmentSearch(event.target.value)}
+                    placeholder="Search by team, employee, ID, designation or leader"
+                  />
+                  {departmentSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setDepartmentSearch("")}
+                      aria-label="Clear department search"
+                    >
+                      <X size={15} aria-hidden="true" />
+                    </button>
+                  )}
+                </label>
+                <span className="department-directory-result">
+                  {normalizedDepartmentSearch
+                    ? `${visibleDepartmentTeams.length} matching ${visibleDepartmentTeams.length === 1 ? "team" : "teams"}`
+                    : "Search the department directory"}
+                </span>
+              </div>
+
               <section className="department-teams-section" aria-labelledby="department-teams-title">
                 <div className="department-section-heading">
                   <div>
@@ -398,9 +470,9 @@ const AdminSubcategories = () => {
                   </span>
                 </div>
 
-                {selectedDepartment.teams?.length > 0 ? (
+                {visibleDepartmentTeams.length > 0 ? (
                   <div className="department-team-grid">
-                    {selectedDepartment.teams.map((team) => (
+                    {visibleDepartmentTeams.map((team) => (
                       <article key={team._id} className="department-team-card">
                         <header className="department-team-header">
                           <div>
@@ -413,7 +485,9 @@ const AdminSubcategories = () => {
                             </div>
                           </div>
                           <span className="ui-status ui-status--success">
-                            {team.employeeCount || 0} employees
+                            {normalizedDepartmentSearch
+                              ? `${team.employees?.length || 0} matched`
+                              : `${team.employeeCount || 0} employees`}
                           </span>
                         </header>
 
@@ -481,8 +555,15 @@ const AdminSubcategories = () => {
                   </div>
                 ) : (
                   <EmptyState
-                    title="No teams in this department"
-                    description="Create a team and assign its leadership to see the hierarchy here."
+                    title={normalizedDepartmentSearch ? "No matching people or teams" : "No teams in this department"}
+                    description={normalizedDepartmentSearch
+                      ? "Try a different name, employee ID, designation or leader."
+                      : "Create a team and assign its leadership to see the hierarchy here."}
+                    action={normalizedDepartmentSearch ? (
+                      <button type="button" className="btn" onClick={() => setDepartmentSearch("")}>
+                        Clear search
+                      </button>
+                    ) : undefined}
                   />
                 )}
               </section>
