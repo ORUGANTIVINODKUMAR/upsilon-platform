@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Building2,
   CalendarCheck2,
@@ -6,7 +6,9 @@ import {
   ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
+  Plus,
   RotateCw,
+  Search,
   UsersRound,
   X,
 } from "lucide-react";
@@ -15,6 +17,7 @@ import { useAuth } from "../context/useAuth";
 import PageHeader from "../components/ui/PageHeader";
 import StatusBadge from "../components/ui/StatusBadge";
 import { EmptyState, ErrorState, LoadingState } from "../components/ui/StatePanel";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 
 const LEAVE_COLORS = {
   Sick: "#dc4c4c",
@@ -24,33 +27,45 @@ const LEAVE_COLORS = {
   Casual: "#7c5cc4",
   Earned: "#16828e",
   Emergency: "#c04d7c",
+  "Uninformed Absence": "#b4232f",
 };
 
 const EXPORT_ROLES = ["Admin", "HR", "Manager"];
 
+const toDateInputValue = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const LeaveCalendar = () => {
   const { user } = useAuth();
-  const [events, setEvents] = useState([]);
-  const [todayLeaves, setTodayLeaves] = useState([]);
+  const canAddAbsence = ["Manager", "HR"].includes(user?.role);
+  const [leaveEvents, setLeaveEvents] = useState([]);
+  const [attendanceEvents, setAttendanceEvents] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [activeView, setActiveView] = useState("Monthly");
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedDateLeaves, setSelectedDateLeaves] = useState([]);
   const [viewDate, setViewDate] = useState(() => new Date());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [showAbsenceModal, setShowAbsenceModal] = useState(false);
+  const [absenceSearch, setAbsenceSearch] = useState("");
+  const [absenceForm, setAbsenceForm] = useState({ employeeId: "", date: "", remarks: "" });
+  const [absenceError, setAbsenceError] = useState("");
+  const [confirmAbsence, setConfirmAbsence] = useState(false);
+  const [savingAbsence, setSavingAbsence] = useState(false);
 
   const fetchCalendarData = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const [calendarRes, todayRes] = await Promise.all([
-        api.get("/leave/calendar"),
-        api.get("/leave/today-leaves"),
-      ]);
-
-      setEvents(calendarRes.data.calendarEvents || []);
-      setTodayLeaves(todayRes.data.leaveRequests || []);
+      const calendarRes = await api.get("/leave/calendar");
+      setLeaveEvents(calendarRes.data.calendarEvents || []);
     } catch (error) {
       console.log(error.response?.data);
       setError(error.response?.data?.message || "Unable to load the leave calendar.");
@@ -59,11 +74,64 @@ const LeaveCalendar = () => {
     }
   };
 
+  const fetchAttendanceData = useCallback(async () => {
+    const rangeStart = new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1);
+    const rangeEnd = new Date(viewDate.getFullYear(), viewDate.getMonth() + 2, 0);
+
+    try {
+      const { data } = await api.get("/attendance", {
+        params: {
+          startDate: toDateInputValue(rangeStart),
+          endDate: toDateInputValue(rangeEnd),
+        },
+      });
+      setAttendanceEvents((data.records || []).map((record) => ({
+        id: `attendance-${record._id}`,
+        attendanceRecordId: record._id,
+        sourceType: "Attendance",
+        employeeName: record.employeeId?.name || record.employeeName,
+        employeeEmail: record.employeeId?.email || "",
+        employeeId: record.employeeId?.employeeId || "",
+        department: record.employeeId?.subcategoryId?.name || "",
+        team: record.employeeId?.teamId?.name || "",
+        leaveType: "Uninformed Absence",
+        start: record.attendanceDate,
+        end: record.attendanceDate,
+        status: record.status,
+        reason: record.remarks || "",
+      })));
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to load uninformed absences.");
+    }
+  }, [viewDate]);
+
+  const fetchAttendanceEmployees = useCallback(async () => {
+    if (!canAddAbsence) return;
+    try {
+      const { data } = await api.get("/attendance/employees");
+      setEmployees(data.employees || []);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to load employees.");
+    }
+  }, [canAddAbsence]);
+
   useEffect(() => {
     // Initial server synchronization for this standalone view.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCalendarData();
   }, []);
+
+  useEffect(() => {
+    // Keep attendance events aligned with the calendar period.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchAttendanceData();
+  }, [fetchAttendanceData]);
+
+  useEffect(() => {
+    // Load the role-scoped employee picker for HR and Managers.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchAttendanceEmployees();
+  }, [fetchAttendanceEmployees]);
 
   useEffect(() => {
     if (!selectedDate) return undefined;
@@ -86,13 +154,6 @@ const LeaveCalendar = () => {
       year: "numeric",
     });
 
-  const toDateInputValue = (date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
-
   const parseLocalDate = (value) => {
     const [year, month, day] = value.split("-").map(Number);
     return new Date(year, month - 1, day);
@@ -100,6 +161,67 @@ const LeaveCalendar = () => {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  const visibleAbsenceEmployees = employees.filter((employee) => {
+    const query = absenceSearch.trim().toLowerCase();
+    if (!query) return true;
+    return [employee.name, employee.email, employee.employeeId, employee.teamId?.name]
+      .filter(Boolean)
+      .some((value) => value.toLowerCase().includes(query));
+  });
+
+  const selectedAbsenceEmployee = employees.find(
+    (employee) => employee._id === absenceForm.employeeId,
+  );
+
+  const openAbsenceModal = (date) => {
+    const dateValue = toDateInputValue(date || today);
+    setSelectedDate(null);
+    setSelectedDateLeaves([]);
+    setAbsenceForm({ employeeId: "", date: dateValue, remarks: "" });
+    setAbsenceSearch("");
+    setAbsenceError("");
+    setShowAbsenceModal(true);
+  };
+
+  const closeAbsenceModal = () => {
+    if (savingAbsence) return;
+    setShowAbsenceModal(false);
+    setConfirmAbsence(false);
+    setAbsenceError("");
+  };
+
+  const requestAbsenceConfirmation = (event) => {
+    event.preventDefault();
+    setAbsenceError("");
+    if (!absenceForm.employeeId) {
+      setAbsenceError("Select an employee.");
+      return;
+    }
+    setConfirmAbsence(true);
+  };
+
+  const saveUninformedAbsence = async () => {
+    setSavingAbsence(true);
+    setAbsenceError("");
+    try {
+      const { data } = await api.post("/attendance/uninformed-absence", absenceForm);
+      setSuccess(data.message);
+      setShowAbsenceModal(false);
+      setConfirmAbsence(false);
+      await Promise.all([fetchAttendanceData(), fetchCalendarData()]);
+    } catch (requestError) {
+      const response = requestError.response?.data;
+      setAbsenceError(
+        response?.existingStatus
+          ? `${response.message} Existing status: ${response.existingStatus}.`
+          : response?.message || "Unable to mark this employee absent.",
+      );
+      setConfirmAbsence(false);
+    } finally {
+      setSavingAbsence(false);
+    }
+  };
 
   const getLeaveColor = (leaveType) => LEAVE_COLORS[leaveType] || "#66736d";
 
@@ -114,6 +236,16 @@ const LeaveCalendar = () => {
 
     return checkDate >= start && checkDate <= end;
   };
+
+  const events = [...leaveEvents, ...attendanceEvents];
+  const todayAwayEvents = events
+    .filter((event) => isDateInLeaveRange(today, event))
+    .map((event) => ({
+      ...event,
+      employeeId: { name: event.employeeName },
+      startDate: event.start,
+      endDate: event.end,
+    }));
 
   const getWeekRange = (date = viewDate) => {
     const start = new Date(date);
@@ -289,27 +421,39 @@ const LeaveCalendar = () => {
         title="Organization Leave Calendar"
         description="Review approved employee leave by day, week, or month and plan team coverage with confidence."
         icon={CalendarDays}
-        actions={EXPORT_ROLES.includes(user?.role) ? (
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={exportCalendar}
-            disabled={filteredEvents.length === 0}
-            aria-label={`Export ${filteredEvents.length} visible leave records to Excel`}
-          >
-            <FileSpreadsheet size={17} aria-hidden="true" />
-            Export Excel
-          </button>
-        ) : undefined}
+        actions={(
+          <>
+            {canAddAbsence && (
+              <button type="button" className="btn btn-secondary" onClick={() => openAbsenceModal(today)}>
+                <Plus size={17} aria-hidden="true" />
+                Add Absent Employee
+              </button>
+            )}
+            {EXPORT_ROLES.includes(user?.role) && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={exportCalendar}
+                disabled={filteredEvents.length === 0}
+                aria-label={`Export ${filteredEvents.length} visible absence records to Excel`}
+              >
+                <FileSpreadsheet size={17} aria-hidden="true" />
+                Export Excel
+              </button>
+            )}
+          </>
+        )}
       />
+
+      {success && <div className="success-banner" role="status">{success}</div>}
 
       <div className="calendar-summary-grid reimbursement-summary-grid" aria-label="Leave calendar summary">
         <article className="calendar-summary-card calendar-summary-card--accent reimbursement-summary-card">
           <CalendarCheck2 size={20} aria-hidden="true" />
           <div>
             <span>On leave today</span>
-            <strong>{todayLeaves.length}</strong>
-            <small>approved employees</small>
+            <strong>{todayAwayEvents.length}</strong>
+            <small>employees away</small>
           </div>
         </article>
         <article className="calendar-summary-card reimbursement-summary-card">
@@ -317,7 +461,7 @@ const LeaveCalendar = () => {
           <div>
             <span>{activeView} records</span>
             <strong>{filteredEvents.length}</strong>
-            <small>approved leaves shown</small>
+            <small>leave and attendance shown</small>
           </div>
         </article>
         <article className="calendar-summary-card reimbursement-summary-card">
@@ -343,18 +487,18 @@ const LeaveCalendar = () => {
           <div>
             <span className="ui-eyebrow">Today</span>
             <h3 id="today-leaves-title">Who&apos;s away</h3>
-            <p className="section-subtitle">A quick view of approved absences for today.</p>
+            <p className="section-subtitle">A quick view of approved leave and recorded absences for today.</p>
           </div>
           <StatusBadge
-            status={todayLeaves.length > 0 ? "pending" : "active"}
-            label={todayLeaves.length > 0 ? `${todayLeaves.length} away` : "Full attendance"}
+            status={todayAwayEvents.length > 0 ? "pending" : "active"}
+            label={todayAwayEvents.length > 0 ? `${todayAwayEvents.length} away` : "Full attendance"}
           />
         </div>
 
-        {todayLeaves.length > 0 ? (
+        {todayAwayEvents.length > 0 ? (
           <div className="calendar-people-grid">
-            {todayLeaves.map((leave) => (
-              <article className="calendar-person-card mini-stat-card" key={leave._id}>
+            {todayAwayEvents.map((leave) => (
+              <article className="calendar-person-card mini-stat-card" key={leave.id}>
                 <span
                   className="calendar-person-marker"
                   style={{ "--event-color": getLeaveColor(leave.leaveType) }}
@@ -362,7 +506,7 @@ const LeaveCalendar = () => {
                 />
                 <div>
                   <strong>{leave.employeeId?.name || "Employee"}</strong>
-                  <span>{leave.leaveType} leave</span>
+                  <span>{leave.leaveType}{leave.sourceType === "Attendance" ? " · LOP" : " leave"}</span>
                   <small>{formatDate(leave.startDate)} – {formatDate(leave.endDate)}</small>
                 </div>
               </article>
@@ -372,7 +516,7 @@ const LeaveCalendar = () => {
           <EmptyState
             compact
             title="Everyone is available today"
-            description="There are no approved leaves scheduled for today."
+            description="There are no approved leaves or recorded absences for today."
           />
         )}
       </section>
@@ -419,6 +563,16 @@ const LeaveCalendar = () => {
             >
               Today
             </button>
+            {canAddAbsence && activeView === "Daily" && viewDate <= today && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => openAbsenceModal(viewDate)}
+              >
+                <Plus size={16} aria-hidden="true" />
+                Add Absent Employee
+              </button>
+            )}
           </div>
         </div>
 
@@ -482,7 +636,7 @@ const LeaveCalendar = () => {
                   onClick={() => openDateModal(date)}
                   disabled={!date}
                   className={`leave-calendar-day${isToday ? " is-today" : ""}${!date ? " is-empty" : ""}`}
-                  aria-label={date ? `${formatDate(date)}, ${dayLeaves.length} approved leave${dayLeaves.length === 1 ? "" : "s"}` : undefined}
+                  aria-label={date ? `${formatDate(date)}, ${dayLeaves.length} absence${dayLeaves.length === 1 ? "" : "s"}` : undefined}
                 >
                   <span className="leave-calendar-date">
                     {date ? date.getDate() : ""}
@@ -493,7 +647,7 @@ const LeaveCalendar = () => {
                       key={`${event.id}-${event.employeeName}`}
                       className="leave-calendar-event"
                       style={{ "--event-color": getLeaveColor(event.leaveType) }}
-                      title={`${event.employeeName} - ${event.leaveType}`}
+                      title={`${event.employeeName} - ${event.status || event.leaveType}`}
                     >
                       {event.employeeName}
                     </span>
@@ -515,8 +669,8 @@ const LeaveCalendar = () => {
       <section className="modern-section-card calendar-list-card" aria-labelledby="calendar-list-title">
         <div className="section-header">
           <div>
-            <span className="ui-eyebrow">Approved schedule</span>
-            <h3 id="calendar-list-title">{activeView} leave details</h3>
+            <span className="ui-eyebrow">Availability schedule</span>
+            <h3 id="calendar-list-title">{activeView} absence details</h3>
             <p className="section-subtitle">
               {selectedPeriodLabel} · {filteredEvents.length} approved leave {filteredEvents.length === 1 ? "record" : "records"}.
             </p>
@@ -525,7 +679,7 @@ const LeaveCalendar = () => {
 
         <div className="table-wrapper modern-table-wrapper">
           <table className="custom-table">
-          <caption className="sr-only">Approved employee leave in the selected calendar view</caption>
+          <caption className="sr-only">Employee leave and attendance absences in the selected calendar view</caption>
           <thead>
             <tr>
               <th>Employee</th>
@@ -556,8 +710,8 @@ const LeaveCalendar = () => {
                 <td colSpan="6">
                   <EmptyState
                     compact
-                    title={`No approved leaves in the ${activeView.toLowerCase()} view`}
-                    description="Choose another specific date or month to review scheduled leave."
+                    title={`No absences in the ${activeView.toLowerCase()} view`}
+                    description="Choose another specific date or month to review leave and attendance."
                   />
                 </td>
               </tr>
@@ -591,6 +745,17 @@ const LeaveCalendar = () => {
             </div>
 
             <div className="calendar-day-details">
+              {canAddAbsence && selectedDate <= today && (
+                <button
+                  type="button"
+                  className="btn btn-primary calendar-add-absence-button"
+                  onClick={() => openAbsenceModal(selectedDate)}
+                >
+                  <Plus size={16} aria-hidden="true" />
+                  Add Absent Employee
+                </button>
+              )}
+
               {selectedDateLeaves.length > 0 ? (
                 selectedDateLeaves.map((leave) => (
                   <div
@@ -615,6 +780,114 @@ const LeaveCalendar = () => {
           </div>
         </div>
       )}
+
+      {showAbsenceModal && (
+        <div className="modal-overlay" role="presentation" onMouseDown={closeAbsenceModal}>
+          <section
+            className="modal-card attendance-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="calendar-absence-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div>
+                <span className="ui-eyebrow">Manual attendance</span>
+                <h3 id="calendar-absence-title">Add absent employee</h3>
+              </div>
+              <button type="button" onClick={closeAbsenceModal} disabled={savingAbsence} aria-label="Close absence form">
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+
+            {absenceError && (
+              <ErrorState title="Absence not saved" description={absenceError} compact />
+            )}
+
+            <form className="auth-form" onSubmit={requestAbsenceConfirmation}>
+              <div className="input-group">
+                <label htmlFor="calendar-absence-search">Search employee</label>
+                <div className="attendance-search">
+                  <Search size={16} aria-hidden="true" />
+                  <input
+                    id="calendar-absence-search"
+                    type="search"
+                    value={absenceSearch}
+                    onChange={(event) => setAbsenceSearch(event.target.value)}
+                    placeholder="Search name, email, ID, or team"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+
+              <div className="input-group">
+                <label htmlFor="calendar-absence-employee">Employee</label>
+                <select
+                  id="calendar-absence-employee"
+                  value={absenceForm.employeeId}
+                  onChange={(event) => setAbsenceForm((current) => ({ ...current, employeeId: event.target.value }))}
+                  required
+                >
+                  <option value="">Select employee</option>
+                  {visibleAbsenceEmployees.map((employee) => (
+                    <option key={employee._id} value={employee._id}>
+                      {employee.name} · {employee.employeeId || employee.email}
+                      {employee.teamId?.name ? ` · ${employee.teamId.name}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="input-group">
+                <label htmlFor="calendar-absence-date">Date</label>
+                <input
+                  id="calendar-absence-date"
+                  type="date"
+                  value={absenceForm.date}
+                  max={toDateInputValue(today)}
+                  onChange={(event) => setAbsenceForm((current) => ({ ...current, date: event.target.value }))}
+                  required
+                />
+              </div>
+
+              <div className="input-group">
+                <label htmlFor="calendar-absence-status">Attendance status</label>
+                <input id="calendar-absence-status" value="Absent – Uninformed" readOnly />
+                <small>This day will automatically be recorded as one unpaid leave / LOP day.</small>
+              </div>
+
+              <div className="input-group">
+                <label htmlFor="calendar-absence-remarks">Remarks <span>(optional)</span></label>
+                <textarea
+                  id="calendar-absence-remarks"
+                  rows="4"
+                  maxLength="500"
+                  value={absenceForm.remarks}
+                  onChange={(event) => setAbsenceForm((current) => ({ ...current, remarks: event.target.value }))}
+                  placeholder="Employee did not inform the team before the start of the shift."
+                />
+                <small>{absenceForm.remarks.length}/500</small>
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="btn btn-secondary" onClick={closeAbsenceModal}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Mark as Absent</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={confirmAbsence}
+        title="Confirm uninformed absence"
+        description={`Mark ${selectedAbsenceEmployee?.name || "this employee"} as “Absent – Uninformed” for ${absenceForm.date ? formatDate(`${absenceForm.date}T00:00:00.000Z`) : "the selected date"}? This will add one LOP day.`}
+        confirmLabel="Mark as Absent"
+        tone="danger"
+        busy={savingAbsence}
+        onCancel={() => !savingAbsence && setConfirmAbsence(false)}
+        onConfirm={saveUninformedAbsence}
+      />
     </>
   );
 };

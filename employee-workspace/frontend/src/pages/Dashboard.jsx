@@ -43,6 +43,8 @@ import TLApprovals from "./TLApprovals";
 import ManagerApprovals from "./ManagerApprovals";
 import PersonalLeaveBalance from "../components/PersonalLeaveBalance";
 import HrLeaveBalances from "./HrLeaveBalances";
+import AttendanceManagement from "./AttendanceManagement";
+import WorkspaceThemePicker from "../components/WorkspaceThemePicker";
 
 const PAGE_META = {
   dashboard: {
@@ -54,6 +56,11 @@ const PAGE_META = {
     eyebrow: "Inbox",
     title: "Notifications",
     description: "Review important updates and keep track of changes that need your attention.",
+  },
+  attendance: {
+    eyebrow: "Attendance",
+    title: "Uninformed absence",
+    description: "Review attendance history and manage absences that were not reported in advance.",
   },
   departments: {
     eyebrow: "Administration",
@@ -148,6 +155,7 @@ const formatRole = (role) =>
 const ROLE_PAGES = {
   Admin: [
     "dashboard",
+    "attendance",
     "departments",
     "teams",
     "users",
@@ -161,6 +169,7 @@ const ROLE_PAGES = {
   Employee: [
     "dashboard",
     "notifications",
+    "attendance",
     "leave",
     "myLeaveBalance",
     "reimbursements",
@@ -170,18 +179,21 @@ const ROLE_PAGES = {
   TeamLeader: [
     "dashboard",
     "notifications",
+    "attendance",
     "leave",
     "myLeaveBalance",
     "reimbursements",
     "tlApprovals",
     "managerApprovals",
     "reimbursementApprovals",
+    "leaveCalendar",
     "holidays",
     "editProfile",
   ],
   Manager: [
     "dashboard",
     "notifications",
+    "attendance",
     "leave",
     "myLeaveBalance",
     "hrLeaveBalances",
@@ -194,6 +206,7 @@ const ROLE_PAGES = {
   HR: [
     "dashboard",
     "notifications",
+    "attendance",
     "leave",
     "myLeaveBalance",
     "hrLeaveBalances",
@@ -206,6 +219,7 @@ const ROLE_PAGES = {
   Finance: [
     "dashboard",
     "notifications",
+    "attendance",
     "leaveCalendar",
     "financeLeaves",
     "financeReimbursements",
@@ -546,6 +560,12 @@ const Dashboard = () => {
                 "Notifications"
               )}
 
+            {menuButton(
+              "attendance",
+              <CalendarCheck size={18} />,
+              "Attendance"
+            )}
+
             {isAdmin && (
               <span className="sidebar-group-label">Administration</span>
             )}
@@ -646,6 +666,7 @@ const Dashboard = () => {
               )}
 
             {(isManagerOrHR ||
+              isTeamLeader ||
               isFinance ||
               isAdmin) &&
               menuButton(
@@ -748,6 +769,7 @@ const Dashboard = () => {
           </div>
 
           <div className="header-actions">
+            <WorkspaceThemePicker />
             <span className="header-role-chip">{formatRole(user?.role)}</span>
 
             {!isAdmin && <div className="notification-wrapper">
@@ -2847,6 +2869,12 @@ const Dashboard = () => {
         {isAdmin && activePage === "users" && (
           <div className="modern-section-card">
             <AdminUsers />
+          </div>
+        )}
+
+        {activePage === "attendance" && (
+          <div className="modern-section-card">
+            <AttendanceManagement />
           </div>
         )}
 

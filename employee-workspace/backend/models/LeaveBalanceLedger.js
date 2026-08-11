@@ -10,7 +10,12 @@ const leaveBalanceLedgerSchema = new mongoose.Schema(
     },
     entryType: {
       type: String,
-      enum: ["MONTHLY_CREDIT", "APPROVED_LEAVE", "HR_ADJUSTMENT"],
+      enum: [
+        "MONTHLY_CREDIT",
+        "APPROVED_LEAVE",
+        "UNINFORMED_ABSENCE",
+        "HR_ADJUSTMENT",
+      ],
       required: true,
       index: true,
     },
@@ -36,6 +41,11 @@ const leaveBalanceLedgerSchema = new mongoose.Schema(
     leaveRequestId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "LeaveRequest",
+      default: null,
+    },
+    attendanceRecordId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AttendanceRecord",
       default: null,
     },
     reason: {

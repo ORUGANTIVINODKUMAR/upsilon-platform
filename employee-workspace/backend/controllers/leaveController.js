@@ -3036,6 +3036,7 @@ export const getApprovedLeaveCalendar = async (
         "HR",
         "Finance",
         "Admin",
+        "TeamLeader",
       ].includes(req.user.role)
     ) {
       return res.status(403).json({
@@ -3045,8 +3046,16 @@ export const getApprovedLeaveCalendar = async (
       });
     }
 
+    const calendarVisibility =
+      req.user.role === "TeamLeader"
+        ? { teamLeaderId: req.user._id }
+        : req.user.role === "Manager"
+          ? { managerId: req.user._id }
+          : {};
+
     const leaveRequests =
       await LeaveRequest.find({
+        ...calendarVisibility,
         finalStatus: {
           $in: [
             "Approved by Manager",
@@ -3207,6 +3216,10 @@ export const getTodayLeaves = async (
     ) {
       filter.teamLeaderId =
         req.user._id;
+    }
+
+    if (req.user.role === "Manager") {
+      filter.managerId = req.user._id;
     }
 
     const leaveRequests =

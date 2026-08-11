@@ -65,6 +65,7 @@ export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => 
       MONTHLY_CREDIT: 0,
       HR_ADJUSTMENT: 1,
       APPROVED_LEAVE: 2,
+      UNINFORMED_ABSENCE: 3,
     };
     return (priority[left.entryType] || 0) - (priority[right.entryType] || 0);
   });
@@ -77,6 +78,9 @@ export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => 
   const approvedLeaves = sortedEntries.filter(
     (entry) => entry.entryType === "APPROVED_LEAVE",
   );
+  const uninformedAbsences = sortedEntries.filter(
+    (entry) => entry.entryType === "UNINFORMED_ABSENCE",
+  );
 
   const totalAdjustments = adjustments.reduce(
     (sum, entry) => sum + Number(entry.amount || 0),
@@ -84,6 +88,10 @@ export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => 
   );
   const approvedLeaveDays = approvedLeaves.reduce(
     (sum, entry) => sum + Number(entry.leaveDays || Math.abs(entry.amount) || 0),
+    0,
+  );
+  const uninformedAbsenceDays = uninformedAbsences.reduce(
+    (sum, entry) => sum + Number(entry.leaveDays || 1),
     0,
   );
   const consumeEntries = (items) =>
@@ -128,7 +136,8 @@ export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => 
     availablePaidLeave: totals.available,
     paidLeaveUsed: totals.paidUsed,
     approvedLeaveDays,
-    excessLeaveDays: totals.excess,
+    uninformedAbsenceDays,
+    excessLeaveDays: totals.excess + uninformedAbsenceDays,
     lastUpdated,
   };
 };
@@ -192,6 +201,7 @@ export const getLeaveBalanceForUser = async (
   const entries = await LeaveBalanceLedger.find({ userId })
     .populate("createdBy", "name employeeId role")
     .populate("leaveRequestId", "leaveType startDate endDate workingDays finalStatus")
+    .populate("attendanceRecordId", "attendanceDate status remarks")
     .sort({ effectiveDate: -1, createdAt: -1 })
     .lean();
   const summary = calculateBalanceSummary(entries, toPeriod(now));
@@ -237,6 +247,39 @@ export const syncApprovedLeaveLedger = async (leaveRequest, actedBy = null) => {
       reason: `Final approved ${leaveRequest.leaveType} leave`,
       createdBy: actedBy,
       effectiveDate: leaveRequest.startDate || new Date(),
+      active: true,
+    },
+  };
+
+  try {
+    await LeaveBalanceLedger.updateOne(filter, update, { upsert: true });
+  } catch (error) {
+    if (error.code !== 11000) throw error;
+    await LeaveBalanceLedger.updateOne(filter, update);
+  }
+};
+
+export const syncUninformedAbsenceLedger = async (
+  attendanceRecord,
+  actedBy = null,
+) => {
+  const attendanceRecordId = attendanceRecord._id;
+  const userId = attendanceRecord.employeeId?._id || attendanceRecord.employeeId;
+  const sourceKey = `attendance:${attendanceRecordId}`;
+  const filter = { _id: sourceKeyToObjectId(sourceKey) };
+  const update = {
+    $set: {
+      userId,
+      entryType: "UNINFORMED_ABSENCE",
+      sourceKey,
+      period: toPeriod(attendanceRecord.attendanceDate),
+      amount: 0,
+      leaveDays: 1,
+      leaveRequestId: null,
+      attendanceRecordId,
+      reason: "Uninformed absence - Loss of Pay",
+      createdBy: actedBy,
+      effectiveDate: attendanceRecord.attendanceDate,
       active: true,
     },
   };

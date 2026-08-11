@@ -15,6 +15,7 @@ import dashboardRoutes from "./routes/dashboardRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
 import teamRoutes from "./routes/teamRoutes.js";
 import holidayRoutes from "./routes/holidayRoutes.js";
+import attendanceRoutes from "./routes/attendanceRoutes.js";
 
 import careersRoutes from "./routes/careersRoutes.js";
 import careersAdminRoutes from "./routes/careersAdminRoutes.js";
@@ -132,6 +133,7 @@ app.use("/api/reimbursements", reimbursementRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/holidays", holidayRoutes);
+app.use("/api/attendance", attendanceRoutes);
 app.use("/api/teams", teamRoutes);
 
 /* =========================

@@ -18,6 +18,7 @@ const entryLabel = (entry) => {
   if (entry.entryType === "MONTHLY_CREDIT") return "+ Monthly leave credit";
   if (entry.entryType === "HR_ADJUSTMENT") return "HR adjustment";
   if (entry.entryType === "APPROVED_LEAVE") return "Approved leave";
+  if (entry.entryType === "UNINFORMED_ABSENCE") return "Uninformed absence (LOP)";
   return entry.entryType;
 };
 
@@ -157,8 +158,10 @@ const PersonalLeaveBalance = ({ compact = false }) => {
                     <td>{entry.reason || "Not provided"}</td>
                     <td>
                       <StatusBadge
-                        status={entry.amount >= 0 ? "paid" : "rejected"}
-                        label={`${entry.amount >= 0 ? "+" : ""}${formatNumber(entry.amount)}`}
+                        status={entry.entryType === "UNINFORMED_ABSENCE" || entry.amount < 0 ? "rejected" : "paid"}
+                        label={entry.entryType === "UNINFORMED_ABSENCE"
+                          ? `${formatNumber(entry.leaveDays || 1)} day LOP`
+                          : `${entry.amount >= 0 ? "+" : ""}${formatNumber(entry.amount)}`}
                       />
                     </td>
                   </tr>

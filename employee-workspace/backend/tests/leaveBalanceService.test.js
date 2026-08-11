@@ -74,6 +74,28 @@ test("a later monthly credit does not erase previously recorded LOP", () => {
   assert.equal(summary.availablePaidLeave, 2);
 });
 
+test("uninformed absence adds one LOP day without consuming paid leave", () => {
+  const summary = calculateBalanceSummary(
+    [
+      credit("2026-08"),
+      {
+        entryType: "UNINFORMED_ABSENCE",
+        period: "2026-08",
+        amount: 0,
+        leaveDays: 1,
+        active: true,
+        effectiveDate: "2026-08-11T00:00:00.000Z",
+      },
+    ],
+    "2026-08",
+  );
+
+  assert.equal(summary.availablePaidLeave, 2);
+  assert.equal(summary.paidLeaveUsed, 0);
+  assert.equal(summary.uninformedAbsenceDays, 1);
+  assert.equal(summary.excessLeaveDays, 1);
+});
+
 test("pending, rejected, and inactive reapproval entries consume nothing", () => {
   const inactive = approvedLeave("2026-08", 2, false);
   const stalePending = {
