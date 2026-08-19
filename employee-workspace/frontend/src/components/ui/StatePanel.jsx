@@ -28,6 +28,13 @@ const StatePanel = ({
         <strong>{title}</strong>
         {description && <p>{description}</p>}
       </div>
+      {type === "loading" && (
+        <span className="ui-state-loading-lines" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
+      )}
       {action && <div className="ui-state-action">{action}</div>}
     </div>
   );

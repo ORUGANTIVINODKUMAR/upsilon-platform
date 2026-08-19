@@ -670,6 +670,40 @@ const AdminUsers = () => {
       setResetPasswordError("");
       setResetPasswordSuccess("");
     };
+
+  useEffect(() => {
+    if (!showModal && !showResetPasswordModal) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleEscape = (event) => {
+      if (event.key !== "Escape" || isSubmitting) return;
+
+      if (showModal) {
+        setShowModal(false);
+        setEditingUser(null);
+        setError("");
+        setFormData({ ...EMPTY_FORM_DATA });
+      }
+
+      if (showResetPasswordModal) {
+        setShowResetPasswordModal(false);
+        setSelectedResetUser(null);
+        setTemporaryPassword("");
+        setConfirmTemporaryPassword("");
+        setResetPasswordError("");
+        setResetPasswordSuccess("");
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [showModal, showResetPasswordModal, isSubmitting]);
+
       const handleResetPassword = async (
     event
   ) => {
@@ -1573,7 +1607,7 @@ const AdminUsers = () => {
       </div>
 
       <div className="table-wrapper modern-table-wrapper">
-        <table className="custom-table">
+        <table className="custom-table responsive-card-table">
           <thead>
             <tr>
               <th>User</th>
@@ -1608,7 +1642,7 @@ const AdminUsers = () => {
               paginatedUsers.map(
                 (user) => (
                   <tr key={user._id}>
-                    <td>
+                    <td data-label="User">
                       <div className="user-cell">
                         <div className="avatar-circle">
                           {user.profilePhoto
@@ -1665,21 +1699,21 @@ const AdminUsers = () => {
                       </div>
                     </td>
 
-                    <td>
+                    <td data-label="Employee ID">
                       {user.employeeId ||
                         "N/A"}
                     </td>
 
-                    <td>
+                    <td data-label="Email">
                       {user.email || "N/A"}
                     </td>
 
-                    <td>
+                    <td data-label="Designation">
                       {user.designation ||
                         "N/A"}
                     </td>
 
-                    <td>
+                    <td data-label="Role">
                       <span
                         className={
                           user.role ===
@@ -1701,13 +1735,13 @@ const AdminUsers = () => {
                       </span>
                     </td>
 
-                    <td>
+                    <td data-label="Department">
                       {user
                         .subcategoryId
                         ?.name || "N/A"}
                     </td>
 
-                    <td>
+                    <td data-label="Team">
                       {user.teamId?.name ||
                         (user
                           .assignedTeamIds
@@ -1716,7 +1750,7 @@ const AdminUsers = () => {
                           : "N/A")}
                     </td>
 
-                    <td>
+                    <td data-label="Status">
                       <span
                         className={
                           user.isActive !==
@@ -1732,8 +1766,9 @@ const AdminUsers = () => {
                       </span>
                     </td>
 
-                    <td>
+                    <td data-label="Actions">
                       <div
+                        className="admin-user-actions"
                         style={{
                           display:
                             "flex",
@@ -1742,8 +1777,6 @@ const AdminUsers = () => {
                             "center",
                           flexWrap:
                             "wrap",
-                          minWidth:
-                            "280px",
                         }}
                       >
                         <button
@@ -1971,9 +2004,23 @@ const AdminUsers = () => {
             )}
 
             <form
-              className="auth-form"
+              className="auth-form user-editor-form"
               onSubmit={handleSubmit}
             >
+              <div className="user-form-progress" aria-label="User form sections">
+                <a href="#user-profile-fields"><span>1</span>Profile</a>
+                <a href="#user-access-fields"><span>2</span>Access</a>
+                <a href="#user-reporting-fields"><span>3</span>Reporting</a>
+              </div>
+
+              <div className="user-form-section-heading" id="user-profile-fields">
+                <div>
+                  <span>Profile details</span>
+                  <p>Identity and contact information used across the workspace.</p>
+                </div>
+                <small>* Required fields</small>
+              </div>
+
               <div className="grid-2">
                 <div className="input-group">
                   <label>First Name</label>
@@ -2136,6 +2183,13 @@ const AdminUsers = () => {
                 </div>
               )}
 
+              <div className="user-form-section-heading" id="user-access-fields">
+                <div>
+                  <span>Role and access</span>
+                  <p>Choose the employee's workspace role and department.</p>
+                </div>
+              </div>
+
               <div className="grid-2">
                 <div className="input-group">
                   <label>Role</label>
@@ -2255,6 +2309,13 @@ const AdminUsers = () => {
                   </div>
                 </div>
               )}
+
+              <div className="user-form-section-heading" id="user-reporting-fields">
+                <div>
+                  <span>Reporting structure</span>
+                  <p>Assign the relevant team and reporting relationships.</p>
+                </div>
+              </div>
 
               {formData.role ===
                 "Employee" && (
@@ -2499,14 +2560,7 @@ const AdminUsers = () => {
                 </div>
               )}
 
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "10px",
-                  marginTop: "20px",
-                }}
-              >
+              <div className="user-form-actions">
                 <button
                   type="button"
                   className="btn"

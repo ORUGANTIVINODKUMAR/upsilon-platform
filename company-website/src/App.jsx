@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import {
   Navigate,
   Route,
@@ -12,47 +12,37 @@ import Header from "./components/Header";
 import Footer from "./components/Footer";
 import StickyContactButton from "./components/StickyContactButton";
 
-import Home from "./pages/Home";
-import About from "./pages/About";
-import Services from "./pages/Services";
-import Resources from "./pages/Resources";
-import ArticlePage from "./pages/ArticlePage";
-import FAQ from "./pages/FAQ";
-import Contact from "./pages/Contact";
-
-import CareersAbout from "./pages/CareersAbout";
-import CareersTheUpsilonWay from "./pages/CareersTheUpsilonWay";
-import CareersFakeJobAlert from "./pages/CareersFakeJobAlert";
-import CareersAdminLogin from "./pages/CareersAdminLogin";
-import CareersAdminDashboard from "./pages/CareersAdminDashboard";
 import CareersAdminRoute from "./components/CareersAdminRoute";
-
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import Terms from "./pages/Terms";
-import NotFound from "./pages/NotFound";
-
-import Tax from "./pages/service-details/Tax";
-import Accounting from "./pages/service-details/Accounting";
-import Auditing from "./pages/service-details/Auditing";
-import AdminSupport from "./pages/service-details/AdminSupport";
-
-/* New isolated Careers public pages */
-// Careers is on hold. Restore this import when re-enabling the /careers route.
-// import CareersModule from "./careers/pages/Careers";
-import JobDetails from "./careers/pages/JobDetails";
-import ApplyJob from "./careers/pages/ApplyJob";
-
-/* New isolated Careers admin components */
 import CareersProtectedRoute from "./careers/components/CareersProtectedRoute";
 
-/* New isolated Careers admin pages */
-import CareersManagementLogin from "./careers/admin/Login";
-import CareersDashboard from "./careers/admin/Dashboard";
-import AddJob from "./careers/admin/AddJob";
-import ManageJobs from "./careers/admin/ManageJobs";
-import EditJob from "./careers/admin/EditJob";
-import Applicants from "./careers/admin/Applicants";
-import ApplicantDetails from "./careers/admin/ApplicantDetails";
+const Home = lazy(() => import("./pages/Home"));
+const About = lazy(() => import("./pages/About"));
+const Services = lazy(() => import("./pages/Services"));
+const Resources = lazy(() => import("./pages/Resources"));
+const ArticlePage = lazy(() => import("./pages/ArticlePage"));
+const FAQ = lazy(() => import("./pages/FAQ"));
+const Contact = lazy(() => import("./pages/Contact"));
+const CareersAbout = lazy(() => import("./pages/CareersAbout"));
+const CareersTheUpsilonWay = lazy(() => import("./pages/CareersTheUpsilonWay"));
+const CareersFakeJobAlert = lazy(() => import("./pages/CareersFakeJobAlert"));
+const CareersAdminLogin = lazy(() => import("./pages/CareersAdminLogin"));
+const CareersAdminDashboard = lazy(() => import("./pages/CareersAdminDashboard"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const Terms = lazy(() => import("./pages/Terms"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Tax = lazy(() => import("./pages/service-details/Tax"));
+const Accounting = lazy(() => import("./pages/service-details/Accounting"));
+const Auditing = lazy(() => import("./pages/service-details/Auditing"));
+const AdminSupport = lazy(() => import("./pages/service-details/AdminSupport"));
+const JobDetails = lazy(() => import("./careers/pages/JobDetails"));
+const ApplyJob = lazy(() => import("./careers/pages/ApplyJob"));
+const CareersManagementLogin = lazy(() => import("./careers/admin/Login"));
+const CareersDashboard = lazy(() => import("./careers/admin/Dashboard"));
+const AddJob = lazy(() => import("./careers/admin/AddJob"));
+const ManageJobs = lazy(() => import("./careers/admin/ManageJobs"));
+const EditJob = lazy(() => import("./careers/admin/EditJob"));
+const Applicants = lazy(() => import("./careers/admin/Applicants"));
+const ApplicantDetails = lazy(() => import("./careers/admin/ApplicantDetails"));
 
 function ProtectedCareersAdminPage({ children }) {
   return (
@@ -118,7 +108,15 @@ function App() {
     <>
       {!isCareersManagementRoute && <Header />}
 
-      <main>
+      <div className="site-main" key={location.pathname}>
+        <Suspense
+          fallback={(
+            <div className="route-loading" role="status" aria-live="polite">
+              <span className="route-loading-bar" />
+              <span className="sr-only">Loading page</span>
+            </div>
+          )}
+        >
         <Routes>
           {/* Existing main pages */}
           <Route path="/" element={<Home />} />
@@ -307,7 +305,8 @@ function App() {
           {/* Existing 404 page */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </main>
+        </Suspense>
+      </div>
 
       {!isCareersManagementRoute && <Footer />}
 

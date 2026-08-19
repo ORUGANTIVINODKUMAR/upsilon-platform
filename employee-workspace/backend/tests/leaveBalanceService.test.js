@@ -102,13 +102,37 @@ test("pending, rejected, and inactive reapproval entries consume nothing", () =>
     ...approvedLeave("2026-08", 2),
     leaveRequestId: { finalStatus: "Pending Reapproval" },
   };
+  const rejected = {
+    ...approvedLeave("2026-08", 2),
+    leaveRequestId: { finalStatus: "Rejected by Manager" },
+  };
   const summary = calculateBalanceSummary(
-    [credit("2026-08"), inactive, stalePending],
+    [credit("2026-08"), inactive, stalePending, rejected],
     "2026-08",
   );
   assert.equal(summary.availablePaidLeave, 2);
   assert.equal(summary.paidLeaveUsed, 0);
   assert.equal(summary.excessLeaveDays, 0);
+});
+
+test("a rejected leave charge is applied again after reapproval", () => {
+  const entry = {
+    ...approvedLeave("2026-08", 1),
+    leaveRequestId: { finalStatus: "Rejected by HR" },
+  };
+  const rejectedSummary = calculateBalanceSummary(
+    [credit("2026-08"), entry],
+    "2026-08",
+  );
+  entry.leaveRequestId.finalStatus = "Approved by HR";
+  const reapprovedSummary = calculateBalanceSummary(
+    [credit("2026-08"), entry],
+    "2026-08",
+  );
+
+  assert.equal(rejectedSummary.availablePaidLeave, 2);
+  assert.equal(reapprovedSummary.availablePaidLeave, 1);
+  assert.equal(reapprovedSummary.paidLeaveUsed, 1);
 });
 
 test("HR adjustments are auditable capacity changes", () => {

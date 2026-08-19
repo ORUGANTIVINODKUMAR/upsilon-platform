@@ -7,6 +7,7 @@ import {
 
 import {
   AlertCircle,
+  ChevronDown,
   CheckCircle,
   Clock3,
   FileSpreadsheet,
@@ -338,6 +339,7 @@ const ManagerApprovals = () => {
   const [exportStartDate, setExportStartDate] = useState(getTodayDateKey);
   const [exportEndDate, setExportEndDate] = useState(getTodayDateKey);
   const [isExporting, setIsExporting] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
 
   const actionMenuRef =
     useRef(null);
@@ -1508,9 +1510,32 @@ const ManagerApprovals = () => {
           const Icon = card.icon;
 
           return (
-            <div
+            <button
+              type="button"
               key={card.key}
-              className={`leave-status-summary-card ${card.className}`}
+              className={`leave-status-summary-card ${card.className} ${
+                (card.key === "all" && statusFilter === "All") ||
+                (card.key === "pending" && statusFilter === "Pending Final Approval") ||
+                (card.key === "reapproval" && statusFilter === "Pending Reapproval") ||
+                (card.key === "onHold" && statusFilter === "On Hold") ||
+                (card.key === "approved" && statusFilter === "Approved") ||
+                (card.key === "rejected" && statusFilter === "Rejected")
+                  ? "is-selected"
+                  : ""
+              }`}
+              aria-label={`Show ${card.label.toLowerCase()} requests`}
+              onClick={() => {
+                const filterByCard = {
+                  all: "All",
+                  pending: "Pending Final Approval",
+                  reapproval: "Pending Reapproval",
+                  onHold: "On Hold",
+                  approved: "Approved",
+                  rejected: "Rejected",
+                };
+                setStatusFilter(filterByCard[card.key] || "All");
+                closeActionMenu();
+              }}
             >
               <div className="leave-summary-icon">
                 <Icon size={19} />
@@ -1527,7 +1552,7 @@ const ManagerApprovals = () => {
               <p className="leave-summary-description">
                 {card.description}
               </p>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -1588,12 +1613,24 @@ const ManagerApprovals = () => {
                 <p>Choose a period and download the matching records as an Excel file.</p>
               </div>
             </div>
-            <span className="approval-export-view-count">
-              {filteredRequests.length} in current view
-            </span>
+            <div className="approval-export-heading-actions">
+              <span className="approval-export-view-count">
+                {filteredRequests.length} in current view
+              </span>
+              <button
+                type="button"
+                className="approval-export-toggle"
+                aria-expanded={showExportOptions}
+                aria-controls="approval-export-options"
+                onClick={() => setShowExportOptions((isVisible) => !isVisible)}
+              >
+                {showExportOptions ? "Hide options" : "Export options"}
+                <ChevronDown size={16} aria-hidden="true" />
+              </button>
+            </div>
           </div>
 
-          <div className="approval-export-body">
+          {showExportOptions && <div className="approval-export-body" id="approval-export-options">
             <div
               className="approval-export-periods"
               role="group"
@@ -1684,13 +1721,13 @@ const ManagerApprovals = () => {
             <p className="approval-export-note">
               Your selected status tab and search text are included automatically.
             </p>
-          </div>
+          </div>}
         </section>
       )}
 
       <div className="leave-approval-table-card">
         <div className="leave-approval-table-scroll">
-          <table className="leave-approval-table">
+          <table className="leave-approval-table responsive-card-table">
             <thead>
               <tr>
                 <th>Employee</th>
@@ -1763,7 +1800,7 @@ const ManagerApprovals = () => {
 
                     return (
                       <tr key={item._id}>
-                        <td>
+                        <td data-label="Employee">
                           <div className="leave-employee-cell">
                             <div className="leave-employee-avatar">
                               {employeePhoto ? (
@@ -1811,7 +1848,7 @@ const ManagerApprovals = () => {
                           </div>
                         </td>
 
-                        <td>
+                        <td data-label="Leave">
                           <div>
                             <span className="leave-type-name">
                               {
@@ -1847,7 +1884,7 @@ const ManagerApprovals = () => {
                           </div>
                         </td>
 
-                        <td>
+                        <td data-label="Duration">
                           <div
                             style={{
                               color:
@@ -1880,7 +1917,7 @@ const ManagerApprovals = () => {
                           </div>
                         </td>
 
-                        <td>
+                        <td data-label="Approval flow">
                           <div className="approval-flow-list">
                             {approvalFlow.map(
                               (step) => (
@@ -1913,7 +1950,7 @@ const ManagerApprovals = () => {
                           </div>
                         </td>
 
-                        <td>
+                        <td data-label="Reason">
                           <button
                             type="button"
                             className="leave-reason-btn"
@@ -1928,7 +1965,7 @@ const ManagerApprovals = () => {
                           </button>
                         </td>
 
-                        <td>
+                        <td data-label="Status">
                           <span
                             className={`leave-status-pill ${statusType}`}
                           >
@@ -1944,7 +1981,7 @@ const ManagerApprovals = () => {
                           </span>
                         </td>
 
-                        <td>
+                        <td data-label="Last update">
                           <div className="leave-last-update">
                             {statusSummary ? (
                               <>
@@ -2002,7 +2039,7 @@ const ManagerApprovals = () => {
                           </div>
                         </td>
 
-                        <td>
+                        <td data-label="Actions">
                           <div className="leave-row-actions">
                             {canApproveOrReject(
                               item

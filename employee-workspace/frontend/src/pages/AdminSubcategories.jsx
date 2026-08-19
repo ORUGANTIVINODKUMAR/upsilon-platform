@@ -270,7 +270,7 @@ const AdminSubcategories = () => {
       </div>
 
       <div className="table-wrapper modern-table-wrapper">
-        <table className="custom-table">
+        <table className="custom-table responsive-card-table">
           <thead>
             <tr>
               <th scope="col">Department</th>
@@ -288,7 +288,7 @@ const AdminSubcategories = () => {
           <tbody>
             {subcategories.map((item) => (
               <tr key={item._id}>
-                <td>
+                <td data-label="Department">
                   <div className="user-cell">
                     <div className="avatar-circle">
                       <Building2 size={16} />
@@ -298,31 +298,31 @@ const AdminSubcategories = () => {
                   </div>
                 </td>
 
-                <td>
+                <td data-label="Employees">
                   <span className="badge badge-success">
                     {item.employeeCount || 0}
                   </span>
                 </td>
 
-                <td>
+                <td data-label="Team leaders">
                   <span className="badge badge-pending">
                     {item.teamLeaderCount || 0}
                   </span>
                 </td>
 
-                <td>
+                <td data-label="Managers">
                   <span className="badge badge-pending">
                     {item.managerCount || 0}
                   </span>
                 </td>
 
-                <td>
+                <td data-label="HR">
                   <span className="badge badge-pending">
                     {item.hrCount || 0}
                   </span>
                 </td>
 
-                <td>
+                <td data-label="Total users">
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                     <span className="badge badge-success">
                       {item.userCount || 0}
@@ -341,13 +341,13 @@ const AdminSubcategories = () => {
                   </div>
                 </td>
 
-                <td>{new Date(item.createdAt).toLocaleDateString()}</td>
+                <td data-label="Created">{new Date(item.createdAt).toLocaleDateString()}</td>
 
-                <td>
+                <td data-label="Status">
                   <span className="badge badge-success">Active</span>
                 </td>
 
-                <td>
+                <td data-label="Actions">
                   <button
                     type="button"
                     className="delete-icon-btn"

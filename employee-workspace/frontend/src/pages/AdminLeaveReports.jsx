@@ -254,7 +254,7 @@ const AdminLeaveReports = () => {
           </section>
 
           <div className="table-wrapper modern-table-wrapper">
-            <table className="custom-table">
+            <table className="custom-table responsive-card-table">
               <caption className="sr-only">Filtered employee leave reports</caption>
               <thead>
                 <tr>
@@ -271,7 +271,7 @@ const AdminLeaveReports = () => {
               <tbody>
                 {paginatedRequests.map((item) => (
                   <tr key={item._id}>
-                    <td>
+                    <td data-label="Employee">
                       <div className="user-cell">
                         <UserAvatar name={item.employeeId?.name || "Employee"} size="small" />
                         <div>
@@ -282,27 +282,27 @@ const AdminLeaveReports = () => {
                         </div>
                       </div>
                     </td>
-                    <td>{item.subcategoryId?.name || "N/A"}</td>
-                    <td>{item.leaveType || "N/A"}</td>
-                    <td>
+                    <td data-label="Department">{item.subcategoryId?.name || "N/A"}</td>
+                    <td data-label="Leave type">{item.leaveType || "N/A"}</td>
+                    <td data-label="Duration">
                       <time dateTime={item.startDate}>{formatDate(item.startDate)}</time>
                       {" - "}
                       <time dateTime={item.endDate}>{formatDate(item.endDate)}</time>
                     </td>
-                    <td>
+                    <td data-label="Status">
                       <StatusBadge
                         status={item.finalStatus || "Pending"}
                         label={item.finalStatus || "Pending"}
                       />
                     </td>
-                    <td>
+                    <td data-label="Approval flow">
                       <div className="approval-flow">
                         <span>TL: {item.tlStatus || "Pending"}</span>
                         <span>Manager: {item.managerStatus || "Pending"}</span>
                         <span>HR: {item.hrStatus || "Pending"}</span>
                       </div>
                     </td>
-                    <td>{item.rejectionReason || "Not applicable"}</td>
+                    <td data-label="Rejection reason">{item.rejectionReason || "Not applicable"}</td>
                   </tr>
                 ))}
 

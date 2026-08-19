@@ -41,15 +41,6 @@ function Hero() {
         aria-hidden="true"
       />
 
-      <div
-        className="hero-orbs"
-        aria-hidden="true"
-      >
-        <span className="hero-orb hero-orb-1" />
-        <span className="hero-orb hero-orb-2" />
-        <span className="hero-orb hero-orb-3" />
-      </div>
-
       <div className="hero-container">
         <motion.div
           className="hero-content"
@@ -68,7 +59,7 @@ function Hero() {
             id="hero-heading"
             variants={item}
           >
-            Expand Your Firm&apos;s Capabilities with Trusted Global Talent
+            Expand Your Firpos;s Capabilities with Trusted Global Talent
           </motion.h1>
 
           <motion.p

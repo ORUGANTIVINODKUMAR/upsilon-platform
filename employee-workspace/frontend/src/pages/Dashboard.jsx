@@ -913,6 +913,7 @@ const Dashboard = () => {
           </div>
         )}
 
+        <div key={activePage} className="workspace-page-content">
         {activePage === "dashboard" && (
           <>
             <div
@@ -1603,10 +1604,11 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="modern-section-card">
+                <div className="modern-section-card dashboard-quick-action-card">
                   <h3>My Activity Overview</h3>
 
                   <div
+                    className="dashboard-quick-actions"
                     style={{
                       display: "flex",
                       gap: "12px",
@@ -1837,10 +1839,11 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="modern-section-card">
+                <div className="modern-section-card dashboard-quick-action-card">
                   <h3>Quick Actions</h3>
 
                   <div
+                    className="dashboard-quick-actions"
                     style={{
                       display: "flex",
                       gap: "15px",
@@ -2227,7 +2230,7 @@ const Dashboard = () => {
                   )}
                 </div>
 
-                <div className="modern-section-card">
+                <div className="modern-section-card dashboard-quick-action-card">
                   <h3>
                     {user?.role === "HR"
                       ? "HR Quick Actions"
@@ -2235,6 +2238,7 @@ const Dashboard = () => {
                   </h3>
 
                   <div
+                    className="dashboard-quick-actions"
                     style={{
                       display: "grid",
                       gridTemplateColumns:
@@ -2470,12 +2474,13 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="modern-section-card">
+                <div className="modern-section-card dashboard-quick-action-card">
                   <h3>
                     Team Leader Quick Actions
                   </h3>
 
                   <div
+                    className="dashboard-quick-actions"
                     style={{
                       display: "grid",
                       gridTemplateColumns:
@@ -2978,6 +2983,7 @@ const Dashboard = () => {
             />
           </div>
         )}
+        </div>
         {showPasswordModal && (
           <div className="modal-overlay">
             <div

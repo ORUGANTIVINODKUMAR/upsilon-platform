@@ -32,6 +32,10 @@ import {
   getLeaveApprovalVisibilityFilter,
   leaveRequestMatchesSearch,
 } from "../services/leaveApprovalExportPolicy.js";
+import {
+  applyManagedLeaveStatus,
+  getManagedLeaveStatuses,
+} from "../services/leaveStatusTransitionService.js";
 
 const APPROVED_LEAVE_STATUSES = [
   "Approved by Manager",
@@ -2793,20 +2797,7 @@ export const changeLeaveStatus = async (req, res) => {
       });
     }
 
-    const commonStatuses = [
-      "Pending Final Approval",
-      "On Hold",
-    ];
-
-    const roleStatuses =
-      req.user.role === "Manager"
-        ? ["Approved by Manager", "Rejected by Manager"]
-        : ["Approved by HR", "Rejected by HR"];
-
-    const allowedStatuses = [
-      ...commonStatuses,
-      ...roleStatuses,
-    ];
+    const allowedStatuses = getManagedLeaveStatuses(req.user.role);
 
     if (!allowedStatuses.includes(status)) {
       return res.status(400).json({
@@ -2842,51 +2833,13 @@ export const changeLeaveStatus = async (req, res) => {
       });
     }
 
-    const previousStatus = leaveRequest.finalStatus;
-
-    leaveRequest.finalStatus = status;
-
-    leaveRequest.lastStatusChangedBy = req.user._id;
-    leaveRequest.lastStatusChangedAt = new Date();
-
-    leaveRequest.statusHistory.push({
-      previousStatus,
-      newStatus: status,
-      changedBy: req.user._id,
-      remarks: remarks.trim(),
+    const { previousStatus } = applyManagedLeaveStatus({
+      leaveRequest,
+      status,
+      role: req.user.role,
+      actorId: req.user._id,
+      remarks,
     });
-
-    leaveRequest.approvalHistory.push({
-      level: req.user.role,
-      action: "Status Changed",
-      actedBy: req.user._id,
-      remarks: `${previousStatus} → ${status} | ${remarks}`,
-    });
-
-    if (status === "Pending Final Approval") {
-      leaveRequest.managerStatus = "Pending";
-      leaveRequest.hrStatus = "Pending";
-      leaveRequest.requiresReapproval = false;
-    }
-
-    if (status === "On Hold") {
-      leaveRequest.requiresReapproval = false;
-    }
-
-    if (
-      status === "Approved by Manager" ||
-      status === "Approved by HR"
-    ) {
-      leaveRequest.requiresReapproval = false;
-    }
-
-    if (
-      status === "Rejected by Manager" ||
-      status === "Rejected by HR"
-    ) {
-      leaveRequest.rejectionReason = remarks.trim();
-      leaveRequest.requiresReapproval = false;
-    }
 
     await leaveRequest.save();
 
@@ -2948,6 +2901,23 @@ export const changeLeaveStatus = async (req, res) => {
 
   } catch (error) {
     console.error("CHANGE LEAVE STATUS ERROR:", error);
+
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid leave request ID",
+      });
+    }
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message:
+          Object.values(error.errors)
+            .map((item) => item.message)
+            .join(", ") || "Leave request validation failed",
+      });
+    }
 
     return res.status(500).json({
       success: false,

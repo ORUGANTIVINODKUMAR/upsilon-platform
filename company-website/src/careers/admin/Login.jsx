@@ -103,9 +103,6 @@ function Login() {
 
   return (
     <div className="careers-login-page">
-      <div className="careers-login-decoration careers-login-decoration-one" />
-      <div className="careers-login-decoration careers-login-decoration-two" />
-
       <div className="careers-login-layout">
         <section className="careers-login-welcome">
           <div className="careers-login-welcome-brand">

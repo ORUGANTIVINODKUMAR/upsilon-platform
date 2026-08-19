@@ -185,7 +185,6 @@ const leaveRequestSchema = new mongoose.Schema(
     submittedAt: {
       type: Date,
       default: Date.now,
-      required: true,
       immutable: true,
     },
 

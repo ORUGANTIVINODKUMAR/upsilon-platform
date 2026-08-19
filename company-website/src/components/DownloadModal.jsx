@@ -14,6 +14,8 @@ function generateCaptchaText(length = 6) {
 
 function DownloadModal({ resource, onClose }) {
   const canvasRef = useRef(null);
+  const dialogRef = useRef(null);
+  const firstFieldRef = useRef(null);
   const [captchaText, setCaptchaText] = useState("");
   const [formData, setFormData] = useState({
     name: "",
@@ -74,6 +76,43 @@ function DownloadModal({ resource, onClose }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    firstFieldRef.current?.focus();
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+
+      if (event.key !== "Tab" || !dialogRef.current) return;
+
+      const focusable = dialogRef.current.querySelectorAll(
+        'button:not(:disabled), input:not(:disabled), [href], [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable.length) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
@@ -124,7 +163,15 @@ function DownloadModal({ resource, onClose }) {
 
   return (
     <div className="download-modal-overlay" onClick={onClose}>
-      <div className="download-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className="download-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="download-modal-title"
+        aria-describedby="download-modal-description"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           type="button"
           className="download-modal-close"
@@ -135,7 +182,10 @@ function DownloadModal({ resource, onClose }) {
         </button>
 
         <div className="download-modal-form">
-          <h2>Download </h2>
+          <h2 id="download-modal-title">Download resource</h2>
+          <p id="download-modal-description" className="download-modal-description">
+            Enter your details and we will send the resource to your inbox.
+          </p>
 
           {submitted ? (
             <div className="download-modal-success">
@@ -154,7 +204,10 @@ function DownloadModal({ resource, onClose }) {
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
+              <label className="sr-only" htmlFor="download-name">Name</label>
               <input
+                ref={firstFieldRef}
+                id="download-name"
                 type="text"
                 name="name"
                 placeholder="Name *"
@@ -162,7 +215,9 @@ function DownloadModal({ resource, onClose }) {
                 onChange={handleChange}
                 required
               />
+              <label className="sr-only" htmlFor="download-email">Email address</label>
               <input
+                id="download-email"
                 type="email"
                 name="email"
                 placeholder="Email Address *"
@@ -170,7 +225,9 @@ function DownloadModal({ resource, onClose }) {
                 onChange={handleChange}
                 required
               />
+              <label className="sr-only" htmlFor="download-company">Company name</label>
               <input
+                id="download-company"
                 type="text"
                 name="company"
                 placeholder="Company Name *"
@@ -178,7 +235,9 @@ function DownloadModal({ resource, onClose }) {
                 onChange={handleChange}
                 required
               />
+              <label className="sr-only" htmlFor="download-phone">Phone number</label>
               <input
+                id="download-phone"
                 type="tel"
                 name="phone"
                 placeholder="Phone Number *"
@@ -188,7 +247,13 @@ function DownloadModal({ resource, onClose }) {
               />
 
               <div className="download-modal-captcha">
-                <canvas ref={canvasRef} width={140} height={48} />
+                <canvas
+                  ref={canvasRef}
+                  width={140}
+                  height={48}
+                  role="img"
+                  aria-label="Verification code image"
+                />
                 <button
                   type="button"
                   className="download-modal-captcha-refresh"
@@ -199,7 +264,11 @@ function DownloadModal({ resource, onClose }) {
                 </button>
               </div>
 
+              <label className="sr-only" htmlFor="download-captcha">
+                Verification code
+              </label>
               <input
+                id="download-captcha"
                 type="text"
                 name="captchaInput"
                 placeholder="Enter Captcha *"
@@ -208,7 +277,7 @@ function DownloadModal({ resource, onClose }) {
                 required
               />
 
-              {error && <p className="download-modal-error">{error}</p>}
+              {error && <p className="download-modal-error" role="alert">{error}</p>}
 
               <button
                 type="submit"

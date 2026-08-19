@@ -258,6 +258,10 @@ code {
   border: 1px solid #e4ebe7;
   border-radius: 18px;
   background: #ffffff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   transition:
     transform 0.2s ease,
     border-color 0.2s ease,
@@ -352,11 +356,19 @@ code {
 /* Toolbar */
 
 .leave-approval-toolbar {
+  position: sticky;
+  top: 8px;
+  z-index: 8;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
   margin-bottom: 18px;
+  padding: 8px;
+  background: rgba(248, 251, 249, 0.94);
+  border: 1px solid #e2eae6;
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
 }
 
 .leave-search-box {
@@ -456,6 +468,11 @@ code {
   background: #e6eeea;
 }
 
+.leave-status-summary-card.is-selected {
+  border-color: var(--summary-color, #275e4a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--summary-color, #275e4a) 13%, transparent);
+}
+
 /* Approval export */
 
 .approval-export-panel {
@@ -517,6 +534,29 @@ code {
   font-size: 11px;
   font-weight: 700;
 }
+
+.approval-export-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.approval-export-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 8px 11px;
+  color: #15583d;
+  background: #ffffff;
+  border: 1px solid #bddbcd;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.approval-export-toggle svg { transition: transform 180ms ease; }
+.approval-export-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
 
 .approval-export-body {
   padding: 16px 20px 17px;

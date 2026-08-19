@@ -57,6 +57,13 @@
   margin: 0 0 24px;
 }
 
+.download-modal-description {
+  margin: -14px 0 22px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
 .download-modal-form form {
   display: flex;
   flex-direction: column;

@@ -26,6 +26,18 @@ function Header() {
     };
   }, [isMenuOpen]);
 
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setIsMenuOpen(false);
+        setIsServicesOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const closeMenu = () => {
     setIsMenuOpen(false);
     setIsServicesOpen(false);
@@ -51,12 +63,18 @@ function Header() {
           type="button"
           className="mobile-menu-toggle"
           onClick={() => setIsMenuOpen((prev) => !prev)}
-          aria-label={isMenuOpen ? "Close Menu" : "Open Menu"}
+          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+          aria-expanded={isMenuOpen}
+          aria-controls="primary-navigation"
         >
           {isMenuOpen ? <FaTimes /> : <FaBars />}
         </button>
 
-        <nav className={`main-nav ${isMenuOpen ? "is-open" : ""}`}>
+        <nav
+          id="primary-navigation"
+          aria-label="Primary navigation"
+          className={`main-nav ${isMenuOpen ? "is-open" : ""}`}
+        >
           <NavLink to="/" onClick={closeMenu}>
             Home
           </NavLink>
@@ -79,13 +97,15 @@ function Header() {
                 type="button"
                 className="dropdown-toggle"
                 onClick={toggleServices}
-                aria-label="Toggle Services"
+                aria-label={isServicesOpen ? "Close services menu" : "Open services menu"}
+                aria-expanded={isServicesOpen}
+                aria-controls="services-navigation"
               >
                 <FaChevronDown />
               </button>
             </div>
 
-            <div className="dropdown-menu">
+            <div id="services-navigation" className="dropdown-menu">
               <NavLink
                 to="/services/tax"
                 onClick={closeMenu}

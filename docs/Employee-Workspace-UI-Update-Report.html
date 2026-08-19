@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Employee Workspace UI Update Report</title>
+  <style>
+    @page { size: A4; margin: 15mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #17352a;
+      background: #fff;
+      font: 11px/1.55 Arial, Helvetica, sans-serif;
+    }
+    .cover {
+      min-height: 245mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 22mm 14mm;
+      color: #fff;
+      background: linear-gradient(145deg, #082f24, #176245 72%, #2f9369);
+      border-radius: 16px;
+      page-break-after: always;
+    }
+    .eyebrow { margin: 0 0 10px; color: #bce8d4; font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+    h1 { max-width: 560px; margin: 0; font-size: 36px; line-height: 1.12; letter-spacing: -1.2px; }
+    .cover p { max-width: 540px; margin: 18px 0 0; color: #e2f4ec; font-size: 15px; }
+    .cover-meta { display: flex; gap: 12px; margin-top: 30px; }
+    .cover-meta span { padding: 8px 12px; color: #ecfff6; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); border-radius: 999px; }
+    header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid #dbece4; }
+    header h2 { margin: 0; color: #0d4935; font-size: 23px; }
+    header span { color: #657a71; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .metric { padding: 14px; background: #f1f8f4; border: 1px solid #d7e9df; border-radius: 11px; }
+    .metric strong { display: block; color: #0f6143; font-size: 22px; }
+    .metric span { color: #61756c; }
+    h3 { margin: 0 0 7px; color: #123e2f; font-size: 15px; }
+    .section { margin-bottom: 13px; padding: 14px 16px; border: 1px solid #dfe9e4; border-left: 4px solid #238b60; border-radius: 10px; break-inside: avoid; }
+    ul { margin: 6px 0 0; padding-left: 18px; }
+    li { margin: 4px 0; }
+    .status { display: inline-block; padding: 3px 8px; color: #11603f; background: #e0f5e9; border-radius: 999px; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 8px 9px; border: 1px solid #dfe8e3; text-align: left; vertical-align: top; }
+    th { color: #234c3d; background: #eef6f2; }
+    code { color: #145a40; font-size: 9px; overflow-wrap: anywhere; }
+    .note { margin-top: 14px; padding: 12px 14px; color: #5f5440; background: #fff9e8; border: 1px solid #f1e2ac; border-radius: 9px; }
+    footer { margin-top: 16px; padding-top: 9px; color: #75867f; border-top: 1px solid #dfe8e3; font-size: 9px; text-align: center; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <p class="eyebrow">Upsilon Services</p>
+    <h1>Employee Workspace UI Enhancement Report</h1>
+    <p>A consolidated record of the interface, mobile responsiveness, usability, and feedback improvements applied across the Employee Workspace.</p>
+    <div class="cover-meta">
+      <span>Prepared 11 August 2026</span>
+      <span>Frontend update</span>
+      <span>Build verified</span>
+    </div>
+  </section>
+
+  <header>
+    <h2>Completed updates</h2>
+    <span>Employee Workspace</span>
+  </header>
+
+  <div class="summary">
+    <div class="metric"><strong>7</strong><span>major interface areas improved</span></div>
+    <div class="metric"><strong>4</strong><span>wide tables converted for mobile</span></div>
+    <div class="metric"><strong>2/2</strong><span>lint and production build checks passed</span></div>
+  </div>
+
+  <section class="section">
+    <h3>1. Final Leave Approvals</h3>
+    <ul>
+      <li>Status summary cards are now interactive and filter the displayed requests.</li>
+      <li>The search toolbar remains visible while reviewing longer request lists.</li>
+      <li>Excel export controls are contained in a compact expandable panel.</li>
+      <li>The export continues to respect the active status, search, and date filters.</li>
+      <li>Approval records change into readable cards on mobile screens.</li>
+      <li>Existing approval, rejection, reapproval, hold, history, and export workflows remain unchanged.</li>
+    </ul>
+  </section>
+
+  <section class="section">
+    <h3>2. User Management</h3>
+    <ul>
+      <li>The large create/edit form is organized into Profile, Access, and Reporting sections.</li>
+      <li>A section navigator makes long forms easier to scan.</li>
+      <li>Required fields have visible indicators.</li>
+      <li>Save and Cancel actions remain visible at the bottom while the form scrolls.</li>
+      <li>Escape closes user-management dialogs when a submission is not running.</li>
+      <li>User records use a responsive mobile card layout with usable action buttons.</li>
+    </ul>
+  </section>
+
+  <section class="section">
+    <h3>3. Departments and reporting</h3>
+    <ul>
+      <li>Department records now display as structured cards on mobile devices.</li>
+      <li>The Managers / HR summary uses unique user accounts instead of adding the same assigned user once per department.</li>
+      <li>Employee, Team Leader, Manager, HR, status, and action information stays available in the mobile layout.</li>
+    </ul>
+  </section>
+
+  <section class="section">
+    <h3>4. Leave and reimbursement reports</h3>
+    <ul>
+      <li>Leave Report tables now transform into labeled record cards on small screens.</li>
+      <li>Reimbursement Report tables now transform into labeled record cards on small screens.</li>
+      <li>Approval flows, final status, rejection reasons, finance status, and receipt links remain visible.</li>
+      <li>Mobile users no longer need to navigate extremely wide tables horizontally.</li>
+    </ul>
+  </section>
+
+  <section class="section">
+    <h3>5. Notifications</h3>
+    <ul>
+      <li>Added All, Unread, Leave, Reimbursement, and Attendance filters.</li>
+      <li>Each filter displays its matching notification count.</li>
+      <li>Search presentation and keyboard focus feedback were improved.</li>
+      <li>Notification category badges, unread accents, timestamps, and empty-filter messages were improved.</li>
+      <li>The notification list and Mark Read action now adapt cleanly to mobile widths.</li>
+    </ul>
+  </section>
+
+  <section class="section">
+    <h3>6. Dashboard and shared experience</h3>
+    <ul>
+      <li>Reduced excess page-header height and improved the overall content hierarchy.</li>
+      <li>Employee, Admin, Manager, HR, and Team Leader quick-action areas have clearer visual treatment.</li>
+      <li>Quick-action buttons become full-width controls on mobile.</li>
+      <li>Loading panels now include animated skeleton lines to show visible progress.</li>
+      <li>Shared modal sizing, sticky actions, responsive forms, and mobile spacing were improved.</li>
+    </ul>
+  </section>
+
+  <section class="section">
+    <h3>7. Preserved functionality</h3>
+    <ul>
+      <li>The workspace theme selector and available color themes remain available.</li>
+      <li>Leave Calendar Daily, Weekly, and Monthly views remain available.</li>
+      <li>Absent – Uninformed recording and LOP behavior remain available to authorized users.</li>
+      <li>No existing API contract or leave-approval workflow was changed by this UI pass.</li>
+    </ul>
+  </section>
+
+  <header>
+    <h2>Updated files</h2>
+    <span>Frontend source</span>
+  </header>
+  <table>
+    <thead><tr><th>Area</th><th>Files</th></tr></thead>
+    <tbody>
+      <tr><td>Final approvals</td><td><code>src/pages/ManagerApprovals.jsx</code>, <code>src/index.css</code></td></tr>
+      <tr><td>User administration</td><td><code>src/pages/AdminUsers.jsx</code>, <code>src/pages/AdminSubcategories.jsx</code></td></tr>
+      <tr><td>Reports</td><td><code>src/pages/AdminLeaveReports.jsx</code>, <code>src/pages/AdminReimbursementReports.jsx</code></td></tr>
+      <tr><td>Dashboard and notifications</td><td><code>src/pages/Dashboard.jsx</code>, <code>src/pages/Notifications.jsx</code></td></tr>
+      <tr><td>Shared UI</td><td><code>src/components/ui/StatePanel.jsx</code>, <code>src/ui-system.css</code></td></tr>
+    </tbody>
+  </table>
+
+  <header style="margin-top: 22px">
+    <h2>Verification</h2>
+    <span>11 August 2026</span>
+  </header>
+  <section class="section">
+    <h3><span class="status">Passed</span> Frontend quality checks</h3>
+    <ul>
+      <li><code>npm run lint</code> completed successfully.</li>
+      <li><code>npm run build</code> completed successfully.</li>
+      <li><code>git diff --check</code> found no code-formatting errors.</li>
+    </ul>
+  </section>
+  <p class="note">The production build reports a non-blocking JavaScript bundle-size advisory. The application still builds successfully and the warning does not prevent deployment.</p>
+  <footer>Employee Workspace UI Enhancement Report · Upsilon Services</footer>
+</body>
+</html>

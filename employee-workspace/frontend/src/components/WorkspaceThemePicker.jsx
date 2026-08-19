@@ -102,7 +102,7 @@ const WorkspaceThemePicker = () => {
         aria-label={`Change workspace theme. Current theme: ${selectedTheme.name}`}
       >
         <Palette size={17} aria-hidden="true" />
-        <span>Theme</span>
+        <span className="workspace-theme-trigger-label">{selectedTheme.name}</span>
         <span className="workspace-theme-trigger-swatches" aria-hidden="true">
           {selectedTheme.colors.slice(0, 3).map((color) => (
             <i key={color} style={{ backgroundColor: color }} />
@@ -123,6 +123,19 @@ const WorkspaceThemePicker = () => {
             </button>
           </div>
 
+          <div className="workspace-theme-current" aria-label={`Current theme: ${selectedTheme.name}`}>
+            <span className="workspace-theme-current-palette" aria-hidden="true">
+              {selectedTheme.colors.map((color) => (
+                <i key={color} style={{ backgroundColor: color }} />
+              ))}
+            </span>
+            <span className="workspace-theme-current-copy">
+              <small>Current theme</small>
+              <strong>{selectedTheme.name}</strong>
+              <span>{selectedTheme.description}</span>
+            </span>
+          </div>
+
           <div className="workspace-theme-grid" role="radiogroup" aria-label="Workspace color themes">
             {THEMES.map((theme) => {
               const selected = theme.id === themeId;
@@ -133,6 +146,7 @@ const WorkspaceThemePicker = () => {
                   className={`workspace-theme-option${selected ? " is-selected" : ""}`}
                   role="radio"
                   aria-checked={selected}
+                  aria-label={`${theme.name}: ${theme.description}. Colors ${theme.colors.join(", ")}`}
                   onClick={() => {
                     setThemeId(theme.id);
                     setOpen(false);

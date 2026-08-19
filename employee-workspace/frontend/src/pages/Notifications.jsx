@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, CheckCircle } from "lucide-react";
+import { Bell, CheckCircle, Search } from "lucide-react";
 import api from "../api/api";
 import {
   EmptyState,
@@ -16,6 +16,7 @@ const loadNotifications = async () => {
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeFilter, setActiveFilter] = useState("All");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState(null);
@@ -113,16 +114,30 @@ const Notifications = () => {
     }
   };
 
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
+
+  const notificationFilters = [
+    { label: "All", count: notifications.length },
+    { label: "Unread", count: unreadCount },
+    ...["Leave", "Reimbursement", "Attendance"].map((label) => ({
+      label,
+      count: notifications.filter((item) => item.type === label).length,
+    })),
+  ];
+
   const filteredNotifications = notifications.filter((item) => {
     const search = searchTerm.toLowerCase();
+    const matchesFilter =
+      activeFilter === "All" ||
+      (activeFilter === "Unread" && !item.isRead) ||
+      item.type === activeFilter;
 
     return (
-      item.title?.toLowerCase().includes(search) ||
-      item.message?.toLowerCase().includes(search)
+      matchesFilter &&
+      (item.title?.toLowerCase().includes(search) ||
+        item.message?.toLowerCase().includes(search))
     );
   });
-
-  const unreadCount = notifications.filter((item) => !item.isRead).length;
 
   return (
     <div aria-busy={loading || markingAll || Boolean(updatingId)}>
@@ -184,48 +199,57 @@ const Notifications = () => {
         </div>
       </div>
 
-      <div style={{ marginBottom: "18px" }}>
-        <input
-          type="text"
-          aria-label="Search notifications"
-          placeholder="Search notifications..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "14px",
-            borderRadius: "12px",
-            border: "1px solid #d1d5db",
-            fontSize: "14px",
-          }}
-        />
+      <div className="notification-tools">
+        <div className="notification-filter-tabs" role="tablist" aria-label="Filter notifications">
+          {notificationFilters.map((filter) => (
+            <button
+              key={filter.label}
+              type="button"
+              role="tab"
+              aria-selected={activeFilter === filter.label}
+              className={activeFilter === filter.label ? "active" : ""}
+              onClick={() => setActiveFilter(filter.label)}
+            >
+              {filter.label}
+              <span>{filter.count}</span>
+            </button>
+          ))}
+        </div>
+
+        <label className="notification-search">
+          <Search size={17} aria-hidden="true" />
+          <span className="sr-only">Search notifications</span>
+          <input
+            type="search"
+            placeholder="Search notifications..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </label>
       </div>
 
-      <div className="modern-section-card">
+      <div className="modern-section-card notification-list">
         {filteredNotifications.length > 0 ? (
           filteredNotifications.map((item) => (
             <article
               key={item._id}
               aria-label={`${item.isRead ? "Read" : "Unread"} notification: ${item.title || "Notification"}`}
-              style={{
-                border: "1px solid #e5e7eb",
-                borderRadius: "14px",
-                padding: "16px",
-                marginBottom: "12px",
-                background: item.isRead ? "#ffffff" : "#eff6ff",
-              }}
+              className={`notification-list-item ${item.isRead ? "is-read" : "is-unread"}`}
             >
               <div className="user-cell">
-                <div className="avatar-circle">
+                <div className={`avatar-circle notification-type-icon type-${(item.type || "system").toLowerCase()}`}>
                   <Bell size={16} />
                 </div>
 
-                <div style={{ flex: 1 }}>
-                  <strong>{item.title}</strong>
-                  <p style={{ marginTop: "6px" }}>{item.message}</p>
-                  <p style={{ fontSize: "13px", color: "var(--muted)" }}>
+                <div className="notification-content">
+                  <div className="notification-title-row">
+                    <strong>{item.title}</strong>
+                    <span className="notification-type-badge">{item.type || "System"}</span>
+                  </div>
+                  <p>{item.message}</p>
+                  <time dateTime={item.createdAt}>
                     {new Date(item.createdAt).toLocaleString()}
-                  </p>
+                  </time>
                 </div>
 
                 {!item.isRead && (
@@ -244,10 +268,10 @@ const Notifications = () => {
           ))
         ) : (
           <EmptyState
-            title={searchTerm ? "No matching notifications" : "No notifications yet"}
+            title={searchTerm || activeFilter !== "All" ? "No matching notifications" : "No notifications yet"}
             description={
-              searchTerm
-                ? "Try a different title or message."
+              searchTerm || activeFilter !== "All"
+                ? "Try a different search or notification filter."
                 : "Updates and approval alerts will appear here."
             }
             compact

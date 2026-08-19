@@ -302,7 +302,7 @@ const AdminReimbursementReports = () => {
           </section>
 
           <div className="table-wrapper modern-table-wrapper">
-            <table className="custom-table">
+            <table className="custom-table responsive-card-table">
               <caption className="sr-only">Filtered employee reimbursement reports</caption>
               <thead>
                 <tr>
@@ -324,7 +324,7 @@ const AdminReimbursementReports = () => {
 
                   return (
                     <tr key={item._id}>
-                      <td>
+                      <td data-label="Employee">
                         <div className="user-cell">
                           <UserAvatar name={item.employeeId?.name || "Employee"} size="small" />
                           <div>
@@ -335,9 +335,9 @@ const AdminReimbursementReports = () => {
                           </div>
                         </div>
                       </td>
-                      <td>{item.businessPurpose || "Not provided"}</td>
-                      <td>{formatCurrency(item.totalReimbursement)}</td>
-                      <td>
+                      <td data-label="Business purpose">{item.businessPurpose || "Not provided"}</td>
+                      <td data-label="Total amount">{formatCurrency(item.totalReimbursement)}</td>
+                      <td data-label="Receipts">
                         {receiptUrls.length > 0 ? (
                           <div className="action-buttons">
                             {receiptUrls.map((receiptUrl, index) => (
@@ -360,19 +360,19 @@ const AdminReimbursementReports = () => {
                           "No receipt"
                         )}
                       </td>
-                      <td>
+                      <td data-label="Final status">
                         <StatusBadge
                           status={item.finalStatus || "Pending"}
                           label={item.finalStatus || "Pending"}
                         />
                       </td>
-                      <td>
+                      <td data-label="Finance">
                         <StatusBadge
                           status={item.financeStatus || "Not routed"}
                           label={item.financeStatus || "Not routed"}
                         />
                       </td>
-                      <td>
+                      <td data-label="Approval flow">
                         <div className="approval-flow">
                           <span>TL: {item.tlStatus || "Pending"}</span>
                           <span>Manager: {item.managerStatus || "Pending"}</span>

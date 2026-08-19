@@ -24,52 +24,15 @@ select {
 
 /* Tablet */
 @media (max-width: 1024px) {
-  section {
-    padding-left: 24px !important;
-    padding-right: 24px !important;
-  }
-
-  h1 {
-    font-size: 42px !important;
-    line-height: 1.2 !important;
-  }
-
-  h2 {
-    font-size: 32px !important;
-    line-height: 1.25 !important;
-  }
-
-  p {
-    font-size: 17px !important;
+  .container,
+  .section-container,
+  .content-container {
+    max-width: 100%;
   }
 }
 
 /* Mobile */
 @media (max-width: 768px) {
-  section {
-    padding-left: 18px !important;
-    padding-right: 18px !important;
-    padding-top: 60px !important;
-    padding-bottom: 60px !important;
-  }
-
-  h1 {
-    font-size: 32px !important;
-  }
-
-  h2 {
-    font-size: 27px !important;
-  }
-
-  h3 {
-    font-size: 22px !important;
-  }
-
-  p {
-    font-size: 16px !important;
-    line-height: 1.7 !important;
-  }
-
   .container,
   .section-container,
   .content-container {
@@ -92,21 +55,5 @@ select {
   .cta-buttons button {
     width: 100% !important;
     text-align: center !important;
-  }
-}
-
-/* Small mobile */
-@media (max-width: 480px) {
-  section {
-    padding-left: 14px !important;
-    padding-right: 14px !important;
-  }
-
-  h1 {
-    font-size: 28px !important;
-  }
-
-  h2 {
-    font-size: 24px !important;
   }
 }
