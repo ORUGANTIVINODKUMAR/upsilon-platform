@@ -1,0 +1,290 @@
+/* ============================================================
+   CONTACT CTA BANNER
+   File: src/components/CTA.css
+   ============================================================ */
+
+.cta-banner {
+  --cta-green: var(--color-primary, #0b665d);
+  --cta-green-dark: var(--color-primary-dark, #074d47);
+  --cta-gold: var(--color-secondary, #d4aa4f);
+  --cta-gold-light: var(--color-secondary-light, #e3c579);
+  --cta-navy: #0f172a;
+
+  position: relative;
+  padding: 82px 24px;
+  overflow: hidden;
+  text-align: center;
+
+  background:
+    linear-gradient(
+      135deg,
+      var(--cta-green-dark) 0%,
+      var(--cta-green) 58%,
+      #0b5a53 100%
+    );
+}
+
+/* ============================================================
+   BACKGROUND DECORATION
+   ============================================================ */
+
+.cta-banner-glow {
+  position: absolute;
+  top: -240px;
+  left: 50%;
+
+  width: 560px;
+  height: 560px;
+
+  border-radius: 50%;
+  background: var(--cta-gold);
+  opacity: 0.15;
+  filter: blur(110px);
+
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.cta-banner-pattern {
+  position: absolute;
+  inset: 0;
+
+  opacity: 0.07;
+  pointer-events: none;
+
+  background-image:
+    linear-gradient(
+      rgba(255, 255, 255, 0.22) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.22) 1px,
+      transparent 1px
+    );
+
+  background-size: 52px 52px;
+
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 25%,
+    #000 75%,
+    transparent
+  );
+}
+
+/* ============================================================
+   CONTENT
+   ============================================================ */
+
+.cta-banner-content {
+  position: relative;
+  z-index: 1;
+
+  width: min(780px, 100%);
+  margin: 0 auto;
+}
+
+.cta-banner-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+
+  margin-bottom: 14px;
+
+  color: var(--cta-gold-light);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.cta-banner-label::before,
+.cta-banner-label::after {
+  content: "";
+  width: 28px;
+  height: 2px;
+  background: var(--cta-gold);
+}
+
+.cta-banner-content h2 {
+  max-width: 760px;
+  margin: 0 auto 18px;
+
+  color: #ffffff;
+  font-size: clamp(2.25rem, 4.5vw, 3.6rem);
+  font-weight: 850;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.cta-banner-content > p {
+  max-width: 700px;
+  margin: 0 auto 30px;
+
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 17px;
+  line-height: 1.72;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+.cta-banner-buttons {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.cta-banner-btn,
+.cta-banner-btn-outline {
+  min-height: 52px;
+  padding: 14px 27px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  border-radius: 999px;
+
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-decoration: none;
+
+  transition:
+    transform 0.25s ease,
+    background 0.25s ease,
+    color 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.cta-banner-btn {
+  color: var(--cta-navy);
+  background: var(--cta-gold);
+  border: 1px solid var(--cta-gold);
+
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.22);
+}
+
+.cta-banner-btn svg {
+  width: 18px;
+  height: 18px;
+
+  transition: transform 0.25s ease;
+}
+
+.cta-banner-btn:hover {
+  transform: translateY(-3px);
+
+  background: var(--cta-gold-light);
+  border-color: var(--cta-gold-light);
+
+  box-shadow: 0 17px 34px rgba(15, 23, 42, 0.28);
+}
+
+.cta-banner-btn:hover svg {
+  transform: translateX(4px);
+}
+
+.cta-banner-btn-outline {
+  color: #ffffff;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.cta-banner-btn-outline:hover {
+  transform: translateY(-3px);
+
+  color: var(--cta-green-dark);
+  background: #ffffff;
+  border-color: #ffffff;
+}
+
+.cta-banner-btn:focus-visible,
+.cta-banner-btn-outline:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 4px;
+}
+
+/* ============================================================
+   TRUST LINE
+   ============================================================ */
+
+.cta-banner-trust {
+  margin-top: 22px;
+
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 640px) {
+  .cta-banner {
+    padding: 64px 18px;
+  }
+
+  .cta-banner-label {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+  }
+
+  .cta-banner-label::before,
+  .cta-banner-label::after {
+    width: 18px;
+  }
+
+  .cta-banner-content > p {
+    margin-bottom: 24px;
+    font-size: 15.5px;
+    line-height: 1.68;
+  }
+
+  .cta-banner-buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cta-banner-btn,
+  .cta-banner-btn-outline {
+    width: 100%;
+  }
+
+  .cta-banner-trust {
+    margin-top: 18px;
+  }
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .cta-banner-btn,
+  .cta-banner-btn-outline,
+  .cta-banner-btn svg {
+    transition: none;
+  }
+
+  .cta-banner-btn:hover,
+  .cta-banner-btn-outline:hover {
+    transform: none;
+  }
+
+  .cta-banner-btn:hover svg {
+    transform: none;
+  }
+}

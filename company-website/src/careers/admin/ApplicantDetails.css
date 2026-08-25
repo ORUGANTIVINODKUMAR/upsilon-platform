@@ -1,0 +1,325 @@
+.applicant-details-page {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px;
+  color: #111827;
+}
+
+.applicant-details-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.applicant-back-button {
+  padding: 10px 16px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #344054;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.applicant-back-button:hover {
+  border-color: #b78628;
+  background: #fffbf2;
+  color: #8a641d;
+}
+
+.applicant-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 90px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.applicant-status-new {
+  background: #eff8ff;
+  color: #175cd3;
+}
+
+.applicant-status-shortlisted {
+  background: #fff7e8;
+  color: #b54708;
+}
+
+.applicant-status-interview-scheduled {
+  background: #f4f3ff;
+  color: #5925dc;
+}
+
+.applicant-status-selected {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.applicant-status-rejected {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.applicant-details-header {
+  margin-bottom: 28px;
+  padding: 28px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.applicant-details-header > p {
+  margin: 0 0 6px;
+  color: #b78628;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.applicant-details-header h1 {
+  margin: 0;
+  color: #111827;
+  font-size: 34px;
+  line-height: 1.2;
+}
+
+.applicant-details-header > span {
+  display: block;
+  margin-top: 10px;
+  color: #667085;
+  font-size: 15px;
+}
+
+.applicant-details-header > span strong {
+  color: #344054;
+}
+
+.applicant-details-section {
+  margin-bottom: 22px;
+  padding: 26px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+}
+
+.applicant-details-section h2 {
+  margin: 0 0 20px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid #eef0f3;
+  color: #111827;
+  font-size: 20px;
+  line-height: 1.3;
+}
+
+.applicant-details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.applicant-detail-item {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.applicant-detail-item strong {
+  display: block;
+  margin-bottom: 7px;
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.applicant-detail-item p {
+  margin: 0;
+  color: #111827;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.applicant-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.applicant-links a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border: 1px solid #b78628;
+  border-radius: 8px;
+  background: #fffbf2;
+  color: #8a641d;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.applicant-links a:hover {
+  background: #b78628;
+  color: #ffffff;
+}
+
+.applicant-links span {
+  color: #667085;
+  font-size: 14px;
+}
+
+.applicant-long-text {
+  min-height: 80px;
+  padding: 18px;
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  background: #f9fafb;
+  color: #344054;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.applicant-resume-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 19px;
+  border: none;
+  border-radius: 8px;
+  background: #b78628;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.applicant-resume-button:hover {
+  background: #946b1e;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.applicant-no-resume {
+  margin: 0;
+  color: #667085;
+}
+
+.applicant-details-message,
+.applicant-details-error {
+  max-width: 700px;
+  margin: 80px auto;
+  padding: 40px 24px;
+  border: 1px dashed #d0d5dd;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #667085;
+  text-align: center;
+}
+
+.applicant-details-error {
+  border-color: #fda29b;
+  background: #fff5f5;
+  color: #b42318;
+}
+
+.applicant-details-error p {
+  margin: 0 0 18px;
+}
+
+.applicant-details-error button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #b78628;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.applicant-details-error button:hover {
+  background: #946b1e;
+}
+
+@media (max-width: 1000px) {
+  .applicant-details-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .applicant-details-page {
+    padding: 20px;
+  }
+
+  .applicant-details-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .applicant-details-header {
+    padding: 22px;
+  }
+
+  .applicant-details-header h1 {
+    font-size: 28px;
+  }
+
+  .applicant-details-section {
+    padding: 20px;
+  }
+
+  .applicant-details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .applicant-details-page {
+    padding: 16px;
+  }
+
+  .applicant-back-button,
+  .applicant-resume-button {
+    width: 100%;
+  }
+
+  .applicant-status {
+    width: 100%;
+  }
+
+  .applicant-links {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .applicant-links a {
+    width: 100%;
+  }
+}

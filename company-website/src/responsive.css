@@ -1,0 +1,59 @@
+/* Global responsive fixes */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+button,
+input,
+textarea,
+select {
+  max-width: 100%;
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .container,
+  .section-container,
+  .content-container {
+    max-width: 100%;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .container,
+  .section-container,
+  .content-container {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .hero-buttons,
+  .button-group,
+  .cta-buttons {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .hero-buttons a,
+  .hero-buttons button,
+  .button-group a,
+  .button-group button,
+  .cta-buttons a,
+  .cta-buttons button {
+    width: 100% !important;
+    text-align: center !important;
+  }
+}

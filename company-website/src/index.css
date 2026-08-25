@@ -1,0 +1,259 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --color-primary: #0b5e55;
+  --color-primary-dark: #073f39;
+  --color-primary-light: #0e7a6e;
+  --color-secondary: #c8a24a;
+  --color-secondary-light: #ddc07a;
+  --color-bg: #ffffff;
+  --color-bg-alt: #f8fafc;
+  --color-text: #1e293b;
+  --color-text-muted: #5d6b82;
+  --color-success: #22c55e;
+  --color-border: #e6ebf1;
+
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --shadow-soft: 0 10px 30px rgba(11, 94, 85, 0.08);
+  --shadow-hover: 0 20px 45px rgba(11, 94, 85, 0.16);
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+html {
+  font-size: 17.5px;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  width: 100%;
+  margin: 0;
+  overflow-x: hidden;
+  font-family: var(--font-sans);
+  background: var(--color-bg-alt);
+  color: var(--color-text);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+main {
+  min-height: 70vh;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* =========================
+   FOOTER
+========================= */
+
+.footer {
+  background: #0f172a;
+  color: #ffffff;
+  padding: 70px 24px 28px;
+}
+
+.footer-container {
+  width: 100%;
+  max-width: 1300px;
+  margin: 0 auto;
+
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.2fr;
+  gap: 44px;
+}
+
+.footer-placeholder {
+  color: #8b98ab;
+  font-style: italic;
+  font-size: 14px;
+}
+
+.footer h3 {
+  margin-top: 0;
+  font-size: 22px;
+}
+
+.footer h4 {
+  margin-top: 0;
+  font-size: 17px;
+}
+
+.footer p {
+  color: #cbd5e1;
+  line-height: 1.8;
+  font-size: 15.5px;
+}
+
+.footer a {
+  display: block;
+  margin-bottom: 12px;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 15.5px;
+}
+
+.footer a:hover {
+  color: #ffffff;
+}
+
+.footer-social {
+  display: flex;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.footer-social a {
+  width: 42px;
+  height: 42px;
+  margin-bottom: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+
+  color: #cbd5e1;
+  font-size: 16px;
+
+  transition:
+    transform 0.3s ease,
+    background 0.3s ease,
+    color 0.3s ease;
+}
+
+.footer-social a:hover {
+  background: #d4af37;
+  color: #0b1220;
+  transform: translateY(-4px);
+}
+
+.footer-bottom {
+  width: 100%;
+  max-width: 1300px;
+  margin: 40px auto 0;
+  padding-top: 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+
+  border-top: 1px solid #334155;
+  font-size: 14.5px;
+}
+
+.footer-bottom p {
+  margin: 0;
+}
+
+.footer-bottom div {
+  display: flex;
+  gap: 22px;
+}
+
+.footer-bottom a {
+  margin-bottom: 0;
+}
+
+/* =========================
+   TABLET
+========================= */
+
+@media (max-width: 1024px) {
+  .footer-container {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 40px;
+  }
+}
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+
+  .footer {
+    padding: 55px 18px 24px;
+  }
+
+  .footer-container {
+    grid-template-columns: 1fr;
+    gap: 34px;
+    text-align: center;
+  }
+
+  .footer-social {
+    justify-content: center;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+  }
+
+  .footer-bottom div {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 14px 20px;
+  }
+}
+
+/* =========================
+   SMALL MOBILE
+========================= */
+
+@media (max-width: 480px) {
+  .footer {
+    padding: 48px 15px 22px;
+  }
+
+  .footer h3 {
+    font-size: 21px;
+  }
+
+  .footer h4 {
+    font-size: 16px;
+  }
+
+  .footer p,
+  .footer a {
+    font-size: 15px;
+  }
+
+  .footer-bottom div {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+.footer-contact-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #cbd5e1;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.footer-contact-link:hover {
+  color: #d4af37;
+}
+
+.footer-contact-link svg {
+  flex-shrink: 0;
+}

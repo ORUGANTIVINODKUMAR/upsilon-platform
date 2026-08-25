@@ -1,0 +1,520 @@
+/* ============================================================
+   WHY UPSILON SERVICES
+   File: src/components/WhyDifferent.css
+   ============================================================ */
+
+.why-different-section {
+  --why-green: #0b665d;
+  --why-green-dark: #074b45;
+  --why-gold: #d4ad55;
+  --why-gold-light: #e7cf94;
+  --why-navy: #0f172a;
+  --why-text: #667085;
+  --why-border: #e3e8ef;
+  --why-background: #f7f9fc;
+
+  position: relative;
+  padding: 90px 24px;
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      circle at 92% 8%,
+      rgba(212, 173, 85, 0.1),
+      transparent 25%
+    ),
+    radial-gradient(
+      circle at 5% 90%,
+      rgba(11, 102, 93, 0.055),
+      transparent 23%
+    ),
+    var(--why-background);
+}
+
+.why-different-section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+
+  width: min(1180px, calc(100% - 48px));
+  height: 1px;
+
+  transform: translateX(-50%);
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(15, 23, 42, 0.14),
+    transparent
+  );
+}
+
+.why-different-container {
+  position: relative;
+  z-index: 1;
+
+  width: min(1200px, 100%);
+  margin: 0 auto;
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+
+.why-different-header {
+  max-width: 860px;
+  margin: 0 auto 44px;
+  text-align: center;
+}
+
+.why-different-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+
+  margin-bottom: 12px;
+
+  color: var(--why-green);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.why-different-label::before,
+.why-different-label::after {
+  content: "";
+  width: 28px;
+  height: 2px;
+  background: var(--why-gold);
+}
+
+.why-different-header h2 {
+  margin: 0;
+
+  color: var(--why-navy);
+  font-size: clamp(2.15rem, 4.3vw, 3.4rem);
+  font-weight: 850;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.why-different-header h2 span {
+  color: var(--why-green);
+}
+
+.why-different-subtitle {
+  max-width: 780px;
+  margin: 18px auto 0;
+
+  color: var(--why-text);
+  font-size: 16px;
+  line-height: 1.72;
+}
+
+/* ============================================================
+   CARD GRID
+   ============================================================ */
+
+.why-different-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.why-different-card {
+  position: relative;
+  min-height: 285px;
+  padding: 27px;
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden;
+
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--why-border);
+  border-radius: 18px;
+
+  box-shadow:
+    0 10px 28px rgba(15, 23, 42, 0.055),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+
+  transition:
+    transform 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.why-different-card::after {
+  content: "";
+  position: absolute;
+  right: -52px;
+  bottom: -62px;
+
+  width: 145px;
+  height: 145px;
+
+  border-radius: 50%;
+  background: rgba(11, 102, 93, 0.04);
+
+  transition:
+    transform 0.3s ease,
+    background 0.3s ease;
+}
+
+.why-different-card:hover {
+  transform: translateY(-6px);
+
+  border-color: rgba(11, 102, 93, 0.32);
+
+  box-shadow:
+    0 20px 42px rgba(15, 23, 42, 0.11),
+    0 8px 22px rgba(11, 102, 93, 0.06);
+}
+
+.why-different-card:hover::after {
+  transform: scale(1.18);
+  background: rgba(212, 173, 85, 0.1);
+}
+
+.why-different-card-top {
+  position: relative;
+  z-index: 1;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  margin-bottom: 22px;
+}
+
+.why-different-icon {
+  width: 52px;
+  height: 52px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: var(--why-gold-light);
+
+  background:
+    linear-gradient(
+      140deg,
+      var(--why-green-dark),
+      var(--why-green)
+    );
+
+  border-radius: 15px;
+
+  box-shadow: 0 9px 20px rgba(11, 102, 93, 0.2);
+
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.why-different-card:hover .why-different-icon {
+  transform: translateY(-2px) rotate(-2deg);
+  box-shadow: 0 13px 26px rgba(11, 102, 93, 0.25);
+}
+
+.why-different-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.8;
+}
+
+.why-different-number {
+  color: #d9dee7;
+  font-size: 30px;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.why-different-card h3 {
+  position: relative;
+  z-index: 1;
+
+  margin: 0 0 11px;
+
+  color: var(--why-navy);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.why-different-card p {
+  position: relative;
+  z-index: 1;
+
+  margin: 0;
+
+  color: var(--why-text);
+  font-size: 14px;
+  line-height: 1.68;
+}
+
+.why-different-card-line {
+  position: relative;
+  z-index: 1;
+
+  width: 34px;
+  height: 2px;
+  margin-top: auto;
+  padding-top: 22px;
+
+  border-bottom: 2px solid var(--why-gold);
+
+  transition: width 0.3s ease;
+}
+
+.why-different-card:hover .why-different-card-line {
+  width: 64px;
+}
+
+/* ============================================================
+   CTA
+   ============================================================ */
+
+.why-different-cta {
+  margin-top: 30px;
+  padding: 27px 30px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+
+  overflow: hidden;
+
+  border-radius: 20px;
+
+  background:
+    radial-gradient(
+      circle at 90% 20%,
+      rgba(212, 173, 85, 0.14),
+      transparent 24%
+    ),
+    linear-gradient(
+      120deg,
+      rgba(15, 23, 42, 0.99),
+      rgba(11, 102, 93, 0.96)
+    );
+
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.15);
+}
+
+.why-different-cta-copy {
+  min-width: 0;
+}
+
+.why-different-cta-label {
+  display: block;
+  margin-bottom: 6px;
+
+  color: var(--why-gold-light);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.why-different-cta h3 {
+  margin: 0;
+
+  color: #ffffff;
+  font-size: clamp(1.35rem, 2.5vw, 1.9rem);
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.why-different-cta p {
+  margin: 7px 0 0;
+
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.why-different-cta-link {
+  min-width: 205px;
+  min-height: 50px;
+  padding: 13px 22px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  flex-shrink: 0;
+
+  color: var(--why-navy);
+  background: var(--why-gold);
+
+  border: 1px solid var(--why-gold);
+  border-radius: 999px;
+
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-decoration: none;
+
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+
+  transition:
+    transform 0.25s ease,
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.why-different-cta-link:hover {
+  transform: translateY(-2px);
+
+  background: var(--why-gold-light);
+  border-color: var(--why-gold-light);
+
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.25);
+}
+
+.why-different-cta-link:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 4px;
+}
+
+.why-different-cta-link svg {
+  width: 18px;
+  height: 18px;
+
+  transition: transform 0.25s ease;
+}
+
+.why-different-cta-link:hover svg {
+  transform: translateX(4px);
+}
+
+/* ============================================================
+   TABLET
+   ============================================================ */
+
+@media (max-width: 1024px) {
+  .why-different-section {
+    padding: 78px 22px;
+  }
+
+  .why-different-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .why-different-card {
+    min-height: 270px;
+  }
+}
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width: 700px) {
+  .why-different-section {
+    padding: 62px 16px;
+  }
+
+  .why-different-header {
+    margin-bottom: 34px;
+  }
+
+  .why-different-label {
+    font-size: 10px;
+    letter-spacing: 0.11em;
+  }
+
+  .why-different-label::before,
+  .why-different-label::after {
+    width: 19px;
+  }
+
+  .why-different-subtitle {
+    margin-top: 14px;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .why-different-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .why-different-card {
+    min-height: auto;
+    padding: 24px 21px;
+  }
+
+  .why-different-card-top {
+    margin-bottom: 18px;
+  }
+
+  .why-different-card-line {
+    padding-top: 18px;
+  }
+
+  .why-different-cta {
+    margin-top: 24px;
+    padding: 24px 21px;
+
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .why-different-cta-link {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+/* ============================================================
+   SMALL MOBILE
+   ============================================================ */
+
+@media (max-width: 420px) {
+  .why-different-section {
+    padding-inline: 14px;
+  }
+
+  .why-different-card {
+    border-radius: 15px;
+  }
+
+  .why-different-number {
+    font-size: 27px;
+  }
+}
+
+/* ============================================================
+   ACCESSIBILITY
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .why-different-card,
+  .why-different-card::after,
+  .why-different-icon,
+  .why-different-card-line,
+  .why-different-cta-link,
+  .why-different-cta-link svg {
+    transition: none;
+  }
+
+  .why-different-card:hover,
+  .why-different-card:hover .why-different-icon,
+  .why-different-cta-link:hover,
+  .why-different-cta-link:hover svg {
+    transform: none;
+  }
+}

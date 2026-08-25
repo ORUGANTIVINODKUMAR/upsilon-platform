@@ -1,0 +1,216 @@
+.career-admin-job-form {
+  overflow: hidden;
+  border: 1px solid #e2e5e9;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 27px
+    rgba(15, 23, 42, 0.045);
+}
+
+.career-admin-form-section {
+  padding: 29px;
+  border-bottom: 1px solid #e8ebee;
+}
+
+.career-admin-form-section h2 {
+  position: relative;
+  margin: 0 0 25px;
+  padding-left: 14px;
+  color: #111111;
+  font-size: 20px;
+}
+
+.career-admin-form-section h2::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: 0;
+  width: 4px;
+  border-radius: 4px;
+  background: #d9aa47;
+}
+
+.career-admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    2,
+    minmax(0, 1fr)
+  );
+  gap: 20px;
+}
+
+.career-admin-form-field {
+  display: flex;
+  min-width: 0;
+  margin-top: 21px;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.career-admin-form-grid
+  .career-admin-form-field {
+  margin-top: 0;
+}
+
+.career-admin-form-field label {
+  color: #374151;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.career-admin-form-field label span {
+  color: #c02626;
+}
+
+.career-admin-form-field input,
+.career-admin-form-field select,
+.career-admin-form-field textarea {
+  width: 100%;
+  border: 1px solid #cfd5dc;
+  border-radius: 5px;
+  color: #1f2937;
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+  transition:
+    border-color 170ms ease,
+    box-shadow 170ms ease;
+}
+
+.career-admin-form-field input,
+.career-admin-form-field select {
+  min-height: 47px;
+  padding: 0 13px;
+}
+
+.career-admin-form-field select {
+  cursor: pointer;
+}
+
+.career-admin-form-field textarea {
+  padding: 13px;
+  line-height: 1.65;
+  resize: vertical;
+}
+
+.career-admin-form-field input:focus,
+.career-admin-form-field select:focus,
+.career-admin-form-field textarea:focus {
+  border-color: #b98520;
+  outline: 0;
+  box-shadow: 0 0 0 3px
+    rgba(217, 170, 71, 0.14);
+}
+
+.career-admin-form-field input::placeholder,
+.career-admin-form-field textarea::placeholder {
+  color: #9ca3af;
+}
+
+.career-admin-form-error {
+  margin: 25px 29px 0;
+  padding: 13px 15px;
+  border: 1px solid #efb4b4;
+  border-radius: 5px;
+  color: #9f1c1c;
+  background: #fff5f5;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.6;
+}
+
+.career-admin-form-actions {
+  display: flex;
+  padding: 23px 29px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 11px;
+  background: #fafaf9;
+}
+
+.career-admin-form-cancel,
+.career-admin-form-submit {
+  min-height: 45px;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.career-admin-form-cancel {
+  border: 1px solid #cfd4da;
+  color: #374151;
+  background: #ffffff;
+}
+
+.career-admin-form-cancel:hover:not(
+    :disabled
+  ) {
+  border-color: #111111;
+}
+
+.career-admin-form-submit {
+  min-width: 145px;
+  border: 1px solid #d9aa47;
+  color: #111111;
+  background: #d9aa47;
+  transition:
+    color 170ms ease,
+    background-color 170ms ease,
+    border-color 170ms ease;
+}
+
+.career-admin-form-submit:hover:not(
+    :disabled
+  ) {
+  border-color: #b98520;
+  color: #ffffff;
+  background: #b98520;
+}
+
+.career-admin-form-cancel:disabled,
+.career-admin-form-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.career-admin-form-cancel:focus-visible,
+.career-admin-form-submit:focus-visible {
+  outline: 3px solid
+    rgba(217, 170, 71, 0.35);
+  outline-offset: 3px;
+}
+
+@media (max-width: 700px) {
+  .career-admin-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .career-admin-form-section {
+    padding: 24px 19px;
+  }
+
+  .career-admin-form-error {
+    margin: 20px 19px 0;
+  }
+
+  .career-admin-form-actions {
+    padding: 20px 19px;
+  }
+}
+
+@media (max-width: 430px) {
+  .career-admin-form-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .career-admin-form-cancel,
+  .career-admin-form-submit {
+    width: 100%;
+  }
+}

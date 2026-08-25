@@ -1,0 +1,377 @@
+.hero-section {
+  position: relative;
+  width: 100%;
+  min-height: 760px;
+  padding: 100px 7%;
+
+  display: flex;
+  align-items: center;
+
+  background-image: url("/pic.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  overflow: hidden;
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+
+  background: linear-gradient(
+    90deg,
+    rgba(5, 16, 31, 0.97) 0%,
+    rgba(5, 16, 31, 0.9) 42%,
+    rgba(5, 16, 31, 0.55) 72%,
+    rgba(5, 16, 31, 0.25) 100%
+  );
+
+  z-index: 1;
+}
+
+/* ------------------------------------------------------------------
+   Animated background orbs (decorative, behind the overlay content)
+------------------------------------------------------------------ */
+.hero-orbs {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.5;
+  will-change: transform;
+}
+
+.hero-orb-1 {
+  top: -120px;
+  right: 8%;
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle, rgba(11, 94, 85, 0.85), transparent 70%);
+  animation: hero-float-a 14s ease-in-out infinite;
+}
+
+.hero-orb-2 {
+  bottom: -140px;
+  right: 26%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(221, 192, 122, 0.55), transparent 70%);
+  animation: hero-float-b 18s ease-in-out infinite;
+}
+
+.hero-orb-3 {
+  top: 30%;
+  right: 42%;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(11, 94, 85, 0.6), transparent 70%);
+  animation: hero-float-a 20s ease-in-out infinite reverse;
+}
+
+@keyframes hero-float-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-40px, 30px) scale(1.12); }
+}
+
+@keyframes hero-float-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, -34px) scale(1.08); }
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+
+  width: 100%;
+  max-width: 760px;
+
+  color: #ffffff;
+}
+
+.hero-label {
+  margin: 0 0 22px;
+
+  color: #ddc07a;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.hero-content h1 {
+  max-width: 760px;
+  margin: 0 0 30px;
+
+  color: #ffffff;
+  font-size: 62px;
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -1px;
+}
+
+.hero-description {
+  max-width: 720px;
+  margin: 0 0 36px;
+
+  color: #d7dce3;
+  font-size: 20px;
+  line-height: 1.75;
+}
+
+/* ------------------------------------------------------------------
+   Highlight pills
+------------------------------------------------------------------ */
+.hero-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 36px;
+}
+
+.hero-highlight {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+
+  padding: 9px 18px;
+
+  color: #eaf1f0;
+  font-size: 15px;
+  font-weight: 600;
+
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50px;
+
+  backdrop-filter: blur(6px);
+
+  transition:
+    transform 0.25s ease,
+    background-color 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.hero-highlight:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.11);
+  border-color: rgba(221, 192, 122, 0.5);
+}
+
+.hero-highlight-icon {
+  display: inline-flex;
+  color: #ddc07a;
+  font-size: 17px;
+}
+
+.hero-buttons {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.hero-btn {
+  position: relative;
+  overflow: hidden;
+
+  min-width: 210px;
+  padding: 16px 28px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  border-radius: 50px;
+
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+
+  transition:
+    transform 0.25s ease,
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.hero-btn svg {
+  font-size: 19px;
+  transition: transform 0.25s ease;
+}
+
+/* Shimmer sweep on hover */
+.hero-btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -120%;
+
+  width: 60%;
+  height: 100%;
+
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.28),
+    transparent
+  );
+
+  transform: skewX(-20deg);
+  transition: left 0.6s ease;
+}
+
+.hero-btn:hover::after {
+  left: 140%;
+}
+
+.hero-btn-primary {
+  background: linear-gradient(135deg, #0b5e55, #0f766b);
+  color: #ffffff;
+  border: 2px solid transparent;
+  box-shadow: 0 14px 30px rgba(11, 94, 85, 0.35);
+}
+
+.hero-btn-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 40px rgba(11, 94, 85, 0.45);
+}
+
+.hero-btn-primary:hover svg {
+  transform: translateX(4px);
+}
+
+.hero-btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(6px);
+}
+
+.hero-btn-secondary:hover {
+  transform: translateY(-3px);
+  background: #ffffff;
+  color: #0b3f39;
+  border-color: #ffffff;
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .hero-section {
+    min-height: 680px;
+    padding: 90px 24px;
+    background-position: center;
+  }
+
+  .hero-content {
+    max-width: 700px;
+  }
+
+  .hero-content h1 {
+    font-size: 46px;
+  }
+
+  .hero-description {
+    font-size: 18px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .hero-section {
+    min-height: auto;
+    padding: 75px 18px;
+  }
+
+  .hero-overlay {
+    background: rgba(5, 16, 31, 0.86);
+  }
+
+  .hero-content {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .hero-label {
+    margin-bottom: 16px;
+    font-size: 15px;
+  }
+
+  .hero-content h1 {
+    margin-bottom: 22px;
+    font-size: 34px;
+    line-height: 1.2;
+  }
+
+  .hero-description {
+    margin-bottom: 28px;
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  .hero-highlights {
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+
+  .hero-highlight {
+    padding: 8px 14px;
+    font-size: 13.5px;
+  }
+
+  .hero-buttons {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .hero-btn {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .hero-section {
+    padding: 60px 15px;
+  }
+
+  .hero-content h1 {
+    font-size: 29px;
+  }
+
+  .hero-description {
+    font-size: 15px;
+  }
+
+  .hero-btn {
+    padding: 14px 18px;
+    font-size: 15px;
+  }
+}
+
+/* Reduced motion: hold the decorative background still and drop shimmer */
+@media (prefers-reduced-motion: reduce) {
+  .hero-orb {
+    animation: none;
+  }
+
+  .hero-btn::after {
+    display: none;
+  }
+
+  .hero-highlight,
+  .hero-btn,
+  .hero-btn svg {
+    transition: none;
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "upsilon-platform",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install --prefix company-website && npm install --prefix employee-workspace/frontend && npm install --prefix employee-workspace/backend",
+    "build:company": "npm run build --prefix company-website",
+    "build:workspace": "npm run build --prefix employee-workspace/frontend",
+    "build": "npm run build:company && npm run build:workspace",
+    "start": "npm start --prefix employee-workspace/backend"
+  }
+}

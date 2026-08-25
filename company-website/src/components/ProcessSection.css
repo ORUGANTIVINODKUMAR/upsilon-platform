@@ -1,0 +1,129 @@
+.process-section {
+  background: #ffffff;
+  padding: 120px 8%;
+}
+
+.process-container {
+  max-width: 1300px;
+  margin: auto;
+  text-align: center;
+}
+
+.process-label {
+  color: var(--color-primary);
+  font-weight: 800;
+  letter-spacing: 2px;
+  font-size: 15px;
+}
+
+.process-container h2 {
+  font-size: 42px;
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 18px 0 64px;
+}
+
+.process-timeline {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 24px;
+  position: relative;
+}
+
+/* Connecting line across the timeline (desktop only) */
+.process-timeline::before {
+  content: "";
+  position: absolute;
+  top: 30px;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  background: var(--color-border);
+  z-index: 0;
+}
+
+.process-step {
+  position: relative;
+  z-index: 1;
+  text-align: left;
+}
+
+.process-step-marker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.process-step-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  color: var(--color-secondary-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 24px rgba(11, 94, 85, 0.25);
+}
+
+.process-step-icon svg {
+  width: 26px;
+  height: 26px;
+  stroke-width: 1.75px;
+}
+
+.process-step-number {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-secondary);
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.process-step h3 {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 0 0 10px;
+}
+
+.process-step p {
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+@media (max-width: 1000px) {
+  .process-timeline {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 40px 24px;
+  }
+
+  .process-timeline::before {
+    display: none;
+  }
+
+  .process-container h2 {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 560px) {
+  .process-section {
+    padding: 70px 20px;
+  }
+
+  .process-timeline {
+    grid-template-columns: 1fr;
+  }
+}

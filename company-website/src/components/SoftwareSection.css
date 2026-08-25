@@ -1,0 +1,515 @@
+/* ============================================================
+   SOFTWARE COMPATIBILITY SECTION
+   File: src/components/SoftwareSection.css
+   ============================================================ */
+
+.software-section {
+  --software-ink: #0f172a;
+  --software-muted: #667085;
+  --software-green: #1e740d;
+  --software-green-dark: #155609;
+  --software-gold: #d7ad4f;
+  --software-bg: #f6f8fb;
+  --software-border: #e3e8ef;
+
+  position: relative;
+  padding: 105px 24px;
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      circle at 10% 20%,
+      rgba(30, 116, 13, 0.07),
+      transparent 26%
+    ),
+    radial-gradient(
+      circle at 90% 80%,
+      rgba(215, 173, 79, 0.1),
+      transparent 24%
+    ),
+    var(--software-bg);
+}
+
+.software-section::before {
+  content: "";
+  position: absolute;
+  top: 48px;
+  left: 50%;
+
+  width: 760px;
+  height: 1px;
+
+  transform: translateX(-50%);
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(30, 116, 13, 0.2),
+    transparent
+  );
+}
+
+.software-container {
+  position: relative;
+  z-index: 1;
+
+  width: min(1280px, 100%);
+  margin: 0 auto;
+  text-align: center;
+}
+
+/* ============================================================
+   SECTION HEADER
+   ============================================================ */
+
+.software-header {
+  max-width: 900px;
+  margin: 0 auto 52px;
+}
+
+.software-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+
+  margin-bottom: 18px;
+
+  color: var(--software-green);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.software-eyebrow::before,
+.software-eyebrow::after {
+  content: "";
+  width: 30px;
+  height: 2px;
+  background: var(--software-gold);
+}
+
+.software-header h2 {
+  margin: 0;
+
+  color: var(--software-ink);
+  font-size: clamp(2.3rem, 4.5vw, 3.6rem);
+  font-weight: 850;
+  line-height: 1.13;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.software-header h2 span {
+  color: var(--software-green);
+}
+
+.software-subtitle {
+  max-width: 780px;
+  margin: 22px auto 0;
+
+  color: var(--software-muted);
+  font-size: 17px;
+  line-height: 1.75;
+}
+
+/* ============================================================
+   MARQUEE
+   ============================================================ */
+
+.software-marquee {
+  position: relative;
+  margin-inline: calc(50% - 50vw);
+  padding: 14px 0;
+  overflow: hidden;
+}
+
+.software-marquee::before,
+.software-marquee::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+
+  width: max(35px, calc((100vw - 1280px) / 2));
+
+  pointer-events: none;
+}
+
+.software-marquee::before {
+  left: 0;
+  background: linear-gradient(
+    to right,
+    var(--software-bg),
+    transparent
+  );
+}
+
+.software-marquee::after {
+  right: 0;
+  background: linear-gradient(
+    to left,
+    var(--software-bg),
+    transparent
+  );
+}
+
+.software-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+
+  width: 120px;
+
+  pointer-events: none;
+}
+
+.software-fade-left {
+  left: 0;
+  background: linear-gradient(
+    to right,
+    var(--software-bg),
+    transparent
+  );
+}
+
+.software-fade-right {
+  right: 0;
+  background: linear-gradient(
+    to left,
+    var(--software-bg),
+    transparent
+  );
+}
+
+.software-marquee-track {
+  display: flex;
+  align-items: stretch;
+  gap: 20px;
+
+  width: max-content;
+  padding-inline: 20px;
+
+  animation: software-scroll 42s linear infinite;
+  will-change: transform;
+}
+
+.software-marquee:hover .software-marquee-track,
+.software-marquee:focus-within .software-marquee-track {
+  animation-play-state: paused;
+}
+
+@keyframes software-scroll {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(calc(-50% - 10px));
+  }
+}
+
+/* ============================================================
+   SOFTWARE CARDS
+   ============================================================ */
+
+.software-card {
+  position: relative;
+
+  flex: 0 0 190px;
+  min-height: 138px;
+  padding: 22px 18px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+
+  overflow: hidden;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(255, 255, 255, 0.88)
+    );
+
+  border: 1px solid var(--software-border);
+  border-radius: 18px;
+
+  box-shadow:
+    0 12px 30px rgba(15, 23, 42, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+
+  transition:
+    transform 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.software-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 18px;
+  right: 18px;
+
+  height: 3px;
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--software-gold),
+    transparent
+  );
+
+  opacity: 0;
+  transform: scaleX(0.4);
+
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.software-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(30, 116, 13, 0.35);
+
+  box-shadow:
+    0 20px 42px rgba(15, 23, 42, 0.12),
+    0 8px 22px rgba(30, 116, 13, 0.08);
+}
+
+.software-card:hover::before {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.software-card-logo {
+  width: 138px;
+  height: 52px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.software-card-logo img {
+  display: block;
+
+  max-width: 132px;
+  max-height: 50px;
+
+  object-fit: contain;
+
+  filter: saturate(0.92);
+  transition:
+    transform 0.3s ease,
+    filter 0.3s ease;
+}
+
+.software-card:hover .software-card-logo img {
+  transform: scale(1.05);
+  filter: saturate(1.05);
+}
+
+.software-card-placeholder {
+  width: 34px;
+  height: 34px;
+
+  color: #a2abb7;
+  stroke-width: 1.6;
+}
+
+.software-card-name {
+  color: var(--software-ink);
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  text-align: center;
+
+  transition: color 0.3s ease;
+}
+
+.software-card:hover .software-card-name {
+  color: var(--software-green);
+}
+
+/* ============================================================
+   BENEFITS
+   ============================================================ */
+
+.software-benefits {
+  max-width: 1080px;
+  margin: 50px auto 0;
+
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.software-benefit {
+  min-height: 74px;
+  padding: 18px 20px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  color: #344054;
+  background: rgba(255, 255, 255, 0.78);
+
+  border: 1px solid rgba(30, 116, 13, 0.12);
+  border-radius: 14px;
+
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: left;
+
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+}
+
+.software-benefit-icon {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  color: #ffffff;
+  background: var(--software-green);
+
+  border-radius: 50%;
+}
+
+.software-benefit-icon svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.5;
+}
+
+.software-note {
+  margin: 28px auto 0;
+
+  color: var(--software-muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 900px) {
+  .software-section {
+    padding: 88px 20px;
+  }
+
+  .software-benefits {
+    grid-template-columns: 1fr;
+    max-width: 620px;
+  }
+
+  .software-benefit {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 600px) {
+  .software-section {
+    padding: 72px 16px;
+  }
+
+  .software-header {
+    margin-bottom: 38px;
+  }
+
+  .software-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.11em;
+  }
+
+  .software-eyebrow::before,
+  .software-eyebrow::after {
+    width: 20px;
+  }
+
+  .software-subtitle {
+    font-size: 15.5px;
+    line-height: 1.7;
+  }
+
+  .software-marquee-track {
+    gap: 14px;
+    animation-duration: 32s;
+  }
+
+  .software-card {
+    flex-basis: 148px;
+    min-height: 112px;
+    padding: 17px 13px;
+    gap: 11px;
+    border-radius: 15px;
+  }
+
+  .software-card-logo {
+    width: 105px;
+    height: 40px;
+  }
+
+  .software-card-logo img {
+    max-width: 102px;
+    max-height: 38px;
+  }
+
+  .software-card-name {
+    font-size: 12.5px;
+  }
+
+  .software-fade {
+    width: 42px;
+  }
+
+  .software-benefits {
+    margin-top: 38px;
+  }
+
+  .software-benefit {
+    min-height: 66px;
+    padding: 15px 16px;
+  }
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .software-marquee {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .software-marquee-track {
+    animation: none;
+  }
+
+  .software-card,
+  .software-card::before,
+  .software-card-logo img {
+    transition: none;
+  }
+
+  .software-card:hover {
+    transform: none;
+  }
+}

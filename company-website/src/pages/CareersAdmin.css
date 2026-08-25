@@ -1,0 +1,356 @@
+/* ==========================================================
+   CAREERS ADMIN — LOGIN
+========================================================== */
+
+.careers-admin-auth {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  background: #f7f8fa;
+}
+
+.careers-admin-auth-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 36px;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #e3e8ef;
+  border-radius: 16px;
+  box-shadow: 0 12px 35px rgba(15, 39, 71, 0.08);
+}
+
+.careers-admin-auth-card h1 {
+  margin: 0 0 6px;
+  color: #102a4a;
+  font-size: 24px;
+}
+
+.careers-admin-auth-card > p {
+  margin: 0 0 24px;
+  color: #657183;
+  font-size: 14.5px;
+}
+
+.careers-admin-auth-card label {
+  margin-bottom: 6px;
+  color: #34455d;
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.careers-admin-auth-card input {
+  height: 46px;
+  margin-bottom: 18px;
+  padding: 0 14px;
+  color: #14243a;
+  background: #ffffff;
+  border: 1px solid #d5dce5;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 15px;
+  outline: none;
+}
+
+.careers-admin-auth-card input:focus {
+  border-color: #b58a24;
+  box-shadow: 0 0 0 4px rgba(181, 138, 36, 0.12);
+}
+
+.careers-admin-auth-card button {
+  height: 46px;
+  color: #ffffff;
+  background: #102a4a;
+  border: 1px solid #102a4a;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.careers-admin-auth-card button:hover:not(:disabled) {
+  background: #b58a24;
+  border-color: #b58a24;
+}
+
+.careers-admin-auth-card button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.careers-admin-error {
+  margin: -6px 0 16px;
+  color: #b42318;
+  font-size: 13.5px;
+}
+
+/* ==========================================================
+   CAREERS ADMIN — DASHBOARD
+========================================================== */
+
+.careers-admin-dashboard {
+  min-height: 70vh;
+  padding: 40px 24px 80px;
+  background: #f7f8fa;
+}
+
+.careers-admin-container {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.careers-admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.careers-admin-header h1 {
+  margin: 0 0 4px;
+  color: #102a4a;
+  font-size: 26px;
+}
+
+.careers-admin-header p {
+  margin: 0;
+  color: #657183;
+  font-size: 14.5px;
+}
+
+.careers-admin-header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.careers-admin-btn {
+  height: 44px;
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+  background: #102a4a;
+  border: 1px solid #102a4a;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.careers-admin-btn:hover {
+  background: #0b1f3a;
+}
+
+.careers-admin-btn-outline {
+  color: #102a4a;
+  background: #ffffff;
+}
+
+.careers-admin-btn-outline:hover {
+  color: #b58a24;
+  background: #ffffff;
+  border-color: #b58a24;
+}
+
+.careers-admin-btn-danger {
+  color: #b42318;
+  background: #ffffff;
+  border-color: #f0c1bc;
+}
+
+.careers-admin-btn-danger:hover {
+  color: #ffffff;
+  background: #b42318;
+  border-color: #b42318;
+}
+
+.careers-admin-table-wrap {
+  overflow-x: auto;
+  background: #ffffff;
+  border: 1px solid #e3e8ef;
+  border-radius: 14px;
+}
+
+.careers-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.careers-admin-table th,
+.careers-admin-table td {
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid #edf0f4;
+  font-size: 14px;
+  color: #34455d;
+  vertical-align: top;
+}
+
+.careers-admin-table th {
+  color: #657183;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  background: #f7f8fa;
+}
+
+.careers-admin-table tr:last-child td {
+  border-bottom: none;
+}
+
+.careers-admin-status {
+  display: inline-flex;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.careers-admin-status.draft {
+  color: #7a5b00;
+  background: #fff6dc;
+}
+
+.careers-admin-status.published {
+  color: #0a5c33;
+  background: #dff6e6;
+}
+
+.careers-admin-status.closed {
+  color: #657183;
+  background: #edf0f4;
+}
+
+.careers-admin-row-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.careers-admin-row-actions button {
+  height: 32px;
+  padding: 0 12px;
+  color: #102a4a;
+  background: #ffffff;
+  border: 1px solid #d5dce5;
+  border-radius: 7px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.careers-admin-row-actions button:hover {
+  border-color: #b58a24;
+  color: #b58a24;
+}
+
+.careers-admin-empty {
+  padding: 50px 20px;
+  text-align: center;
+  color: #657183;
+}
+
+/* ==========================================================
+   CAREERS ADMIN — JOB FORM MODAL
+========================================================== */
+
+.careers-admin-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 20px;
+  overflow-y: auto;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.careers-admin-modal {
+  width: 100%;
+  max-width: 640px;
+  padding: 32px;
+  background: #ffffff;
+  border-radius: 16px;
+}
+
+.careers-admin-modal h2 {
+  margin: 0 0 22px;
+  color: #102a4a;
+  font-size: 21px;
+}
+
+.careers-admin-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+
+.careers-admin-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.careers-admin-field label {
+  margin-bottom: 6px;
+  color: #34455d;
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.careers-admin-field input,
+.careers-admin-field select,
+.careers-admin-field textarea {
+  padding: 10px 13px;
+  color: #14243a;
+  background: #ffffff;
+  border: 1px solid #d5dce5;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 14.5px;
+  outline: none;
+}
+
+.careers-admin-field input:focus,
+.careers-admin-field select:focus,
+.careers-admin-field textarea:focus {
+  border-color: #b58a24;
+  box-shadow: 0 0 0 4px rgba(181, 138, 36, 0.12);
+}
+
+.careers-admin-field textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.careers-admin-field-hint {
+  margin-top: 4px;
+  color: #8a96a5;
+  font-size: 12px;
+}
+
+.careers-admin-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+@media (max-width: 640px) {
+  .careers-admin-field-row {
+    grid-template-columns: 1fr;
+  }
+}

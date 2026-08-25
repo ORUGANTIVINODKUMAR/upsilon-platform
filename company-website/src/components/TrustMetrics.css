@@ -1,0 +1,62 @@
+.trust-metrics-section {
+  background: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary));
+  padding: 56px 8%;
+}
+
+.trust-metrics-container {
+  max-width: 1300px;
+  margin: auto;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 24px;
+}
+
+.trust-metric-card {
+  text-align: center;
+  padding: 18px 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.trust-metric-card:last-child {
+  border-right: none;
+}
+
+.trust-metric-value {
+  display: block;
+  font-size: 42px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -1px;
+}
+
+.trust-metric-label {
+  display: block;
+  margin-top: 8px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--color-secondary-light);
+  letter-spacing: 0.2px;
+}
+
+@media (max-width: 900px) {
+  .trust-metrics-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 28px 16px;
+  }
+
+  .trust-metric-card {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    padding-bottom: 20px;
+  }
+
+  .trust-metric-value {
+    font-size: 34px;
+  }
+}
+
+@media (max-width: 480px) {
+  .trust-metrics-container {
+    grid-template-columns: 1fr;
+  }
+}

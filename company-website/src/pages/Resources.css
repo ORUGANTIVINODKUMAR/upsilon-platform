@@ -1,0 +1,543 @@
+/* ==========================================================
+   RESOURCES PAGE
+========================================================== */
+
+.resources-section {
+  padding: 80px 24px;
+  background: #ffffff;
+}
+
+.downloadable-resources-section {
+  background: #f7f8fa;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.resources-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ==========================================================
+   SECTION INTRO
+========================================================== */
+
+.resources-intro {
+  max-width: 760px;
+  margin-bottom: 42px;
+}
+
+.resources-label {
+  display: inline-block;
+  margin-bottom: 12px;
+  color: #b58a24;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.resources-intro h2 {
+  margin: 0 0 16px;
+  color: #0f2747;
+  font-size: clamp(30px, 4vw, 44px);
+  line-height: 1.2;
+  font-weight: 750;
+}
+
+.resources-intro p {
+  margin: 0;
+  color: #536174;
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+/* ==========================================================
+   DOWNLOADABLE RESOURCE CARDS
+========================================================== */
+
+.resources-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.pdf-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 34px;
+  background: #ffffff;
+  border: 1px solid #e3e8ef;
+  border-radius: 18px;
+  box-shadow: 0 12px 35px rgba(15, 39, 71, 0.07);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.pdf-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(181, 138, 36, 0.45);
+  box-shadow: 0 18px 45px rgba(15, 39, 71, 0.12);
+}
+
+.pdf-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 24px;
+  color: #b58a24;
+  background: #fff7df;
+  border-radius: 14px;
+  font-size: 28px;
+}
+
+.pdf-card h3 {
+  margin: 0 0 14px;
+  color: #102a4a;
+  font-size: 23px;
+  line-height: 1.35;
+}
+
+.pdf-card p {
+  flex: 1;
+  margin: 0 0 26px;
+  color: #5c6878;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.pdf-download-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  gap: 10px;
+  min-height: 46px;
+  padding: 12px 22px;
+  color: #ffffff;
+  background: #102a4a;
+  border: 1px solid #102a4a;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.pdf-download-btn:hover {
+  background: #b58a24;
+  border-color: #b58a24;
+  transform: translateY(-2px);
+}
+
+.pdf-download-btn:focus-visible {
+  outline: 3px solid rgba(181, 138, 36, 0.35);
+  outline-offset: 3px;
+}
+
+/* ==========================================================
+   SEARCH AND CATEGORY FILTERS
+========================================================== */
+
+.resources-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 38px;
+  padding: 22px;
+  background: #f7f8fa;
+  border: 1px solid #e3e8ef;
+  border-radius: 16px;
+}
+
+.resources-search {
+  position: relative;
+  width: 100%;
+  max-width: 390px;
+}
+
+.resources-search > svg {
+  position: absolute;
+  top: 50%;
+  left: 17px;
+  color: #6b7787;
+  font-size: 15px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.resources-search input {
+  width: 100%;
+  height: 48px;
+  padding: 0 18px 0 46px;
+  color: #14243a;
+  background: #ffffff;
+  border: 1px solid #d5dce5;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 15px;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.resources-search input::placeholder {
+  color: #8b95a3;
+}
+
+.resources-search input:focus {
+  border-color: #b58a24;
+  box-shadow: 0 0 0 4px rgba(181, 138, 36, 0.12);
+}
+
+.resources-categories {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.resource-category-btn {
+  min-height: 40px;
+  padding: 9px 16px;
+  color: #34455d;
+  background: #ffffff;
+  border: 1px solid #d8dee7;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.resource-category-btn:hover {
+  color: #102a4a;
+  border-color: #b58a24;
+  transform: translateY(-1px);
+}
+
+.resource-category-btn.active {
+  color: #ffffff;
+  background: #102a4a;
+  border-color: #102a4a;
+}
+
+.resource-category-btn:focus-visible {
+  outline: 3px solid rgba(181, 138, 36, 0.3);
+  outline-offset: 2px;
+}
+
+/* ==========================================================
+   ARTICLE CARDS
+========================================================== */
+
+.articles-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 30px;
+}
+
+.article-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e3e8ef;
+  border-radius: 18px;
+  box-shadow: 0 12px 34px rgba(15, 39, 71, 0.07);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.article-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(181, 138, 36, 0.45);
+  box-shadow: 0 20px 48px rgba(15, 39, 71, 0.13);
+}
+
+.article-card-image-link {
+  display: block;
+  overflow: hidden;
+  background: #edf1f5;
+}
+
+.article-card-image {
+  display: block;
+  width: 100%;
+  height: 270px;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.article-card:hover .article-card-image {
+  transform: scale(1.035);
+}
+
+.article-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 28px;
+}
+
+.article-card-category {
+  align-self: flex-start;
+  margin-bottom: 14px;
+  padding: 7px 13px;
+  color: #8b6817;
+  background: #fff6dc;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.3px;
+}
+
+.article-card h3 {
+  margin: 0 0 14px;
+  font-size: 24px;
+  line-height: 1.35;
+}
+
+.article-card h3 a {
+  color: #102a4a;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.article-card h3 a:hover {
+  color: #b58a24;
+}
+
+.article-card-body > p {
+  flex: 1;
+  margin: 0 0 24px;
+  color: #5a6878;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.article-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding-top: 18px;
+  color: #7a8695;
+  border-top: 1px solid #edf0f4;
+  font-size: 13px;
+}
+
+.article-card-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.article-read-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 10px;
+  color: #102a4a;
+  font-size: 15px;
+  font-weight: 750;
+  text-decoration: none;
+  transition:
+    color 0.2s ease,
+    gap 0.2s ease;
+}
+
+.article-read-link:hover {
+  gap: 14px;
+  color: #b58a24;
+}
+
+/* ==========================================================
+   EMPTY RESULTS
+========================================================== */
+
+.resources-empty {
+  padding: 55px 25px;
+  text-align: center;
+  background: #f7f8fa;
+  border: 1px solid #e3e8ef;
+  border-radius: 16px;
+}
+
+.resources-empty h3 {
+  margin: 0 0 10px;
+  color: #102a4a;
+  font-size: 24px;
+}
+
+.resources-empty p {
+  margin: 0 0 24px;
+  color: #657183;
+  font-size: 16px;
+}
+
+.resources-empty button {
+  min-height: 44px;
+  padding: 10px 20px;
+  color: #ffffff;
+  background: #102a4a;
+  border: 1px solid #102a4a;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.resources-empty button:hover {
+  background: #b58a24;
+  border-color: #b58a24;
+}
+
+/* ==========================================================
+   ACCESSIBILITY
+========================================================== */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+}
+
+/* ==========================================================
+   RESPONSIVE
+========================================================== */
+
+@media (max-width: 992px) {
+  .resources-section {
+    padding: 65px 22px;
+  }
+
+  .resources-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .resources-search {
+    max-width: none;
+  }
+
+  .resources-categories {
+    justify-content: flex-start;
+  }
+
+  .article-card-image {
+    height: 235px;
+  }
+}
+
+@media (max-width: 768px) {
+  .resources-section {
+    padding: 55px 18px;
+  }
+
+  .resources-grid,
+  .articles-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .resources-intro {
+    margin-bottom: 32px;
+  }
+
+  .resources-intro h2 {
+    font-size: 30px;
+  }
+
+  .resources-intro p {
+    font-size: 16px;
+  }
+
+  .resources-controls {
+    gap: 18px;
+    margin-bottom: 30px;
+    padding: 17px;
+  }
+
+  .article-card-image {
+    height: 230px;
+  }
+
+  .article-card-body {
+    padding: 23px;
+  }
+
+  .article-card h3 {
+    font-size: 22px;
+  }
+
+  .pdf-card {
+    padding: 28px;
+  }
+}
+
+@media (max-width: 520px) {
+  .resources-section {
+    padding: 48px 15px;
+  }
+
+  .resources-controls {
+    padding: 14px;
+  }
+
+  .resources-categories {
+    gap: 8px;
+  }
+
+  .resource-category-btn {
+    padding: 8px 13px;
+    font-size: 13px;
+  }
+
+  .article-card-image {
+    height: 205px;
+  }
+
+  .article-card-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pdf-download-btn {
+    width: 100%;
+  }
+}
+.resources-results-count {
+  margin: 20px 0 28px;
+  color: #666;
+  font-size: 14px;
+  font-weight: 600;
+}

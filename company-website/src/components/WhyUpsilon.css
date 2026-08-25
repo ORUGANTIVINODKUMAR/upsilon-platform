@@ -1,0 +1,298 @@
+/* ============================================================
+   WHY UPSILON SECTION
+   One unified premium container (not six floating boxes).
+   ============================================================ */
+
+.why-section {
+  --forest: var(--color-primary);
+  --forest-deep: var(--color-primary-dark);
+  --gold: var(--color-secondary);
+  --ink: var(--color-text);
+  --muted: var(--color-text-muted);
+
+  background: var(--color-bg-alt);
+  padding: 90px 8%;
+}
+
+/* ---- Two-column intro: copy + image ---- */
+.why-intro-grid {
+  max-width: 1300px;
+  margin: 0 auto 64px;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 64px;
+  align-items: center;
+}
+
+.why-intro-copy .why-label {
+  color: var(--color-primary);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.why-intro-copy h2 {
+  color: var(--ink);
+  font-size: 42px;
+  line-height: 1.2;
+  margin: 20px 0 22px;
+}
+
+.why-intro-copy p {
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1.85;
+  margin: 0 0 16px;
+}
+
+.why-advantages {
+  list-style: none;
+  margin: 24px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.why-advantages li {
+  position: relative;
+  padding-left: 30px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.why-advantages li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-secondary);
+}
+
+.why-intro-media img {
+  width: 100%;
+  height: 100%;
+  min-height: 380px;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-hover);
+}
+
+/* ============================================================
+   THE UNIFIED PANEL
+   All six benefits live inside this single premium card.
+   ============================================================ */
+
+.why-panel {
+  max-width: 1300px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 28px;
+  padding: 8px;
+  box-shadow: 0 30px 70px rgba(8, 26, 14, 0.1);
+  border: 1px solid rgba(8, 26, 14, 0.06);
+}
+
+.why-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.why-benefit {
+  position: relative;
+  padding: 52px 44px;
+  transition: background 0.35s ease, transform 0.35s ease;
+}
+
+/* ---- Elegant dividers instead of separate card shadows ----
+   Vertical rule between columns, horizontal rule between rows. */
+.why-panel-grid .why-benefit:not(:nth-child(3n + 1))::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 18%;
+  bottom: 18%;
+  width: 1px;
+  background: #e9e4d8;
+}
+
+.why-panel-grid .why-benefit:nth-child(n + 4)::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: #e9e4d8;
+}
+
+.why-benefit:hover {
+  background: #faf9f5;
+  transform: translateY(-4px);
+}
+
+.why-benefit-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--forest);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  transition: transform 0.35s ease;
+}
+
+/* Consistent icon sizing/stroke -- all six come from the same Lucide set */
+.why-benefit-icon svg {
+  width: 26px;
+  height: 26px;
+  stroke-width: 2px;
+}
+
+.why-benefit:hover .why-benefit-icon {
+  transform: scale(1.08) rotate(-2deg);
+}
+
+.why-benefit h3 {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 0 0 12px;
+  line-height: 1.35;
+}
+
+.why-benefit p {
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ============================================================
+   RESPONSIVE: 3 columns desktop, 2 tablet, 1 mobile
+   ============================================================ */
+
+@media (max-width: 1000px) {
+  .why-intro-grid {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+
+  .why-intro-media img {
+    min-height: 260px;
+  }
+
+  .why-intro-copy h2 {
+    font-size: 34px;
+  }
+
+  .why-panel-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Recompute dividers for the 2-column layout */
+  .why-panel-grid .why-benefit:not(:nth-child(3n + 1))::before {
+    display: none;
+  }
+
+  .why-panel-grid .why-benefit:nth-child(odd)::before {
+    content: "";
+    position: absolute;
+    right: 0;
+    left: auto;
+    top: 18%;
+    bottom: 18%;
+    width: 1px;
+    background: #e9e4d8;
+    display: block;
+  }
+
+  .why-panel-grid .why-benefit:nth-child(n + 4)::after {
+    display: none;
+  }
+
+  .why-panel-grid .why-benefit:nth-child(n + 3)::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 8%;
+    right: 8%;
+    height: 1px;
+    background: #e9e4d8;
+    display: block;
+  }
+}
+
+@media (max-width: 640px) {
+  .why-section {
+    padding: 70px 20px;
+  }
+
+  .why-intro-copy h2 {
+    font-size: 28px;
+  }
+
+  .why-panel {
+    border-radius: 20px;
+  }
+
+  .why-panel-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .why-panel-grid .why-benefit::before,
+  .why-panel-grid .why-benefit:nth-child(odd)::before {
+    display: none;
+  }
+
+  .why-panel-grid .why-benefit:not(:first-child)::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 8%;
+    right: 8%;
+    height: 1px;
+    background: #e9e4d8;
+    display: block;
+  }
+
+  .why-benefit {
+    padding: 36px 28px;
+  }
+}
+/* =========================
+   WHY UPSILON RESPONSIVE
+========================= */
+
+@media (max-width:1024px){
+
+.why-container{
+    grid-template-columns:1fr;
+    gap:50px;
+}
+
+.why-content,
+.why-images{
+    width:100%;
+}
+
+}
+
+@media (max-width:768px){
+
+.why-content h2{
+    font-size:30px;
+}
+
+.why-images{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:18px;
+}
+
+}

@@ -1,0 +1,36 @@
+.legal-section {
+  --ink: #0b1220;
+  --muted: #4b5563;
+  --border: #e6ebe7;
+
+  background: var(--color-bg-alt);
+  padding: 90px 8% 110px;
+}
+
+.legal-container {
+  max-width: 1050px;
+  margin: 0 auto;
+}
+
+.legal-disclaimer {
+  background: #fff8e6;
+  border: 1px solid #f0dfa8;
+  border-radius: 10px;
+  padding: 16px 20px;
+  font-size: 14px;
+  color: #6b5610;
+  margin-bottom: 40px;
+}
+
+.legal-intro {
+  font-size: 17px;
+  line-height: 1.85;
+  color: var(--muted);
+  margin: 0 0 36px;
+}
+
+@media (max-width: 640px) {
+  .legal-section {
+    padding: 50px 20px 70px;
+  }
+}

@@ -1,0 +1,97 @@
+.offshore-section {
+  background: #ffffff;
+  padding: 120px 8%;
+}
+
+.offshore-container {
+  max-width: 1300px;
+  margin: auto;
+  text-align: center;
+}
+
+.offshore-label {
+  color: var(--color-primary);
+  font-weight: 800;
+  letter-spacing: 2px;
+  font-size: 15px;
+}
+
+.offshore-container h2 {
+  font-size: 42px;
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 18px 0 56px;
+}
+
+.offshore-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+}
+
+.offshore-card {
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 40px 28px;
+  text-align: left;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.offshore-card:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--color-secondary);
+}
+
+.offshore-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  color: var(--color-secondary-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+
+.offshore-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.75px;
+}
+
+.offshore-card h3 {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 0 0 12px;
+}
+
+.offshore-card p {
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+@media (max-width: 1000px) {
+  .offshore-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .offshore-container h2 {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 560px) {
+  .offshore-section {
+    padding: 70px 20px;
+  }
+
+  .offshore-grid {
+    grid-template-columns: 1fr;
+  }
+}
