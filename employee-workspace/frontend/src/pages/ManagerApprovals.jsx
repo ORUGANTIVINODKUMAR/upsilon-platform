@@ -534,9 +534,13 @@ const ManagerApprovals = () => {
   const canApproveOrReject = (
     request
   ) => {
+    const isHrRequestForHrApprover =
+      user?.role === "HR" && request.employeeId?.role === "HR";
+
     return (
       ["Manager", "HR"].includes(user?.role) &&
       request.employeeId?._id !== user?._id &&
+      !isHrRequestForHrApprover &&
       PENDING_STATUSES.includes(request.finalStatus)
     );
   };
@@ -544,9 +548,13 @@ const ManagerApprovals = () => {
   const canChangeStatus = (
     request
   ) => {
+    const isHrRequestForHrApprover =
+      user?.role === "HR" && request.employeeId?.role === "HR";
+
     return (
       ["Manager", "HR"].includes(user?.role) &&
       request.employeeId?._id !== user?._id &&
+      !isHrRequestForHrApprover &&
       [
         "On Hold",
         ...APPROVED_STATUSES,

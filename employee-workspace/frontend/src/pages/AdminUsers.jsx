@@ -1139,6 +1139,10 @@ const AdminUsers = () => {
       return "Team is required for Team Leader role.";
     }
 
+    if (formData.role === "HR" && !formData.managerId) {
+      return "Reporting Manager is required for HR leave approval.";
+    }
+
     if (
       ["Manager", "HR"].includes(
         formData.role
@@ -1211,6 +1215,7 @@ const AdminUsers = () => {
         [
           "Employee",
           "TeamLeader",
+          "HR",
         ].includes(formData.role)
           ? formData.managerId
           : "",
@@ -2490,8 +2495,35 @@ const AdminUsers = () => {
               {["Manager", "HR"].includes(
                 formData.role
               ) && (
-                <div className="input-group">
-                  <label>Assign Teams</label>
+                <>
+                  {formData.role === "HR" && (
+                    <div className="input-group">
+                      <label>Reporting Manager</label>
+
+                      <select
+                        name="managerId"
+                        value={formData.managerId}
+                        onChange={handleChange}
+                        disabled={!formData.subcategoryId || isSubmitting}
+                        required
+                      >
+                        <option value="">
+                          {formData.subcategoryId
+                            ? "Select Manager"
+                            : "Select Department First"}
+                        </option>
+
+                        {departmentManagers.map((manager) => (
+                          <option key={manager._id} value={manager._id}>
+                            {manager.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="input-group">
+                    <label>Assign Teams</label>
 
                   <div
                     style={{
@@ -2557,7 +2589,8 @@ const AdminUsers = () => {
                       )
                     )}
                   </div>
-                </div>
+                  </div>
+                </>
               )}
 
               <div className="user-form-actions">

@@ -11,6 +11,7 @@ import {
   getLeaveDurationLabel,
 } from "../services/leaveEmailTemplates.js";
 import {
+  canApproverManageLeave,
   getLeaveNotificationRecipients,
   getManagerVisibleTeamIds,
 } from "../services/leaveEmailRecipientService.js";
@@ -40,6 +41,20 @@ test("leave request recipients include assigned managers and active HR without d
     employeeId: users.employee._id,
   });
   assert.deepEqual(recipients.map((user) => user.role).sort(), ["HR", "Manager"]);
+});
+
+test("HR personal leave is routed only to the assigned reporting manager", () => {
+  const recipients = getLeaveNotificationRecipients({
+    team: null,
+    hrUsers: [users.hr],
+    employeeId: users.hr._id,
+    employeeRole: "HR",
+    reportingManager: users.manager,
+  });
+
+  assert.deepEqual(recipients, [users.manager]);
+  assert.equal(canApproverManageLeave({ approverRole: "Manager", applicantRole: "HR" }), true);
+  assert.equal(canApproverManageLeave({ approverRole: "HR", applicantRole: "HR" }), false);
 });
 
 test("notification delivery attempts both Manager and HR and includes all leave data", async () => {

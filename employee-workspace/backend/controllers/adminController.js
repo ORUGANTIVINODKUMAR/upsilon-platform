@@ -919,6 +919,13 @@ export const createUser = async (req, res) => {
       });
     }
 
+    if (role === "HR" && !managerId) {
+      return res.status(400).json({
+        success: false,
+        message: "A reporting Manager is required for HR leave approval",
+      });
+    }
+
     const duplicateConditions = [
       {
         email: normalizedEmail,
@@ -1290,6 +1297,16 @@ export const updateUser = async (req, res) => {
     const normalizedSubcategoryId = normalizeOptionalObjectId(subcategoryId);
 
     const normalizedAssignedTeamIds = normalizeAssignedTeamIds(assignedTeamIds);
+
+    const effectiveManagerId =
+      normalizedManagerId === undefined ? user.managerId : normalizedManagerId;
+
+    if (updatedRole === "HR" && !effectiveManagerId) {
+      return res.status(400).json({
+        success: false,
+        message: "A reporting Manager is required for HR leave approval",
+      });
+    }
 
     if (
       normalizedManagerId &&

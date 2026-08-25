@@ -12,7 +12,10 @@ import {
   sendFinanceLeaveEmail,
   sendLeaveRequestNotification,
 } from "../services/emailService.js";
-import { getLeaveNotificationRecipients } from "../services/leaveEmailRecipientService.js";
+import {
+  canApproverManageLeave,
+  getLeaveNotificationRecipients,
+} from "../services/leaveEmailRecipientService.js";
 import {
   PERSONAL_LEAVE_ROLES,
   syncApprovedLeaveLedger,
@@ -343,11 +346,20 @@ export const createLeaveRequest = async (
         ? null
         : team.teamLeaderId;
 
+    const reportingManager =
+      employee.role === "HR" && employee.managerId
+        ? await User.findOne({
+            _id: employee.managerId,
+            role: "Manager",
+            isActive: true,
+          }).select("_id name email role isActive")
+        : null;
+
     const assignedManager = requiresTeam
       ? team.managerIds?.find(
           (manager) => manager.isActive !== false
         ) || null
-      : null;
+      : reportingManager;
 
     if (
       requiresTeam &&
@@ -366,6 +378,13 @@ export const createLeaveRequest = async (
         success: false,
         message:
           "No Manager assigned for this team",
+      });
+    }
+
+    if (employee.role === "HR" && !assignedManager) {
+      return res.status(400).json({
+        success: false,
+        message: "No active reporting Manager is assigned to this HR user",
       });
     }
 
@@ -417,13 +436,15 @@ export const createLeaveRequest = async (
       });
     }
 
-    const hrApprover = await User.findOne({
-      role: "HR",
-      isActive: true,
-      _id: { $ne: employee._id },
-    }).select("_id");
+    const hrApprover = employee.role === "HR"
+      ? null
+      : await User.findOne({
+          role: "HR",
+          isActive: true,
+          _id: { $ne: employee._id },
+        }).select("_id");
 
-    if (["Manager", "HR"].includes(employee.role) && !hrApprover) {
+    if (employee.role === "Manager" && !hrApprover) {
       return res.status(400).json({
         success: false,
         message: "No other active HR user is available for final approval",
@@ -435,7 +456,9 @@ export const createLeaveRequest = async (
         ? "TeamLeader"
         : employee.role === "TeamLeader"
           ? "Manager"
-          : "HR";
+          : employee.role === "HR"
+            ? "Manager"
+            : "HR";
 
     const leaveRequest =
       await LeaveRequest.create({
@@ -525,16 +548,19 @@ export const createLeaveRequest = async (
         ],
       });
 
-    const hrUsers =
-      await User.find({
-        role: "HR",
-        isActive: true,
-      }).select(
-        "_id name email role"
-      );
+    const hrUsers = employee.role === "HR"
+      ? []
+      : await User.find({
+          role: "HR",
+          isActive: true,
+        }).select(
+          "_id name email role"
+        );
 
     const notificationUsers =
-      isTeamLeader
+      employee.role === "HR"
+        ? [assignedManager]
+        : isTeamLeader
         ? [
             assignedManager,
             ...hrUsers,
@@ -580,6 +606,8 @@ export const createLeaveRequest = async (
       team,
       hrUsers,
       employeeId: employee._id,
+      employeeRole: employee.role,
+      reportingManager: assignedManager,
     });
     const workspaceUrl = process.env.WORKSPACE_URL?.trim()?.replace(/\/$/, "");
     const emailNotification = await sendLeaveRequestNotification({
@@ -1009,7 +1037,9 @@ export const updateMyLeaveRequest = async (
             ? "TeamLeader"
             : req.user.role === "TeamLeader"
               ? "Manager"
-              : "HR",
+              : req.user.role === "HR"
+                ? "Manager"
+                : "HR",
 
         action:
           "Sent for Reapproval",
@@ -1026,13 +1056,14 @@ export const updateMyLeaveRequest = async (
 
     await syncApprovedLeaveLedger(leaveRequest, req.user._id);
 
-    const hrUsers =
-      await User.find({
-        role: "HR",
-        isActive: true,
-      }).select(
-        "_id email"
-      );
+    const hrUsers = req.user.role === "HR"
+      ? []
+      : await User.find({
+          role: "HR",
+          isActive: true,
+        }).select(
+          "_id email"
+        );
 
     const recipientIds =
       getUniqueUserIds([
@@ -1275,7 +1306,9 @@ export const deleteMyLeaveRequest = async (req, res) => {
     await leaveRequest.save();
     await syncApprovedLeaveLedger(leaveRequest, req.user._id);
 
-    const hrUsers = await User.find({ role: "HR", isActive: true }).select("_id");
+    const hrUsers = req.user.role === "HR"
+      ? []
+      : await User.find({ role: "HR", isActive: true }).select("_id");
     const recipientIds = getUniqueUserIds([
       leaveRequest.teamLeaderId,
       leaveRequest.managerId,
@@ -2141,6 +2174,16 @@ export const approveLeaveByManager = async (
       });
     }
 
+    if (!canApproverManageLeave({
+      approverRole: req.user.role,
+      applicantRole: leaveRequest.employeeId.role,
+    })) {
+      return res.status(403).json({
+        success: false,
+        message: "HR leave requests must be reviewed by the assigned Manager",
+      });
+    }
+
     if (APPROVED_LEAVE_STATUSES.includes(leaveRequest.finalStatus)) {
       if (
         req.user.role === "Manager" &&
@@ -2534,6 +2577,16 @@ export const rejectLeaveByManager = async (
       });
     }
 
+    if (!canApproverManageLeave({
+      approverRole: req.user.role,
+      applicantRole: leaveRequest.employeeId.role,
+    })) {
+      return res.status(403).json({
+        success: false,
+        message: "HR leave requests must be reviewed by the assigned Manager",
+      });
+    }
+
     if (
       !PENDING_LEAVE_STATUSES.includes(
         leaveRequest.finalStatus
@@ -2807,7 +2860,7 @@ export const changeLeaveStatus = async (req, res) => {
     }
 
     const leaveRequest = await LeaveRequest.findById(req.params.id)
-      .populate("employeeId", "name email");
+      .populate("employeeId", "name email role");
 
     if (!leaveRequest) {
       return res.status(404).json({
@@ -2820,6 +2873,16 @@ export const changeLeaveStatus = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: "You cannot change the status of your own leave request",
+      });
+    }
+
+    if (!canApproverManageLeave({
+      approverRole: req.user.role,
+      applicantRole: leaveRequest.employeeId.role,
+    })) {
+      return res.status(403).json({
+        success: false,
+        message: "HR leave status can only be changed by the assigned Manager",
       });
     }
 

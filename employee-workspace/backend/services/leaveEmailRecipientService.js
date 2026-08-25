@@ -8,11 +8,24 @@ export const deduplicateRecipients = (users = []) => [
   ).values(),
 ];
 
-export const getLeaveNotificationRecipients = ({ team, hrUsers, employeeId }) =>
-  deduplicateRecipients([
-    ...(team?.managerIds || []),
-    ...(hrUsers || []),
-  ]).filter((user) => user._id?.toString() !== employeeId?.toString());
+export const getLeaveNotificationRecipients = ({
+  team,
+  hrUsers,
+  employeeId,
+  employeeRole,
+  reportingManager,
+}) =>
+  deduplicateRecipients(
+    employeeRole === "HR"
+      ? [reportingManager]
+      : [
+          ...(team?.managerIds || []),
+          ...(hrUsers || []),
+        ],
+  ).filter((user) => user._id?.toString() !== employeeId?.toString());
+
+export const canApproverManageLeave = ({ approverRole, applicantRole }) =>
+  !(approverRole === "HR" && applicantRole === "HR");
 
 export const getManagerVisibleTeamIds = (manager, teams = []) => {
   const managerId = manager?._id?.toString();
