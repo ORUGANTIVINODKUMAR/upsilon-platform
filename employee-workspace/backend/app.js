@@ -24,6 +24,7 @@ import careerJobRoutes from "./routes/careerJobRoutes.js";
 import careerApplicationRoutes from "./routes/careerApplicationRoutes.js";
 import careerDashboardRoutes from "./routes/careerDashboardRoutes.js";
 import careerAdminAuthAliasRoutes from "./routes/careerAdminAuthAliasRoutes.js";
+import { bypassApiCors } from "./services/corsPolicy.js";
 
 const app = express();
 
@@ -42,8 +43,7 @@ const allowedOrigins = [
    CORS
 ========================= */
 
-app.use(
-  cors({
+const apiCors = cors({
     origin(origin, callback) {
       if (!origin) {
         return callback(null, true);
@@ -73,8 +73,14 @@ app.use(
       "Content-Type",
       "Authorization",
     ],
-  })
-);
+  });
+
+app.use((req, res, next) => {
+  if (bypassApiCors({ method: req.method, path: req.path })) {
+    return next();
+  }
+  return apiCors(req, res, next);
+});
 
 /* =========================
    GLOBAL MIDDLEWARE

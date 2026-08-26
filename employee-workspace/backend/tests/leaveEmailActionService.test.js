@@ -10,6 +10,7 @@ import {
 } from "../services/leaveEmailActionService.js";
 import { assertLeaveDecisionAuthorized } from "../services/leaveDecisionService.js";
 import { getEmailActionRejectionReason } from "../controllers/leaveEmailActionController.js";
+import { bypassApiCors } from "../services/corsPolicy.js";
 
 const createTokenModel = () => {
   const records = [];
@@ -51,6 +52,15 @@ test("approval submission accepts an empty form body", () => {
   assert.equal(getEmailActionRejectionReason(undefined), "");
   assert.equal(getEmailActionRejectionReason({}), "");
   assert.equal(getEmailActionRejectionReason({ rejectionReason: "Not feasible" }), "Not feasible");
+});
+
+test("only email action page navigations bypass global API CORS", () => {
+  const path = "/api/leave/email-action/opaque-token/approve";
+  assert.equal(bypassApiCors({ method: "GET", path }), true);
+  assert.equal(bypassApiCors({ method: "POST", path }), true);
+  assert.equal(bypassApiCors({ method: "DELETE", path }), false);
+  assert.equal(bypassApiCors({ method: "POST", path: "/api/leave/manager-approve/123" }), false);
+  assert.equal(bypassApiCors({ method: "POST", path: "/api/auth/login" }), false);
 });
 
 test("action URLs are issued only for the assigned Manager and contain no leave ID", async () => {
