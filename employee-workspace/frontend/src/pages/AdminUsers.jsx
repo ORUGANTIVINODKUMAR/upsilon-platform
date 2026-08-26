@@ -1330,9 +1330,9 @@ const AdminUsers = () => {
   const handleDeactivate =
     async (user) => {
       const confirmed = await confirmAction({
-        title: `Deactivate ${user.name}?`,
-        description: "They will lose workspace access. Their leave and reimbursement records will remain available for audit purposes.",
-        confirmLabel: "Deactivate user",
+        title: `Delete ${user.name}?`,
+        description: "This removes their workspace access. Their leave, attendance, and reimbursement history will remain available for audit purposes.",
+        confirmLabel: "Delete user",
       });
 
       if (!confirmed) {
@@ -1840,7 +1840,7 @@ const AdminUsers = () => {
                               <Trash2
                                 size={16}
                               />
-                              Deactivate
+                              Delete
                             </button>
                           ) : (
                             <span className="badge badge-danger">
