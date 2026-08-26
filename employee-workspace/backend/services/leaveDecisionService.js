@@ -50,6 +50,15 @@ export const assertLeaveDecisionAuthorized = ({ actor, leaveRequest, action }) =
   }
 };
 
+export const isLeaveDecisionRevision = ({
+  finalStatus,
+  role,
+  action,
+  allowRevision,
+}) => allowRevision && finalStatus === (
+  action === "approve" ? `Rejected by ${role}` : `Approved by ${role}`
+);
+
 const populateDecisionResult = (query) => query
   .populate("employeeId", "name email employeeId designation role profilePhoto")
   .populate("subcategoryId", "name")
@@ -131,6 +140,7 @@ export const processLeaveDecision = async ({
   actor,
   action,
   rejectionReason = "",
+  allowRevision = false,
 }) => {
   if (!["approve", "reject"].includes(action)) {
     throw new LeaveDecisionError("Invalid leave decision", { code: "INVALID_ACTION" });
@@ -159,7 +169,14 @@ export const processLeaveDecision = async ({
 
   assertLeaveDecisionAuthorized({ actor, leaveRequest, action });
 
-  if (!PENDING_STATUSES.has(leaveRequest.finalStatus)) {
+  const wasRevision = isLeaveDecisionRevision({
+    finalStatus: leaveRequest.finalStatus,
+    role: actor.role,
+    action,
+    allowRevision,
+  });
+
+  if (!PENDING_STATUSES.has(leaveRequest.finalStatus) && !wasRevision) {
     if (action === "approve" && APPROVED_STATUSES.has(leaveRequest.finalStatus)) {
       await syncApprovedLeaveLedger(leaveRequest, actor._id);
       return { leaveRequest, alreadyProcessed: true, alreadyApproved: true };
@@ -187,9 +204,13 @@ export const processLeaveDecision = async ({
     level: actor.role,
     action: decision,
     actedBy: actor._id,
-    remarks: action === "approve"
-      ? wasReapproval ? `Reapproved by ${actor.role}` : `Approved by ${actor.role}`
-      : wasReapproval ? `Updated leave rejected by ${actor.role}: ${reason}` : reason,
+    remarks: wasRevision
+      ? action === "approve"
+        ? `Decision revised to approved by ${actor.role}`
+        : `Decision revised to rejected by ${actor.role}: ${reason}`
+      : action === "approve"
+        ? wasReapproval ? `Reapproved by ${actor.role}` : `Approved by ${actor.role}`
+        : wasReapproval ? `Updated leave rejected by ${actor.role}: ${reason}` : reason,
   });
 
   await leaveRequest.save();
@@ -200,5 +221,10 @@ export const processLeaveDecision = async ({
   const updatedLeaveRequest = await populateDecisionResult(
     LeaveRequest.findById(leaveRequest._id),
   );
-  return { leaveRequest: updatedLeaveRequest, alreadyProcessed: false, wasReapproval };
+  return {
+    leaveRequest: updatedLeaveRequest,
+    alreadyProcessed: false,
+    wasReapproval,
+    wasRevision,
+  };
 };

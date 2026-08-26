@@ -54,6 +54,7 @@ export const getBackendPublicUrl = (env = process.env) => {
 export const issueLeaveEmailActionToken = async ({
   leaveRequestId,
   approverId,
+  action,
   now = new Date(),
   TokenModel = LeaveEmailActionToken,
   env = process.env,
@@ -64,11 +65,13 @@ export const issueLeaveEmailActionToken = async ({
     now.getTime() + getLeaveEmailActionTtlHours(env) * 60 * 60 * 1000,
   );
 
-  await TokenModel.updateMany(
-    { leaveRequestId, approverId, usedAt: null, invalidatedAt: null },
-    { $set: { invalidatedAt: now } },
-  );
-  await TokenModel.create({ leaveRequestId, approverId, tokenHash, expiresAt });
+  await TokenModel.create({
+    leaveRequestId,
+    approverId,
+    action,
+    tokenHash,
+    expiresAt,
+  });
 
   return { rawToken, expiresAt };
 };
@@ -94,18 +97,38 @@ export const createLeaveEmailActionUrls = async ({
     );
   }
 
-  const { rawToken } = await issueLeaveEmailActionToken({
-    leaveRequestId: leaveRequest._id,
-    approverId: recipient._id,
-    TokenModel,
-    env,
-  });
-  const encodedToken = encodeURIComponent(rawToken);
-  const baseUrl = `${backendUrl}/api/leave/email-action/${encodedToken}`;
+  const now = new Date();
+  await TokenModel.updateMany(
+    {
+      leaveRequestId: leaveRequest._id,
+      approverId: recipient._id,
+      usedAt: null,
+      invalidatedAt: null,
+    },
+    { $set: { invalidatedAt: now } },
+  );
+  const [approveToken, rejectToken] = await Promise.all([
+    issueLeaveEmailActionToken({
+      leaveRequestId: leaveRequest._id,
+      approverId: recipient._id,
+      action: "approve",
+      now,
+      TokenModel,
+      env,
+    }),
+    issueLeaveEmailActionToken({
+      leaveRequestId: leaveRequest._id,
+      approverId: recipient._id,
+      action: "reject",
+      now,
+      TokenModel,
+      env,
+    }),
+  ]);
 
   return {
-    approveUrl: `${baseUrl}/approve`,
-    rejectUrl: `${baseUrl}/reject`,
+    approveUrl: `${backendUrl}/api/leave/email-action/${encodeURIComponent(approveToken.rawToken)}/approve`,
+    rejectUrl: `${backendUrl}/api/leave/email-action/${encodeURIComponent(rejectToken.rawToken)}/reject`,
   };
 };
 
@@ -114,6 +137,7 @@ const findTokenRecord = (TokenModel, tokenHash) =>
 
 export const inspectLeaveEmailActionToken = async ({
   rawToken,
+  action,
   now = new Date(),
   TokenModel = LeaveEmailActionToken,
 }) => {
@@ -128,6 +152,12 @@ export const inspectLeaveEmailActionToken = async ({
   if (!record || record.invalidatedAt) {
     throw new LeaveEmailActionError("This approval link is invalid.", {
       code: "INVALID_TOKEN",
+      status: 400,
+    });
+  }
+  if (record.action && record.action !== action) {
+    throw new LeaveEmailActionError("This approval link is invalid.", {
+      code: "ACTION_MISMATCH",
       status: 400,
     });
   }
@@ -149,10 +179,16 @@ export const inspectLeaveEmailActionToken = async ({
 
 export const claimLeaveEmailActionToken = async ({
   rawToken,
+  action,
   now = new Date(),
   TokenModel = LeaveEmailActionToken,
 }) => {
-  const inspected = await inspectLeaveEmailActionToken({ rawToken, now, TokenModel });
+  const inspected = await inspectLeaveEmailActionToken({
+    rawToken,
+    action,
+    now,
+    TokenModel,
+  });
   const claimed = await TokenModel.findOneAndUpdate(
     {
       _id: inspected._id,

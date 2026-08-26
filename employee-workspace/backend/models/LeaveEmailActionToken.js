@@ -14,6 +14,11 @@ const leaveEmailActionTokenSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    action: {
+      type: String,
+      enum: ["approve", "reject"],
+      default: null,
+    },
     tokenHash: {
       type: String,
       required: true,
@@ -40,6 +45,7 @@ const leaveEmailActionTokenSchema = new mongoose.Schema(
 leaveEmailActionTokenSchema.index({
   leaveRequestId: 1,
   approverId: 1,
+  action: 1,
   usedAt: 1,
   invalidatedAt: 1,
 });

@@ -8,7 +8,10 @@ import {
   hashLeaveEmailToken,
   inspectLeaveEmailActionToken,
 } from "../services/leaveEmailActionService.js";
-import { assertLeaveDecisionAuthorized } from "../services/leaveDecisionService.js";
+import {
+  assertLeaveDecisionAuthorized,
+  isLeaveDecisionRevision,
+} from "../services/leaveDecisionService.js";
 import { getEmailActionRejectionReason } from "../controllers/leaveEmailActionController.js";
 import { bypassApiCors } from "../services/corsPolicy.js";
 
@@ -79,6 +82,8 @@ test("action URLs are issued only for the assigned Manager and contain no leave 
   assert.match(urls.approveUrl, /\/email-action\/[^/]+\/approve$/);
   assert.match(urls.rejectUrl, /\/email-action\/[^/]+\/reject$/);
   assert.doesNotMatch(urls.approveUrl, /leave-123|manager-1/);
+  assert.notEqual(urls.approveUrl, urls.rejectUrl);
+  assert.deepEqual(TokenModel.records.map((record) => record.action).sort(), ["approve", "reject"]);
   assert.deepEqual(await createLeaveEmailActionUrls({
     leaveRequest,
     recipient: { _id: "hr-1", role: "HR" },
@@ -143,6 +148,27 @@ test("tampered and expired email action tokens are rejected", async () => {
   );
 });
 
+test("an action-specific token cannot be changed from approve to reject", async () => {
+  const TokenModel = createTokenModel();
+  TokenModel.records.push({
+    _id: "approve-only",
+    action: "approve",
+    tokenHash: hashLeaveEmailToken("approve-token"),
+    expiresAt: new Date("2026-08-27T00:00:00Z"),
+    usedAt: null,
+    invalidatedAt: null,
+  });
+  await assert.rejects(
+    inspectLeaveEmailActionToken({
+      rawToken: "approve-token",
+      action: "reject",
+      now: new Date("2026-08-26T00:00:00Z"),
+      TokenModel,
+    }),
+    (error) => error.code === "ACTION_MISMATCH",
+  );
+});
+
 test("a claimed token cannot be used twice", async () => {
   const TokenModel = createTokenModel();
   TokenModel.records.push({
@@ -176,4 +202,31 @@ test("decision authorization rejects a Manager not assigned to the leave", () =>
     },
     action: "approve",
   }), (error) => error.status === 403 && /not assigned/.test(error.message));
+});
+
+test("email decisions may revise only the opposite decision by the same role", () => {
+  assert.equal(isLeaveDecisionRevision({
+    finalStatus: "Approved by Manager",
+    role: "Manager",
+    action: "reject",
+    allowRevision: true,
+  }), true);
+  assert.equal(isLeaveDecisionRevision({
+    finalStatus: "Rejected by Manager",
+    role: "Manager",
+    action: "approve",
+    allowRevision: true,
+  }), true);
+  assert.equal(isLeaveDecisionRevision({
+    finalStatus: "Approved by HR",
+    role: "Manager",
+    action: "reject",
+    allowRevision: true,
+  }), false);
+  assert.equal(isLeaveDecisionRevision({
+    finalStatus: "Approved by Manager",
+    role: "Manager",
+    action: "reject",
+    allowRevision: false,
+  }), false);
 });

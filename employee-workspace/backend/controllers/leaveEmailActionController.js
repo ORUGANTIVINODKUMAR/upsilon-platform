@@ -38,8 +38,8 @@ const sendPage = (res, status, content) => {
 export const getEmailActionRejectionReason = (body) =>
   body?.rejectionReason || "";
 
-const getContext = async (rawToken) => {
-  const tokenRecord = await inspectLeaveEmailActionToken({ rawToken });
+const getContext = async (rawToken, action) => {
+  const tokenRecord = await inspectLeaveEmailActionToken({ rawToken, action });
   const [actor, leaveRequest] = await Promise.all([
     User.findById(tokenRecord.approverId).select("_id name email role isActive"),
     LeaveRequest.findById(tokenRecord.leaveRequestId).select("managerId finalStatus"),
@@ -62,7 +62,13 @@ const getContext = async (rawToken) => {
       { code: "FORBIDDEN", status: 403 },
     );
   }
-  if (!["Pending Final Approval", "Pending Reapproval"].includes(leaveRequest.finalStatus)) {
+  const oppositeManagerStatus = action === "approve"
+    ? "Rejected by Manager"
+    : "Approved by Manager";
+  if (
+    !["Pending Final Approval", "Pending Reapproval", oppositeManagerStatus]
+      .includes(leaveRequest.finalStatus)
+  ) {
     throw new LeaveEmailActionError("This leave request has already been processed.", {
       code: "ALREADY_PROCESSED",
       status: 409,
@@ -85,7 +91,7 @@ export const showLeaveEmailAction = async (req, res) => {
     if (!["approve", "reject"].includes(action)) {
       throw new LeaveEmailActionError("This approval link is invalid.", { status: 400 });
     }
-    await getContext(req.params.token);
+    await getContext(req.params.token, action);
 
     const form = action === "reject"
       ? `<form method="post"><label for="reason"><strong>Rejection reason</strong></label>
@@ -115,13 +121,14 @@ export const processLeaveEmailAction = async (req, res) => {
       throw new LeaveEmailActionError("Rejection reason is required.", { status: 400 });
     }
 
-    const { actor, tokenRecord } = await getContext(req.params.token);
-    await claimLeaveEmailActionToken({ rawToken: req.params.token });
+    const { actor, tokenRecord } = await getContext(req.params.token, action);
+    await claimLeaveEmailActionToken({ rawToken: req.params.token, action });
     const result = await processLeaveDecision({
       leaveRequestId: tokenRecord.leaveRequestId,
       actor,
       action,
       rejectionReason,
+      allowRevision: true,
     });
     if (result.alreadyProcessed) {
       throw new LeaveEmailActionError("This leave request has already been processed.", {
@@ -133,8 +140,12 @@ export const processLeaveEmailAction = async (req, res) => {
     return sendPage(res, 200, page({
       title: "Leave request",
       message: action === "approve"
-        ? "Leave request approved successfully."
-        : "Leave request rejected successfully.",
+        ? result.wasRevision
+          ? "Leave decision updated to approved successfully."
+          : "Leave request approved successfully."
+        : result.wasRevision
+          ? "Leave decision updated to rejected successfully."
+          : "Leave request rejected successfully.",
     }));
   } catch (error) {
     return renderError(res, error);
