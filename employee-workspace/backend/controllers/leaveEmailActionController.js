@@ -35,6 +35,9 @@ const sendPage = (res, status, content) => {
   return res.status(status).type("html").send(content);
 };
 
+export const getEmailActionRejectionReason = (body) =>
+  body?.rejectionReason || "";
+
 const getContext = async (rawToken) => {
   const tokenRecord = await inspectLeaveEmailActionToken({ rawToken });
   const [actor, leaveRequest] = await Promise.all([
@@ -104,10 +107,11 @@ export const showLeaveEmailAction = async (req, res) => {
 export const processLeaveEmailAction = async (req, res) => {
   try {
     const action = req.params.action;
+    const rejectionReason = getEmailActionRejectionReason(req.body);
     if (!["approve", "reject"].includes(action)) {
       throw new LeaveEmailActionError("This approval link is invalid.", { status: 400 });
     }
-    if (action === "reject" && !req.body.rejectionReason?.trim()) {
+    if (action === "reject" && !rejectionReason.trim()) {
       throw new LeaveEmailActionError("Rejection reason is required.", { status: 400 });
     }
 
@@ -117,7 +121,7 @@ export const processLeaveEmailAction = async (req, res) => {
       leaveRequestId: tokenRecord.leaveRequestId,
       actor,
       action,
-      rejectionReason: req.body.rejectionReason || "",
+      rejectionReason,
     });
     if (result.alreadyProcessed) {
       throw new LeaveEmailActionError("This leave request has already been processed.", {

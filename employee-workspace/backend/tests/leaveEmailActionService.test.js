@@ -9,6 +9,7 @@ import {
   inspectLeaveEmailActionToken,
 } from "../services/leaveEmailActionService.js";
 import { assertLeaveDecisionAuthorized } from "../services/leaveDecisionService.js";
+import { getEmailActionRejectionReason } from "../controllers/leaveEmailActionController.js";
 
 const createTokenModel = () => {
   const records = [];
@@ -45,6 +46,12 @@ const createTokenModel = () => {
     },
   };
 };
+
+test("approval submission accepts an empty form body", () => {
+  assert.equal(getEmailActionRejectionReason(undefined), "");
+  assert.equal(getEmailActionRejectionReason({}), "");
+  assert.equal(getEmailActionRejectionReason({ rejectionReason: "Not feasible" }), "Not feasible");
+});
 
 test("action URLs are issued only for the assigned Manager and contain no leave ID", async () => {
   const TokenModel = createTokenModel();
