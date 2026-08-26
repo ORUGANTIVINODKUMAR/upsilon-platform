@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   claimLeaveEmailActionToken,
   createLeaveEmailActionUrls,
+  getBackendPublicUrl,
   hashLeaveEmailToken,
   inspectLeaveEmailActionToken,
 } from "../services/leaveEmailActionService.js";
@@ -76,6 +77,34 @@ test("production action links require a public HTTPS backend URL", async () => {
     env: { BACKEND_PUBLIC_URL: "http://api.example.com", NODE_ENV: "production" },
     TokenModel: createTokenModel(),
   }), (error) => error.code === "INVALID_CONFIGURATION");
+});
+
+test("Render's automatic public URL is used when no explicit override exists", async () => {
+  assert.equal(getBackendPublicUrl({
+    RENDER_EXTERNAL_URL: "https://upsilon-platform1.onrender.com",
+    NODE_ENV: "production",
+  }), "https://upsilon-platform1.onrender.com");
+
+  const TokenModel = createTokenModel();
+  const urls = await createLeaveEmailActionUrls({
+    leaveRequest: { _id: "leave-1", managerId: "manager-1", finalStatus: "Pending Final Approval" },
+    recipient: { _id: "manager-1", role: "Manager" },
+    env: {
+      RENDER_EXTERNAL_URL: "https://upsilon-platform1.onrender.com",
+      NODE_ENV: "production",
+    },
+    TokenModel,
+  });
+  assert.match(urls.approveUrl, /^https:\/\/upsilon-platform1\.onrender\.com\/api\/leave\/email-action\//);
+});
+
+test("an assigned Manager fails loudly when no public URL is available", async () => {
+  await assert.rejects(createLeaveEmailActionUrls({
+    leaveRequest: { _id: "leave-1", managerId: "manager-1", finalStatus: "Pending Final Approval" },
+    recipient: { _id: "manager-1", role: "Manager" },
+    env: {},
+    TokenModel: createTokenModel(),
+  }), (error) => error.code === "MISSING_PUBLIC_URL");
 });
 
 test("tampered and expired email action tokens are rejected", async () => {

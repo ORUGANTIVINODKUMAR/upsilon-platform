@@ -22,20 +22,28 @@ export const getLeaveEmailActionTtlHours = (env = process.env) => {
   return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_TTL_HOURS;
 };
 
-const getBackendPublicUrl = (env = process.env) => {
-  const configured = env.BACKEND_PUBLIC_URL?.trim();
+export const getBackendPublicUrl = (env = process.env) => {
+  // Render supplies RENDER_EXTERNAL_URL automatically. BACKEND_PUBLIC_URL
+  // remains an explicit override for custom domains and other hosts.
+  const configured = (
+    env.BACKEND_PUBLIC_URL
+    || env.RENDER_EXTERNAL_URL
+    || (env.RENDER_EXTERNAL_HOSTNAME
+      ? `https://${env.RENDER_EXTERNAL_HOSTNAME}`
+      : "")
+  ).trim();
   if (!configured) return "";
   let url;
   try {
     url = new URL(configured);
   } catch {
-    throw new LeaveEmailActionError("BACKEND_PUBLIC_URL must be an absolute URL.", {
+    throw new LeaveEmailActionError("The public backend URL must be an absolute URL.", {
       code: "INVALID_CONFIGURATION",
       status: 500,
     });
   }
   if (env.NODE_ENV === "production" && url.protocol !== "https:") {
-    throw new LeaveEmailActionError("BACKEND_PUBLIC_URL must use HTTPS in production.", {
+    throw new LeaveEmailActionError("The public backend URL must use HTTPS in production.", {
       code: "INVALID_CONFIGURATION",
       status: 500,
     });
@@ -76,8 +84,14 @@ export const createLeaveEmailActionUrls = async ({
     recipient?.role === "Manager"
     && recipient?._id?.toString() === leaveRequest.managerId?.toString();
 
-  if (!backendUrl || !isAssignedManager || !PENDING_STATUSES.has(leaveRequest.finalStatus)) {
+  if (!isAssignedManager || !PENDING_STATUSES.has(leaveRequest.finalStatus)) {
     return {};
+  }
+  if (!backendUrl) {
+    throw new LeaveEmailActionError(
+      "No public backend URL is available for Manager email actions.",
+      { code: "MISSING_PUBLIC_URL", status: 500 },
+    );
   }
 
   const { rawToken } = await issueLeaveEmailActionToken({
