@@ -27,8 +27,17 @@ import {
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
 import upload from "../middleware/uploadMiddleware.js";
+import {
+  processLeaveEmailAction,
+  showLeaveEmailAction,
+} from "../controllers/leaveEmailActionController.js";
 
 const router = express.Router();
+
+// Public bearer-token routes used by Outlook. GET only shows a confirmation
+// form, preventing email security scanners from changing leave state.
+router.get("/email-action/:token/:action", showLeaveEmailAction);
+router.post("/email-action/:token/:action", processLeaveEmailAction);
 
 /*
 |--------------------------------------------------------------------------

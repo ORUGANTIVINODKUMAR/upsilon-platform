@@ -61,25 +61,40 @@ export const sendLeaveRequestEmail = async ({
   reason,
   status,
   reviewUrl,
+  approveUrl,
+  rejectUrl,
   notificationTitle = "New Leave Request Submitted",
 }) => {
   return sendEmail({
     to,
     subject: notificationTitle,
-    html: buildLeaveRequestEmail({ employeeName, leaveType, startDate, endDate, workingDays, reason, status, reviewUrl, notificationTitle }),
+    html: buildLeaveRequestEmail({ employeeName, leaveType, startDate, endDate, workingDays, reason, status, reviewUrl, approveUrl, rejectUrl, notificationTitle }),
     messageType: "leave-request",
   });
 };
 
-export const sendLeaveRequestNotification = async ({ recipients, employee, leaveRequest, reviewUrl, notificationTitle, send = sendLeaveRequestEmail }) => {
+export const sendLeaveRequestNotification = async ({ recipients, employee, leaveRequest, reviewUrl, notificationTitle, createActionUrls, send = sendLeaveRequestEmail }) => {
   console.info("[email] Leave notification recipients resolved", {
     leaveRequestId: leaveRequest._id?.toString(),
     recipientCount: recipients.length,
     roles: [...new Set(recipients.map((recipient) => recipient.role))],
   });
 
-  const results = await Promise.allSettled(recipients.map((recipient) =>
-    send({
+  const results = await Promise.allSettled(recipients.map(async (recipient) => {
+    let actionUrls = {};
+    if (createActionUrls) {
+      try {
+        actionUrls = await createActionUrls(recipient);
+      } catch (error) {
+        // Action-link persistence must never suppress the existing notification.
+        console.error("[email] Leave action links unavailable", {
+          leaveRequestId: leaveRequest._id?.toString(),
+          recipientRole: recipient.role,
+          message: error.message,
+        });
+      }
+    }
+    return send({
       to: recipient.email,
       employeeName: employee.name,
       leaveType: leaveRequest.leaveType,
@@ -89,9 +104,10 @@ export const sendLeaveRequestNotification = async ({ recipients, employee, leave
       reason: leaveRequest.reason,
       status: leaveRequest.finalStatus,
       reviewUrl,
+      ...actionUrls,
       notificationTitle,
-    })
-  ));
+    });
+  }));
   const failures = results.filter((result) => result.status === "rejected");
   if (failures.length) {
     console.error("[email] Leave request notification incomplete", {

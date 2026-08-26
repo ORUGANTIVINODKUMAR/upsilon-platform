@@ -1,0 +1,133 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  claimLeaveEmailActionToken,
+  createLeaveEmailActionUrls,
+  hashLeaveEmailToken,
+  inspectLeaveEmailActionToken,
+} from "../services/leaveEmailActionService.js";
+import { assertLeaveDecisionAuthorized } from "../services/leaveDecisionService.js";
+
+const createTokenModel = () => {
+  const records = [];
+  return {
+    records,
+    async updateMany(filter, update) {
+      for (const record of records) {
+        if (
+          record.leaveRequestId === filter.leaveRequestId
+          && record.approverId === filter.approverId
+          && !record.usedAt
+          && !record.invalidatedAt
+        ) Object.assign(record, update.$set);
+      }
+    },
+    async create(input) {
+      const record = { _id: `token-${records.length + 1}`, usedAt: null, invalidatedAt: null, ...input };
+      records.push(record);
+      return record;
+    },
+    findOne({ tokenHash }) {
+      return { select: async () => records.find((record) => record.tokenHash === tokenHash) || null };
+    },
+    async findOneAndUpdate(filter, update) {
+      const record = records.find((item) =>
+        item._id === filter._id
+        && !item.usedAt
+        && !item.invalidatedAt
+        && item.expiresAt > filter.expiresAt.$gt
+      );
+      if (!record) return null;
+      Object.assign(record, update.$set);
+      return record;
+    },
+  };
+};
+
+test("action URLs are issued only for the assigned Manager and contain no leave ID", async () => {
+  const TokenModel = createTokenModel();
+  const leaveRequest = {
+    _id: "leave-123",
+    managerId: "manager-1",
+    finalStatus: "Pending Final Approval",
+  };
+  const urls = await createLeaveEmailActionUrls({
+    leaveRequest,
+    recipient: { _id: "manager-1", role: "Manager" },
+    env: { BACKEND_PUBLIC_URL: "https://api.example.com", LEAVE_EMAIL_ACTION_TTL_HOURS: "2" },
+    TokenModel,
+  });
+  assert.match(urls.approveUrl, /\/email-action\/[^/]+\/approve$/);
+  assert.match(urls.rejectUrl, /\/email-action\/[^/]+\/reject$/);
+  assert.doesNotMatch(urls.approveUrl, /leave-123|manager-1/);
+  assert.deepEqual(await createLeaveEmailActionUrls({
+    leaveRequest,
+    recipient: { _id: "hr-1", role: "HR" },
+    env: { BACKEND_PUBLIC_URL: "https://api.example.com" },
+    TokenModel,
+  }), {});
+});
+
+test("production action links require a public HTTPS backend URL", async () => {
+  await assert.rejects(createLeaveEmailActionUrls({
+    leaveRequest: { _id: "leave-1", managerId: "manager-1", finalStatus: "Pending Final Approval" },
+    recipient: { _id: "manager-1", role: "Manager" },
+    env: { BACKEND_PUBLIC_URL: "http://api.example.com", NODE_ENV: "production" },
+    TokenModel: createTokenModel(),
+  }), (error) => error.code === "INVALID_CONFIGURATION");
+});
+
+test("tampered and expired email action tokens are rejected", async () => {
+  const TokenModel = createTokenModel();
+  TokenModel.records.push({
+    _id: "expired",
+    tokenHash: hashLeaveEmailToken("expired-token"),
+    expiresAt: new Date("2026-08-25T00:00:00Z"),
+    usedAt: null,
+    invalidatedAt: null,
+  });
+  await assert.rejects(
+    inspectLeaveEmailActionToken({ rawToken: "modified-token", TokenModel }),
+    (error) => error.code === "INVALID_TOKEN",
+  );
+  await assert.rejects(
+    inspectLeaveEmailActionToken({ rawToken: "expired-token", now: new Date("2026-08-26T00:00:00Z"), TokenModel }),
+    (error) => error.code === "EXPIRED_TOKEN",
+  );
+});
+
+test("a claimed token cannot be used twice", async () => {
+  const TokenModel = createTokenModel();
+  TokenModel.records.push({
+    _id: "active",
+    tokenHash: hashLeaveEmailToken("one-use-token"),
+    expiresAt: new Date("2026-08-27T00:00:00Z"),
+    usedAt: null,
+    invalidatedAt: null,
+  });
+  await claimLeaveEmailActionToken({
+    rawToken: "one-use-token",
+    now: new Date("2026-08-26T00:00:00Z"),
+    TokenModel,
+  });
+  await assert.rejects(
+    claimLeaveEmailActionToken({
+      rawToken: "one-use-token",
+      now: new Date("2026-08-26T00:00:01Z"),
+      TokenModel,
+    }),
+    (error) => error.code === "ALREADY_PROCESSED",
+  );
+});
+
+test("decision authorization rejects a Manager not assigned to the leave", () => {
+  assert.throws(() => assertLeaveDecisionAuthorized({
+    actor: { _id: "manager-2", role: "Manager" },
+    leaveRequest: {
+      employeeId: { _id: "employee-1", role: "Employee" },
+      managerId: "manager-1",
+    },
+    action: "approve",
+  }), (error) => error.status === 403 && /not assigned/.test(error.message));
+});

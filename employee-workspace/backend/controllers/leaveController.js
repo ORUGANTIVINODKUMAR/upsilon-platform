@@ -9,7 +9,6 @@ import {
 
 import {
   sendDecisionEmail,
-  sendFinanceLeaveEmail,
   sendLeaveRequestNotification,
 } from "../services/emailService.js";
 import {
@@ -39,6 +38,8 @@ import {
   applyManagedLeaveStatus,
   getManagedLeaveStatuses,
 } from "../services/leaveStatusTransitionService.js";
+import { processLeaveDecision } from "../services/leaveDecisionService.js";
+import { createLeaveEmailActionUrls } from "../services/leaveEmailActionService.js";
 
 const APPROVED_LEAVE_STATUSES = [
   "Approved by Manager",
@@ -615,6 +616,7 @@ export const createLeaveRequest = async (
       employee,
       leaveRequest,
       reviewUrl: workspaceUrl ? `${workspaceUrl}/dashboard?page=managerApprovals` : "",
+      createActionUrls: (recipient) => createLeaveEmailActionUrls({ leaveRequest, recipient }),
     });
 
     return res.status(201).json({
@@ -1114,6 +1116,7 @@ export const updateMyLeaveRequest = async (
       leaveRequest,
       notificationTitle,
       reviewUrl: workspaceUrl ? `${workspaceUrl}/dashboard?page=managerApprovals` : "",
+      createActionUrls: (recipient) => createLeaveEmailActionUrls({ leaveRequest, recipient }),
     });
 
     const updatedLeaveRequest =
@@ -2139,349 +2142,44 @@ export const approveLeaveByManager = async (
   res
 ) => {
   try {
-    if (
-      !["Manager", "HR"].includes(
-        req.user.role
-      )
-    ) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Only Manager or HR can approve leave",
-      });
-    }
-
-    const leaveRequest =
-      await LeaveRequest.findById(
-        req.params.id
-      ).populate(
-        "employeeId",
-        "name email employeeId role"
-      );
-
-    if (!leaveRequest) {
-      return res.status(404).json({
-        success: false,
-        message:
-          "Leave request not found",
-      });
-    }
-
-    if (leaveRequest.employeeId._id.toString() === req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "You cannot approve your own leave request",
-      });
-    }
-
-    if (!canApproverManageLeave({
-      approverRole: req.user.role,
-      applicantRole: leaveRequest.employeeId.role,
-    })) {
-      return res.status(403).json({
-        success: false,
-        message: "HR leave requests must be reviewed by the assigned Manager",
-      });
-    }
-
-    if (APPROVED_LEAVE_STATUSES.includes(leaveRequest.finalStatus)) {
-      if (
-        req.user.role === "Manager" &&
-        leaveRequest.managerId?.toString() !== req.user._id.toString()
-      ) {
-        return res.status(403).json({
-          success: false,
-          message: "You are not assigned as Manager for this leave request",
+    const decision = await processLeaveDecision({
+      leaveRequestId: req.params.id,
+      actor: req.user,
+      action: "approve",
+    });
+    if (decision.alreadyProcessed) {
+      if (decision.alreadyApproved) {
+        return res.status(200).json({
+          success: true,
+          message: "Leave was already approved; balance is already up to date",
+          leaveRequest: decision.leaveRequest,
         });
       }
-
-      await syncApprovedLeaveLedger(leaveRequest, req.user._id);
-      return res.status(200).json({
-        success: true,
-        message: "Leave was already approved; balance is already up to date",
-        leaveRequest,
-      });
-    }
-
-    if (
-      !PENDING_LEAVE_STATUSES.includes(
-        leaveRequest.finalStatus
-      )
-    ) {
       return res.status(400).json({
         success: false,
-        message:
-          "This leave request is not awaiting approval",
+        message: "This leave request is not awaiting approval",
       });
     }
-
-    if (
-      req.user.role ===
-        "Manager" &&
-      leaveRequest.managerId?.toString() !==
-        req.user._id.toString()
-    ) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "You are not assigned as Manager for this leave request",
-      });
-    }
-
-    const wasReapproval =
-      leaveRequest.finalStatus ===
-      "Pending Reapproval";
-
-    if (
-      req.user.role ===
-      "Manager"
-    ) {
-      leaveRequest.managerStatus =
-        "Approved";
-
-      leaveRequest.managerApprovedBy =
-        req.user._id;
-
-      leaveRequest.managerApprovedAt =
-        new Date();
-
-      leaveRequest.managerRejectionReason =
-        "";
-
-      leaveRequest.finalStatus =
-        "Approved by Manager";
-    }
-
-    if (
-      req.user.role === "HR"
-    ) {
-      leaveRequest.hrStatus =
-        "Approved";
-
-      leaveRequest.hrApprovedBy =
-        req.user._id;
-
-      leaveRequest.hrApprovedAt =
-        new Date();
-
-      leaveRequest.hrRejectionReason =
-        "";
-
-      leaveRequest.finalStatus =
-        "Approved by HR";
-    }
-
-    leaveRequest.rejectionReason =
-      "";
-
-    leaveRequest.requiresReapproval =
-      false;
-
-    leaveRequest.approvalHistory.push({
-      level:
-        req.user.role,
-
-      action:
-        "Approved",
-
-      actedBy:
-        req.user._id,
-
-      remarks:
-        wasReapproval
-          ? `Reapproved by ${req.user.role}`
-          : `Approved by ${req.user.role}`,
-    });
-
-    await leaveRequest.save();
-
-    await syncApprovedLeaveLedger(leaveRequest, req.user._id);
-
-    await createNotification({
-      recipientId:
-        leaveRequest.employeeId._id,
-
-      title:
-        wasReapproval
-          ? "Updated Leave Reapproved"
-          : "Leave Approved",
-
-      message:
-        wasReapproval
-          ? `Your updated leave request was reapproved by ${req.user.role}.`
-          : `Your leave request was approved by ${req.user.role}.`,
-
-      link:
-        "/dashboard",
-    });
-
-    if (
-      leaveRequest.employeeId.email
-    ) {
-      sendDecisionEmail({
-        to:
-          leaveRequest.employeeId.email,
-
-        subject:
-          wasReapproval
-            ? "Updated Leave Request Reapproved"
-            : "Leave Request Approved",
-
-        title:
-          wasReapproval
-            ? "Updated Leave Request Reapproved"
-            : "Leave Request Approved",
-
-        employeeName:
-          leaveRequest.employeeId.name,
-
-        requestType:
-          "Leave",
-
-        status:
-          "Approved",
-
-        leaveType:
-          leaveRequest.leaveType,
-
-        startDate:
-          leaveRequest.startDate,
-
-        endDate:
-          leaveRequest.endDate,
-
-        approverName:
-          req.user.name,
-
-        approverRole:
-          req.user.role,
-      }).catch(
-        (emailError) => {
-          console.log(
-            "Leave approval email failed:",
-            emailError.message
-          );
-        }
-      );
-    }
-
-    const financeUsers =
-      await User.find({
-        role: "Finance",
-        isActive: true,
-      }).select(
-        "_id email"
-      );
-
-    await Promise.all(
-      financeUsers.map(
-        (financeUser) =>
-          createNotification({
-            recipientId:
-              financeUser._id,
-
-            title:
-              wasReapproval
-                ? "Reapproved Leave Details"
-                : "Approved Leave Details",
-
-            message:
-              `${leaveRequest.employeeId.name} has an approved ${leaveRequest.leaveType} leave request.`,
-
-            link:
-              "/dashboard",
-          })
-      )
-    );
-
-    Promise.all(
-      financeUsers
-        .filter(
-          (financeUser) =>
-            financeUser.email
-        )
-        .map(
-          (financeUser) =>
-            sendFinanceLeaveEmail({
-              to:
-                financeUser.email,
-
-              employeeName:
-                leaveRequest
-                  .employeeId.name,
-
-              leaveType:
-                leaveRequest.leaveType,
-
-              startDate:
-                leaveRequest.startDate,
-
-              endDate:
-                leaveRequest.endDate,
-
-              workingDays:
-                leaveRequest.workingDays,
-
-              status:
-                leaveRequest.finalStatus,
-            })
-        )
-    ).catch((emailError) => {
-      console.log(
-        "Finance leave email failed:",
-        emailError.message
-      );
-    });
-
-    const updatedLeaveRequest =
-      await LeaveRequest.findById(
-        leaveRequest._id
-      )
-        .populate(
-          "employeeId",
-          "name email employeeId designation role profilePhoto"
-        )
-        .populate(
-          "subcategoryId",
-          "name"
-        )
-        .populate(
-          "teamId",
-          "name"
-        )
-        .populate(
-          "teamLeaderId",
-          "name email role"
-        )
-        .populate(
-          "managerApprovedBy",
-          "name email role"
-        )
-        .populate(
-          "hrApprovedBy",
-          "name email role"
-        )
-        .populate(
-          "lastEditedBy",
-          "name email role"
-        );
-
     return res.status(200).json({
       success: true,
-
-      message:
-        wasReapproval
-          ? "Leave reapproved successfully"
-          : "Leave approved successfully",
-
-      leaveRequest:
-        updatedLeaveRequest,
+      message: decision.wasReapproval
+        ? "Leave reapproved successfully"
+        : "Leave approved successfully",
+      leaveRequest: decision.leaveRequest,
     });
+
   } catch (error) {
     console.error(
       "APPROVE LEAVE BY MANAGER OR HR ERROR:",
       error
     );
+
+    if (error.status) {
+      return res.status(error.status).json({
+        success: false,
+        message: error.message,
+      });
+    }
 
     if (
       error.name ===
@@ -2528,270 +2226,38 @@ export const rejectLeaveByManager = async (
   res
 ) => {
   try {
-    if (
-      !["Manager", "HR"].includes(
-        req.user.role
-      )
-    ) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Only Manager or HR can reject leave",
-      });
-    }
-
-    const {
-      rejectionReason,
-    } = req.body;
-
-    if (
-      !rejectionReason?.trim()
-    ) {
+    const decision = await processLeaveDecision({
+      leaveRequestId: req.params.id,
+      actor: req.user,
+      action: "reject",
+      rejectionReason: req.body.rejectionReason || "",
+    });
+    if (decision.alreadyProcessed) {
       return res.status(400).json({
         success: false,
-        message:
-          "Rejection reason is required",
+        message: "This leave request is not awaiting approval",
       });
     }
-
-    const leaveRequest =
-      await LeaveRequest.findById(
-        req.params.id
-      ).populate(
-        "employeeId",
-        "name email employeeId role"
-      );
-
-    if (!leaveRequest) {
-      return res.status(404).json({
-        success: false,
-        message:
-          "Leave request not found",
-      });
-    }
-
-    if (leaveRequest.employeeId._id.toString() === req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "You cannot reject your own leave request",
-      });
-    }
-
-    if (!canApproverManageLeave({
-      approverRole: req.user.role,
-      applicantRole: leaveRequest.employeeId.role,
-    })) {
-      return res.status(403).json({
-        success: false,
-        message: "HR leave requests must be reviewed by the assigned Manager",
-      });
-    }
-
-    if (
-      !PENDING_LEAVE_STATUSES.includes(
-        leaveRequest.finalStatus
-      )
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "This leave request is not awaiting approval",
-      });
-    }
-
-    if (
-      req.user.role ===
-        "Manager" &&
-      leaveRequest.managerId?.toString() !==
-        req.user._id.toString()
-    ) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "You are not assigned as Manager for this leave request",
-      });
-    }
-
-    const wasReapproval =
-      leaveRequest.finalStatus ===
-      "Pending Reapproval";
-
-    const trimmedReason =
-      rejectionReason.trim();
-
-    if (
-      req.user.role ===
-      "Manager"
-    ) {
-      leaveRequest.managerStatus =
-        "Rejected";
-
-      leaveRequest.managerRejectionReason =
-        trimmedReason;
-
-      leaveRequest.finalStatus =
-        "Rejected by Manager";
-    }
-
-    if (
-      req.user.role === "HR"
-    ) {
-      leaveRequest.hrStatus =
-        "Rejected";
-
-      leaveRequest.hrRejectionReason =
-        trimmedReason;
-
-      leaveRequest.finalStatus =
-        "Rejected by HR";
-    }
-
-    leaveRequest.rejectionReason =
-      trimmedReason;
-
-    leaveRequest.requiresReapproval =
-      false;
-
-    leaveRequest.approvalHistory.push({
-      level:
-        req.user.role,
-
-      action:
-        "Rejected",
-
-      actedBy:
-        req.user._id,
-
-      remarks:
-        wasReapproval
-          ? `Updated leave rejected by ${req.user.role}: ${trimmedReason}`
-          : trimmedReason,
-    });
-
-    await leaveRequest.save();
-
-    await syncApprovedLeaveLedger(leaveRequest, req.user._id);
-
-    await createNotification({
-      recipientId:
-        leaveRequest.employeeId._id,
-
-      title:
-        wasReapproval
-          ? "Updated Leave Rejected"
-          : "Leave Rejected",
-
-      message:
-        wasReapproval
-          ? `Your updated leave request was rejected by ${req.user.role}. Reason: ${trimmedReason}`
-          : `Your leave request was rejected by ${req.user.role}. Reason: ${trimmedReason}`,
-
-      link:
-        "/dashboard",
-    });
-
-    if (
-      leaveRequest.employeeId.email
-    ) {
-      sendDecisionEmail({
-        to:
-          leaveRequest.employeeId.email,
-
-        subject:
-          wasReapproval
-            ? "Updated Leave Request Rejected"
-            : "Leave Request Rejected",
-
-        title:
-          wasReapproval
-            ? "Updated Leave Request Rejected"
-            : "Leave Request Rejected",
-
-        employeeName:
-          leaveRequest.employeeId.name,
-
-        requestType:
-          "Leave",
-
-        status:
-          "Rejected",
-
-        rejectionReason:
-          trimmedReason,
-
-        leaveType:
-          leaveRequest.leaveType,
-
-        startDate:
-          leaveRequest.startDate,
-
-        endDate:
-          leaveRequest.endDate,
-
-        approverName:
-          req.user.name,
-
-        approverRole:
-          req.user.role,
-      }).catch(
-        (emailError) => {
-          console.log(
-            "Leave rejection email failed:",
-            emailError.message
-          );
-        }
-      );
-    }
-
-    const updatedLeaveRequest =
-      await LeaveRequest.findById(
-        leaveRequest._id
-      )
-        .populate(
-          "employeeId",
-          "name email employeeId designation role profilePhoto"
-        )
-        .populate(
-          "subcategoryId",
-          "name"
-        )
-        .populate(
-          "teamId",
-          "name"
-        )
-        .populate(
-          "teamLeaderId",
-          "name email role"
-        )
-        .populate(
-          "managerApprovedBy",
-          "name email role"
-        )
-        .populate(
-          "hrApprovedBy",
-          "name email role"
-        )
-        .populate(
-          "lastEditedBy",
-          "name email role"
-        );
-
     return res.status(200).json({
       success: true,
-
-      message:
-        wasReapproval
-          ? "Updated leave rejected successfully"
-          : "Leave rejected successfully",
-
-      leaveRequest:
-        updatedLeaveRequest,
+      message: decision.wasReapproval
+        ? "Updated leave rejected successfully"
+        : "Leave rejected successfully",
+      leaveRequest: decision.leaveRequest,
     });
+
   } catch (error) {
     console.error(
       "REJECT LEAVE BY MANAGER OR HR ERROR:",
       error
     );
+
+    if (error.status) {
+      return res.status(error.status).json({
+        success: false,
+        message: error.message,
+      });
+    }
 
     if (
       error.name ===

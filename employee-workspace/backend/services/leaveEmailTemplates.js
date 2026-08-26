@@ -27,7 +27,7 @@ export const getLeaveDurationLabel = (leave) => {
   return `${formatDate(leave.startDate)} to ${formatDate(leave.endDate)}`;
 };
 
-export const buildLeaveRequestEmail = ({ employeeName, leaveType, startDate, endDate, workingDays, reason, status, reviewUrl, notificationTitle = "New Leave Request" }) => `
+export const buildLeaveRequestEmail = ({ employeeName, leaveType, startDate, endDate, workingDays, reason, status, reviewUrl, approveUrl, rejectUrl, notificationTitle = "New Leave Request" }) => `
   <div style="font-family:Arial,sans-serif;color:#14231d;line-height:1.5;max-width:680px;margin:auto">
     <h2 style="color:#075b45">${escapeHtml(notificationTitle)}</h2>
     <p>A leave request has changed and may require your attention.</p>
@@ -36,7 +36,12 @@ export const buildLeaveRequestEmail = ({ employeeName, leaveType, startDate, end
       ["Start date", formatDate(startDate)], ["End date", formatDate(endDate)],
       ["Leave days", workingDays], ["Reason", reason], ["Status", status],
     ])}
-    ${reviewUrl ? `<p style="margin-top:24px"><a href="${escapeHtml(reviewUrl)}" style="background:#075b45;color:#fff;padding:11px 18px;border-radius:7px;text-decoration:none">Review leave request</a></p>` : ""}
+    ${approveUrl && rejectUrl ? `
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:24px"><tr>
+        <td style="padding-right:10px"><a href="${escapeHtml(approveUrl)}" style="display:inline-block;background:#075b45;color:#fff;padding:11px 18px;border-radius:7px;text-decoration:none;font-weight:bold">Approve Leave</a></td>
+        <td><a href="${escapeHtml(rejectUrl)}" style="display:inline-block;background:#a12828;color:#fff;padding:11px 18px;border-radius:7px;text-decoration:none;font-weight:bold">Reject Leave</a></td>
+      </tr></table>` : ""}
+    ${reviewUrl ? `<p style="margin-top:20px"><a href="${escapeHtml(reviewUrl)}" style="color:#075b45;font-weight:bold">View in Workspace</a></p>` : ""}
   </div>`;
 
 export const buildDailyLeaveSummaryEmail = ({ date, leaves, scopeLabel }) => {

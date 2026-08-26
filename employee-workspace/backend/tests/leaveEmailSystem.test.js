@@ -67,14 +67,19 @@ test("notification delivery attempts both Manager and HR and includes all leave 
   const result = await sendLeaveRequestNotification({
     recipients: [users.manager, users.hr], employee: users.employee, leaveRequest,
     reviewUrl: "https://workspace.example.com/dashboard?page=managerApprovals",
+    createActionUrls: async (recipient) => recipient.role === "Manager" ? {
+      approveUrl: "https://api.example.com/api/leave/email-action/secure-token/approve",
+      rejectUrl: "https://api.example.com/api/leave/email-action/secure-token/reject",
+    } : {},
     send: async (message) => messages.push(message),
   });
   assert.deepEqual(result, { attempted: 2, sent: 2, failed: 0 });
   assert.deepEqual(messages.map((message) => message.to), [users.manager.email, users.hr.email]);
   const html = buildLeaveRequestEmail(messages[0]);
-  for (const value of ["John Doe", "Sick", "Medical recovery", "Pending Final Approval", "2", "Review leave request"]) {
+  for (const value of ["John Doe", "Sick", "Medical recovery", "Pending Final Approval", "2", "Approve Leave", "Reject Leave", "View in Workspace"]) {
     assert.match(html, new RegExp(value));
   }
+  assert.equal(messages[1].approveUrl, undefined);
 });
 
 test("email delivery failure is returned to the caller instead of being swallowed", async () => {
@@ -84,6 +89,20 @@ test("email delivery failure is returned to the caller instead of being swallowe
     send: async ({ to }) => { if (to === users.manager.email) throw new Error("SMTP unavailable"); },
   });
   assert.deepEqual(result, { attempted: 2, sent: 1, failed: 1 });
+});
+
+test("action-link failure does not suppress the existing Manager notification", async () => {
+  const messages = [];
+  const result = await sendLeaveRequestNotification({
+    recipients: [users.manager],
+    employee: users.employee,
+    leaveRequest: { _id: "leave-3", leaveType: "Casual", startDate: new Date(), endDate: new Date(), workingDays: 1, reason: "Personal", finalStatus: "Pending Final Approval" },
+    createActionUrls: async () => { throw new Error("token store unavailable"); },
+    send: async (message) => messages.push(message),
+  });
+  assert.deepEqual(result, { attempted: 1, sent: 1, failed: 0 });
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].approveUrl, undefined);
 });
 
 test("date filtering includes current and spanning leave but excludes unrelated dates", () => {
