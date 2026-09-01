@@ -35,6 +35,11 @@ const escapeRegex = (value) =>
 const hasAtMostTwoDecimalPlaces = (value) =>
   Math.abs(value * 100 - Math.round(value * 100)) < 1e-8;
 
+const ADJUSTMENT_ENTRY_TYPES = {
+  available: "HR_ADJUSTMENT",
+  paidUsed: "PAID_USED_ADJUSTMENT",
+};
+
 export const getMyLeaveBalance = async (req, res) => {
   try {
     if (!requirePersonalLeaveRole(req, res)) return;
@@ -137,6 +142,9 @@ export const createHrLeaveAdjustment = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid user ID" });
     }
 
+    const field = ADJUSTMENT_ENTRY_TYPES[req.body.field] ? req.body.field : "available";
+    const entryType = ADJUSTMENT_ENTRY_TYPES[field];
+
     const amount = Number(req.body.amount);
     const reason = req.body.reason?.trim() || "";
     if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 365) {
@@ -169,7 +177,7 @@ export const createHrLeaveAdjustment = async (req, res) => {
     const now = new Date();
     await LeaveBalanceLedger.create({
       userId: user._id,
-      entryType: "HR_ADJUSTMENT",
+      entryType,
       period: toPeriod(now),
       amount,
       leaveDays: 0,
@@ -182,7 +190,10 @@ export const createHrLeaveAdjustment = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Leave balance adjustment recorded",
+      message:
+        field === "paidUsed"
+          ? "Paid leave used adjustment recorded"
+          : "Leave balance adjustment recorded",
       balance,
     });
   } catch (error) {

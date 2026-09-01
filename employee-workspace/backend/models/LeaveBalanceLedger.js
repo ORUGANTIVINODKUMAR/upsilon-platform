@@ -15,6 +15,7 @@ const leaveBalanceLedgerSchema = new mongoose.Schema(
         "APPROVED_LEAVE",
         "UNINFORMED_ABSENCE",
         "HR_ADJUSTMENT",
+        "PAID_USED_ADJUSTMENT",
       ],
       required: true,
       index: true,

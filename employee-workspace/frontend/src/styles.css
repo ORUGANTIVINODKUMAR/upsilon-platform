@@ -2737,6 +2737,12 @@ body {
   line-height: 1.4;
 }
 
+.balance-action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .balance-adjust-button {
   padding: 8px 11px;
   border-radius: 10px;
@@ -2749,6 +2755,15 @@ body {
   background: #138653;
   transform: translateY(-1px);
   box-shadow: 0 7px 14px rgba(20, 134, 83, 0.18);
+}
+
+.balance-adjust-button--secondary {
+  background: #d97706;
+}
+
+.balance-adjust-button--secondary:hover {
+  background: #b45309;
+  box-shadow: 0 7px 14px rgba(180, 83, 9, 0.18);
 }
 
 .balance-empty-state {

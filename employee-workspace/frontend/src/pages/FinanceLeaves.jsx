@@ -7,6 +7,8 @@ import {
 
 import api from "../api/api";
 import StatusBadge from "../components/ui/StatusBadge";
+import MetricCard from "../components/ui/MetricCard";
+import SearchField from "../components/ui/SearchField";
 import {
   EmptyState,
   ErrorState,
@@ -145,44 +147,24 @@ const FinanceLeaves = () => {
       {!loading && !error && (
         <>
       <div className="modern-stats-grid">
-        <div className="mini-stat-card">
-          <Users size={22} />
-          <span>Total Records</span>
-          <h3>{safeLeaves.length}</h3>
-          <p>employees</p>
-        </div>
-
-        <div className="mini-stat-card">
-          <BadgeCheck size={22} />
-          <span>Approved Leaves</span>
-          <h3>{approvedCount}</h3>
-          <p>verified</p>
-        </div>
-
-        <div className="mini-stat-card">
-          <CalendarCheck size={22} />
-          <span>Total Leave Days</span>
-          <h3>{totalDays}</h3>
-          <p>days utilized</p>
-        </div>
+        <MetricCard icon={Users} label="Total Records" value={safeLeaves.length} detail="Employees" />
+        <MetricCard icon={BadgeCheck} label="Approved Leaves" value={approvedCount} detail="Verified" tone="success" />
+        <MetricCard icon={CalendarCheck} label="Total Leave Days" value={totalDays} detail="Days utilized" tone="brand" />
       </div>
 
-      <div style={{ marginBottom: "18px" }}>
-        <input
-          type="text"
-          aria-label="Search finance leave records"
+      <div className="ui-filter-search-row">
+        <SearchField
+          id="finance-leave-search"
+          label="Search finance leave records"
           placeholder="Search by employee, email, leave type or status..."
           value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
+          onChange={(event) => {
+            setSearchTerm(event.target.value);
             setCurrentPage(1);
           }}
-          style={{
-            width: "100%",
-            padding: "14px",
-            borderRadius: "12px",
-            border: "1px solid #d1d5db",
-            fontSize: "14px",
+          onClear={() => {
+            setSearchTerm("");
+            setCurrentPage(1);
           }}
         />
       </div>

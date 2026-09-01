@@ -68,6 +68,7 @@ export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => 
       MONTHLY_CREDIT: 0,
       HR_ADJUSTMENT: 1,
       APPROVED_LEAVE: 2,
+      PAID_USED_ADJUSTMENT: 2,
       UNINFORMED_ABSENCE: 3,
     };
     return (priority[left.entryType] || 0) - (priority[right.entryType] || 0);
@@ -106,6 +107,18 @@ export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => 
           state.available -= paidDays;
           state.paidUsed += paidDays;
           state.excess += Math.max(days - paidDays, 0);
+        } else if (entry.entryType === "PAID_USED_ADJUSTMENT") {
+          const amount = Number(entry.amount || 0);
+          if (amount >= 0) {
+            const paidDays = Math.min(state.available, amount);
+            state.available -= paidDays;
+            state.paidUsed += amount;
+            state.excess += Math.max(amount - paidDays, 0);
+          } else {
+            const refundDays = Math.min(state.paidUsed, -amount);
+            state.paidUsed -= refundDays;
+            state.available += refundDays;
+          }
         } else {
           state.available = Math.max(
             state.available + Number(entry.amount || 0),

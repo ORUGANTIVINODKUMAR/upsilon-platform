@@ -24,11 +24,25 @@ const formatRole = (value) => (value === "TeamLeader" ? "Team Leader" : value);
 const hasAtMostTwoDecimalPlaces = (value) =>
   Math.abs(value * 100 - Math.round(value * 100)) < 1e-8;
 
+const ADJUSTMENT_FIELDS = {
+  available: {
+    label: "Available leave",
+    valueKey: "availablePaidLeave",
+    helpText: "Use up to two decimal places. Positive values add leave; negative values reduce leave.",
+  },
+  paidUsed: {
+    label: "Paid leave used",
+    valueKey: "paidLeaveUsed",
+    helpText: "Use up to two decimal places. Positive values record more leave as used; negative values correct/reduce used leave.",
+  },
+};
+
 const HrLeaveBalances = () => {
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("All");
   const [selected, setSelected] = useState(null);
+  const [adjustField, setAdjustField] = useState("available");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
@@ -83,8 +97,9 @@ const HrLeaveBalances = () => {
     [rows],
   );
 
-  const openAdjustment = (row) => {
+  const openAdjustment = (row, field = "available") => {
     setSelected(row);
+    setAdjustField(field);
     setAmount("");
     setReason("");
     setMessage("");
@@ -120,8 +135,9 @@ const HrLeaveBalances = () => {
       await api.post(`/leave-balance/manage/${selected.user._id}/adjustments`, {
         amount: numericAmount,
         reason,
+        field: adjustField,
       });
-      setMessage(`Balance updated successfully for ${selected.user.name}.`);
+      setMessage(`${ADJUSTMENT_FIELDS[adjustField].label} updated successfully for ${selected.user.name}.`);
       setSelected(null);
       setAmount("");
       setReason("");
@@ -243,9 +259,17 @@ const HrLeaveBalances = () => {
                     <td><span className={`balance-number-pill ${hasExcess ? "balance-number-excess" : "balance-number-clear"}`}>{formatNumber(row.balance.excessLeaveDays)}</span></td>
                     <td><span className="balance-updated-time">{row.balance.lastUpdated ? new Date(row.balance.lastUpdated).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "Not updated"}</span></td>
                     <td>
-                      <button className="balance-adjust-button" onClick={() => openAdjustment(row)}>
-                        <PencilLine size={15} /> Adjust
-                      </button>
+                      <div className="balance-action-buttons">
+                        <button className="balance-adjust-button" onClick={() => openAdjustment(row, "available")}>
+                          <PencilLine size={15} /> Adjust available
+                        </button>
+                        <button
+                          className="balance-adjust-button balance-adjust-button--secondary"
+                          onClick={() => openAdjustment(row, "paidUsed")}
+                        >
+                          <PencilLine size={15} /> Adjust used
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -273,7 +297,7 @@ const HrLeaveBalances = () => {
           >
             <div className="balance-modal-header">
               <div>
-                <span>Manual adjustment</span>
+                <span>Manual adjustment · {ADJUSTMENT_FIELDS[adjustField].label}</span>
                 <h2 id="balance-adjustment-title">{selected.user.name}</h2>
                 <p id="balance-adjustment-description">{selected.user.employeeId || "No employee ID"} | {formatRole(selected.user.role)}</p>
               </div>
@@ -281,8 +305,8 @@ const HrLeaveBalances = () => {
             </div>
 
             <div className="balance-current-strip">
-              <span>Current available balance</span>
-              <strong>{formatNumber(selected.balance.availablePaidLeave)} days</strong>
+              <span>Current {ADJUSTMENT_FIELDS[adjustField].label.toLowerCase()}</span>
+              <strong>{formatNumber(selected.balance[ADJUSTMENT_FIELDS[adjustField].valueKey])} days</strong>
             </div>
 
             {modalError && (
@@ -294,7 +318,7 @@ const HrLeaveBalances = () => {
             <div className="input-group">
               <label htmlFor="adjustment-days">Adjustment days</label>
               <input id="adjustment-days" type="number" step="0.01" min="-365" max="365" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Example: 0.25 or -0.75" required autoFocus />
-              <small>Use up to two decimal places. Positive values add leave; negative values reduce leave.</small>
+              <small>{ADJUSTMENT_FIELDS[adjustField].helpText}</small>
               <div className="balance-quick-adjustments">
                 {[0.25, 0.5, 1, -0.25, -0.5, -1].map((value) => (
                   <button type="button" key={value} onClick={() => setAmount(String(value))}>{value > 0 ? "+" : ""}{value} day{Math.abs(value) === 1 ? "" : "s"}</button>

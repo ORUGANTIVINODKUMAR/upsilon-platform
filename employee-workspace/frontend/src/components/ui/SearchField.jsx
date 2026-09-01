@@ -15,6 +15,8 @@ const SearchField = ({
     <input
       id={id}
       type="search"
+      autoComplete="off"
+      enterKeyHint="search"
       value={value}
       placeholder={placeholder}
       onChange={onChange}

@@ -1,6 +1,9 @@
 import LeaveRequest from "../models/LeaveRequest.js";
 import User from "../models/User.js";
-import { processLeaveDecision } from "../services/leaveDecisionService.js";
+import {
+  assertLeaveDecisionAuthorized,
+  processLeaveDecision,
+} from "../services/leaveDecisionService.js";
 import {
   claimLeaveEmailActionToken,
   inspectLeaveEmailActionToken,
@@ -42,7 +45,9 @@ const getContext = async (rawToken, action) => {
   const tokenRecord = await inspectLeaveEmailActionToken({ rawToken, action });
   const [actor, leaveRequest] = await Promise.all([
     User.findById(tokenRecord.approverId).select("_id name email role isActive"),
-    LeaveRequest.findById(tokenRecord.leaveRequestId).select("managerId finalStatus"),
+    LeaveRequest.findById(tokenRecord.leaveRequestId)
+      .select("employeeId managerId finalStatus")
+      .populate("employeeId", "_id role"),
   ]);
 
   if (!leaveRequest) {
@@ -51,16 +56,20 @@ const getContext = async (rawToken, action) => {
       status: 404,
     });
   }
-  if (
-    !actor
-    || actor.isActive === false
-    || actor.role !== "Manager"
-    || leaveRequest.managerId?.toString() !== actor._id.toString()
-  ) {
+  if (!actor || actor.isActive === false) {
     throw new LeaveEmailActionError(
       "You are not authorized to process this leave request.",
       { code: "FORBIDDEN", status: 403 },
     );
+  }
+
+  try {
+    assertLeaveDecisionAuthorized({ actor, leaveRequest, action });
+  } catch (error) {
+    throw new LeaveEmailActionError(error.message, {
+      code: error.code || "FORBIDDEN",
+      status: error.status || 403,
+    });
   }
   const oppositeManagerStatus = action === "approve"
     ? "Rejected by Manager"

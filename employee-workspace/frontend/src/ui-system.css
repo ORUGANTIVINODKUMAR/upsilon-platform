@@ -4487,3 +4487,624 @@ textarea {
     font-size: 13px;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Enterprise refinement layer
+   These selectors intentionally normalize legacy screens without changing
+   their markup, event handlers, routes, payloads, or role-specific behavior.
+   -------------------------------------------------------------------------- */
+
+:root {
+  --control-height: 42px;
+  --content-max: 1600px;
+  --transition-fast: 150ms ease;
+  --transition-base: 220ms ease;
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--brand-500) 22%, transparent);
+  --shadow-float: 0 18px 48px rgba(15, 35, 26, 0.13), 0 2px 8px rgba(15, 35, 26, 0.07);
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 10000;
+  top: 10px;
+  left: 12px;
+  padding: 10px 14px;
+  color: var(--neutral-0);
+  background: var(--brand-900);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform var(--transition-fast);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.modern-main {
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.modern-page-header,
+.workspace-page-content,
+.workspace-feedback {
+  width: min(100%, var(--content-max));
+  margin-inline: auto;
+}
+
+.workspace-page-content {
+  isolation: isolate;
+}
+
+.modern-page-header {
+  position: relative;
+  padding-bottom: 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--neutral-200) 82%, transparent);
+}
+
+.modern-page-header::after {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 46px;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-500);
+  content: "";
+}
+
+.workspace-page-content > :first-child {
+  margin-top: 0;
+}
+
+.modern-section-card,
+.modern-profile-card,
+.card,
+.leave-balance-card,
+.leave-summary-card,
+.reimbursement-filter-card,
+.holiday-hero-card,
+.ui-metric-card {
+  border-color: color-mix(in srgb, var(--neutral-200) 88%, var(--brand-100));
+  box-shadow: var(--shadow-sm);
+}
+
+.modern-section-card,
+.modern-profile-card,
+.card,
+.leave-balance-card,
+.leave-summary-card,
+.reimbursement-filter-card,
+.holiday-hero-card {
+  background: color-mix(in srgb, var(--neutral-0) 98%, var(--brand-50));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ui-metric-card,
+  .mini-stat-card,
+  .reimbursement-summary-card,
+  .holiday-card {
+    transition: border-color var(--transition-fast), box-shadow var(--transition-base), transform var(--transition-base);
+  }
+
+  .ui-metric-card:hover,
+  .mini-stat-card:hover,
+  .reimbursement-summary-card:hover,
+  .holiday-card:hover {
+    border-color: color-mix(in srgb, var(--brand-300) 62%, var(--neutral-200));
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+}
+
+.portal-redesign :where(
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="date"],
+  input[type="month"],
+  input[type="search"],
+  input[type="file"],
+  select,
+  textarea
+) {
+  max-width: 100%;
+  border-color: var(--neutral-300);
+  background-color: var(--neutral-0);
+  color: var(--neutral-900);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
+}
+
+.portal-redesign :where(
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="date"],
+  input[type="month"],
+  input[type="search"],
+  select
+) {
+  min-height: var(--control-height);
+}
+
+.portal-redesign :where(input, select, textarea):hover:not(:disabled):not(:focus) {
+  border-color: var(--neutral-400);
+}
+
+.portal-redesign :where(input, select, textarea):focus {
+  border-color: var(--brand-500);
+  box-shadow: var(--shadow-focus);
+  outline: none;
+}
+
+.portal-redesign :where(input, select, textarea):disabled {
+  color: var(--neutral-500);
+  background: var(--neutral-100);
+  cursor: not-allowed;
+  opacity: 0.82;
+}
+
+.portal-redesign :where(input, select, textarea):user-invalid {
+  border-color: var(--danger-600);
+}
+
+.portal-redesign :where(label) {
+  color: var(--neutral-700);
+}
+
+.portal-redesign :where(.input-group, .form-group) > label {
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+}
+
+.btn,
+.approve-btn,
+.reject-btn,
+.adjust-btn,
+.mark-read-btn {
+  min-height: var(--control-height);
+  touch-action: manipulation;
+  transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.btn:active:not(:disabled),
+.approve-btn:active:not(:disabled),
+.reject-btn:active:not(:disabled),
+.adjust-btn:active:not(:disabled),
+.mark-read-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled,
+.approve-btn:disabled,
+.reject-btn:disabled,
+.adjust-btn:disabled,
+.mark-read-btn:disabled {
+  box-shadow: none;
+  cursor: not-allowed;
+  filter: saturate(0.65);
+  opacity: 0.62;
+}
+
+.btn-outline {
+  color: var(--brand-700);
+  background: var(--neutral-0);
+  border-color: var(--brand-300);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: var(--brand-50);
+  border-color: var(--brand-500);
+}
+
+.btn-ghost {
+  color: var(--neutral-700);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--brand-800);
+  background: var(--brand-50);
+}
+
+.btn-success {
+  color: var(--neutral-0);
+  background: var(--success-600);
+  border-color: var(--success-600);
+}
+
+.table-wrapper,
+.modern-table-wrapper,
+.hr-balance-table-wrap {
+  position: relative;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: var(--neutral-300) transparent;
+  scrollbar-width: thin;
+}
+
+.table-wrapper::-webkit-scrollbar,
+.modern-table-wrapper::-webkit-scrollbar,
+.hr-balance-table-wrap::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb,
+.modern-table-wrapper::-webkit-scrollbar-thumb,
+.hr-balance-table-wrap::-webkit-scrollbar-thumb {
+  background: var(--neutral-300);
+  border-radius: var(--radius-pill);
+}
+
+.custom-table thead,
+.hr-balance-table thead {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+}
+
+.custom-table th,
+.hr-balance-table th {
+  box-shadow: inset 0 -1px 0 var(--neutral-200);
+  white-space: nowrap;
+}
+
+.custom-table tbody tr:nth-child(even) td,
+.hr-balance-table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--neutral-50) 65%, transparent);
+}
+
+.custom-table tbody tr,
+.hr-balance-table tbody tr {
+  transition: background-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.custom-table td,
+.hr-balance-table td {
+  vertical-align: middle;
+}
+
+.custom-table td:last-child,
+.hr-balance-table td:last-child {
+  padding-right: 18px;
+}
+
+.table-actions {
+  justify-content: flex-end;
+}
+
+.ui-status,
+.status-pill,
+.active-pill,
+.header-role-chip {
+  max-width: 100%;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.alert {
+  border-left-width: 3px;
+  box-shadow: var(--shadow-sm);
+}
+
+.modal-overlay {
+  padding: clamp(12px, 3vw, 32px);
+  background: rgba(8, 20, 15, 0.58);
+  backdrop-filter: blur(5px);
+}
+
+.modal-card,
+.modal-box {
+  box-shadow: var(--shadow-float);
+}
+
+.ui-confirm-dialog {
+  overflow: hidden;
+}
+
+.ui-confirm-dialog .form-actions {
+  padding-top: 4px;
+}
+
+.pagination-controls button,
+.ui-pagination button,
+.notification-filter-tabs button,
+.leave-filter-tabs button {
+  min-width: 36px;
+  min-height: 36px;
+  touch-action: manipulation;
+}
+
+.empty-notification,
+.ui-state {
+  color: var(--neutral-600);
+}
+
+.holiday-hero-card {
+  position: relative;
+  display: flex;
+  min-height: 190px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  overflow: hidden;
+  padding: clamp(22px, 3vw, 30px);
+  color: var(--neutral-0);
+  background: linear-gradient(135deg, var(--brand-900), var(--brand-600));
+  border: 1px solid color-mix(in srgb, var(--brand-400) 65%, transparent);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 50px color-mix(in srgb, var(--brand-900) 22%, transparent);
+}
+
+.holiday-hero-card::after {
+  position: absolute;
+  right: -55px;
+  bottom: -80px;
+  width: 220px;
+  height: 220px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+  content: "";
+}
+
+.holiday-hero-copy {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.holiday-hero-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  opacity: 0.82;
+  text-transform: uppercase;
+}
+
+.holiday-hero-copy h2 {
+  margin: 10px 0 6px;
+  color: inherit;
+  font-size: clamp(25px, 3vw, 36px);
+  line-height: 1.12;
+}
+
+.holiday-hero-copy p {
+  margin: 0;
+  font-size: 15px;
+  opacity: 0.88;
+}
+
+.holiday-hero-date {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 102px;
+  height: 102px;
+  flex: 0 0 102px;
+  place-content: center;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 26px;
+  backdrop-filter: blur(8px);
+}
+
+.holiday-hero-date strong {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.holiday-hero-date span {
+  margin-top: 5px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.holiday-access-detail {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--neutral-200);
+}
+
+.holiday-access-detail svg {
+  flex: 0 0 auto;
+  color: var(--brand-600);
+}
+
+.holiday-access-detail p {
+  margin: 0;
+}
+
+.holiday-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 18px;
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.holiday-card-header,
+.holiday-card-footer {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.holiday-date-tile {
+  display: grid;
+  width: 56px;
+  height: 62px;
+  flex: 0 0 56px;
+  place-content: center;
+  text-align: center;
+  color: var(--brand-700);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-100);
+  border-radius: var(--radius-md);
+}
+
+.holiday-date-tile strong {
+  font-size: 21px;
+  line-height: 1;
+}
+
+.holiday-date-tile span {
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.holiday-card-title {
+  min-width: 0;
+  flex: 1;
+}
+
+.holiday-card-title h3 {
+  margin: 0 0 7px;
+  overflow-wrap: anywhere;
+  color: var(--neutral-900);
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.holiday-card-sparkle {
+  flex: 0 0 auto;
+  color: var(--brand-500);
+}
+
+.holiday-card-description {
+  min-height: 42px;
+  margin: 16px 0 0;
+  color: var(--neutral-600);
+  line-height: 1.55;
+}
+
+.holiday-card-footer {
+  align-items: center;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--neutral-200);
+}
+
+.holiday-card-footer small {
+  color: var(--neutral-500);
+}
+
+@media (max-width: 1023px) {
+  .modern-page-header {
+    padding-bottom: 14px;
+  }
+
+  .workspace-page-content {
+    scroll-margin-top: 78px;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --control-height: 44px;
+  }
+
+  .modern-page-header {
+    border-bottom: 0;
+  }
+
+  .modern-page-header::after {
+    display: none;
+  }
+
+  .modern-section-card,
+  .modern-profile-card,
+  .card,
+  .leave-balance-card,
+  .leave-summary-card,
+  .reimbursement-filter-card,
+  .holiday-hero-card {
+    border-radius: var(--radius-md);
+  }
+
+  .table-wrapper,
+  .modern-table-wrapper,
+  .hr-balance-table-wrap {
+    margin-inline: -4px;
+    padding-bottom: 4px;
+  }
+
+  .modal-card,
+  .modal-box {
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+  }
+
+  .mobile-topbar {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .holiday-hero-card {
+    min-height: 170px;
+  }
+}
+
+@media (max-width: 479px) {
+  .ui-page-header h2,
+  .section-header h2,
+  .section-header h3 {
+    overflow-wrap: anywhere;
+  }
+
+  .ui-status,
+  .status-pill {
+    white-space: normal;
+  }
+
+  .notification-dropdown,
+  .workspace-theme-panel {
+    max-height: calc(100dvh - 88px - env(safe-area-inset-bottom));
+  }
+
+  .holiday-hero-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .holiday-hero-date {
+    width: 100%;
+    height: auto;
+    min-height: 72px;
+    grid-auto-flow: column;
+    gap: 8px;
+    align-items: baseline;
+  }
+
+  .holiday-card-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

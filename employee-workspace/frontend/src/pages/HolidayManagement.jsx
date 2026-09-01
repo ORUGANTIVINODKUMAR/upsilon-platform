@@ -193,60 +193,28 @@ const HolidayManagement = () => {
       {message && <div className="alert alert-success" role="status" aria-live="polite">{message}</div>}
 
       <div className="holiday-overview-grid">
-        <div
-          className="holiday-hero-card"
-          style={{
-            background: "linear-gradient(135deg, #064e3b, #16a34a)",
-            borderRadius: "24px",
-            padding: "28px",
-            color: "white",
-            minHeight: "190px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            boxShadow: "0 20px 50px rgba(22, 163, 74, 0.22)",
-          }}
-        >
-          <div>
-            <span
-              style={{
-                fontSize: "12px",
-                letterSpacing: "2px",
-                textTransform: "uppercase",
-                opacity: 0.85,
-              }}
-            >
+        <div className="holiday-hero-card">
+          <div className="holiday-hero-copy">
+            <span className="holiday-hero-eyebrow">
               Next Holiday
             </span>
 
-            <h2 style={{ fontSize: "36px", margin: "12px 0 8px" }}>
+            <h2>
               {nextHoliday?.name || "No Upcoming Holiday"}
             </h2>
 
-            <p style={{ fontSize: "16px", opacity: 0.9 }}>
+            <p>
               {nextHoliday
                 ? `${formatDate(nextHoliday.holidayDate)} - ${nextHoliday.type}`
                 : "No upcoming holiday configured yet."}
             </p>
           </div>
 
-          <div
-            style={{
-              width: "105px",
-              height: "105px",
-              borderRadius: "28px",
-              background: "rgba(255,255,255,0.16)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              border: "1px solid rgba(255,255,255,0.22)",
-            }}
-          >
-            <strong style={{ fontSize: "34px" }}>
+          <div className="holiday-hero-date" aria-label={nextHoliday ? formatDate(nextHoliday.holidayDate) : "No upcoming holiday date"}>
+            <strong>
               {nextHoliday ? getDay(nextHoliday.holidayDate) : "--"}
             </strong>
-            <span style={{ fontSize: "15px", fontWeight: "700" }}>
+            <span>
               {nextHoliday ? getMonth(nextHoliday.holidayDate) : "---"}
             </span>
           </div>
@@ -257,7 +225,7 @@ const HolidayManagement = () => {
           <h3>{canManageHolidays ? "Manage" : "View Only"}</h3>
           <p>{user?.role}</p>
 
-          <div style={{ marginTop: "18px" }}>
+          <div className="holiday-access-detail">
             <ShieldCheck size={22} />
             <p>
               {canManageHolidays
@@ -293,77 +261,34 @@ const HolidayManagement = () => {
           <div
             key={holiday._id}
             className="holiday-card"
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e5e7eb",
-              borderRadius: "20px",
-              padding: "18px",
-              boxShadow: "0 10px 25px rgba(15, 23, 42, 0.05)",
-            }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: "12px",
-                alignItems: "flex-start",
-              }}
-            >
-              <div
-                style={{
-                  width: "58px",
-                  height: "64px",
-                  borderRadius: "16px",
-                  background: "#ecfdf5",
-                  color: "#047857",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <strong style={{ fontSize: "22px" }}>
+            <div className="holiday-card-header">
+              <div className="holiday-date-tile">
+                <strong>
                   {getDay(holiday.holidayDate)}
                 </strong>
-                <span style={{ fontSize: "12px", fontWeight: "700" }}>
+                <span>
                   {getMonth(holiday.holidayDate)}
                 </span>
               </div>
 
-              <div style={{ flex: 1 }}>
-                <h3 style={{ margin: "0 0 6px", fontSize: "18px" }}>
+              <div className="holiday-card-title">
+                <h3>
                   {holiday.name}
                 </h3>
 
                 <span className="badge badge-success">{holiday.type}</span>
               </div>
 
-              <Sparkles size={18} color="#16a34a" />
+              <Sparkles className="holiday-card-sparkle" size={18} aria-hidden="true" />
             </div>
 
-            <p
-              style={{
-                marginTop: "16px",
-                color: "#64748b",
-                minHeight: "36px",
-              }}
-            >
+            <p className="holiday-card-description">
               {holiday.description || "No description added."}
             </p>
 
-            <div
-              style={{
-                marginTop: "14px",
-                paddingTop: "14px",
-                borderTop: "1px solid #e5e7eb",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "10px",
-              }}
-            >
-              <small style={{ color: "#64748b" }}>
+            <div className="holiday-card-footer">
+              <small>
                 Created by {holiday.createdBy?.name || "N/A"}
               </small>
 

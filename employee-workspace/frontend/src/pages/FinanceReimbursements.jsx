@@ -10,6 +10,8 @@ import {
 import api from "../api/api";
 import useConfirm from "../components/ui/useConfirm";
 import StatusBadge from "../components/ui/StatusBadge";
+import MetricCard from "../components/ui/MetricCard";
+import SearchField from "../components/ui/SearchField";
 import {
   EmptyState,
   ErrorState,
@@ -266,26 +268,9 @@ const FinanceReimbursements = () => {
       {!loading && !error && (
         <>
       <div className="modern-stats-grid">
-        <div className="mini-stat-card">
-          <Users size={22} />
-          <span>Total Claims</span>
-          <h3>{safeRequests.length}</h3>
-          <p>ready for finance</p>
-        </div>
-
-        <div className="mini-stat-card">
-          <Receipt size={22} />
-          <span>Pending Payment</span>
-          <h3>{pendingPaymentCount}</h3>
-          <p>to process</p>
-        </div>
-
-        <div className="mini-stat-card">
-          <BadgeCheck size={22} />
-          <span>Paid</span>
-          <h3>{paidCount}</h3>
-          <p>completed</p>
-        </div>
+        <MetricCard icon={Users} label="Total Claims" value={safeRequests.length} detail="Ready for finance" />
+        <MetricCard icon={Receipt} label="Pending Payment" value={pendingPaymentCount} detail="To process" tone="warning" />
+        <MetricCard icon={BadgeCheck} label="Paid" value={paidCount} detail="Completed" tone="success" />
 
         <div className="mini-stat-card">
           <Wallet size={22} />
@@ -294,22 +279,19 @@ const FinanceReimbursements = () => {
           <p>approved value</p>
         </div>
       </div>
-      <div style={{ marginBottom: "18px" }}>
-        <input
-          type="text"
-          aria-label="Search finance reimbursement records"
+      <div className="ui-filter-search-row">
+        <SearchField
+          id="finance-reimbursement-search"
+          label="Search finance reimbursement records"
           placeholder="Search employee, email or business purpose..."
           value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
+          onChange={(event) => {
+            setSearchTerm(event.target.value);
             setCurrentPage(1);
           }}
-          style={{
-            width: "100%",
-            padding: "14px",
-            borderRadius: "12px",
-            border: "1px solid #d1d5db",
-            fontSize: "14px",
+          onClear={() => {
+            setSearchTerm("");
+            setCurrentPage(1);
           }}
         />
       </div>

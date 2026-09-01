@@ -67,10 +67,10 @@ test("notification delivery attempts both Manager and HR and includes all leave 
   const result = await sendLeaveRequestNotification({
     recipients: [users.manager, users.hr], employee: users.employee, leaveRequest,
     reviewUrl: "https://workspace.example.com/dashboard?page=managerApprovals",
-    createActionUrls: async (recipient) => recipient.role === "Manager" ? {
+    createActionUrls: async () => ({
       approveUrl: "https://api.example.com/api/leave/email-action/secure-token/approve",
       rejectUrl: "https://api.example.com/api/leave/email-action/secure-token/reject",
-    } : {},
+    }),
     send: async (message) => messages.push(message),
   });
   assert.deepEqual(result, { attempted: 2, sent: 2, failed: 0 });
@@ -79,7 +79,9 @@ test("notification delivery attempts both Manager and HR and includes all leave 
   for (const value of ["John Doe", "Sick", "Medical recovery", "Pending Final Approval", "2", "Approve Leave", "Reject Leave", "View in Workspace"]) {
     assert.match(html, new RegExp(value));
   }
-  assert.equal(messages[1].approveUrl, undefined);
+  const hrHtml = buildLeaveRequestEmail(messages[1]);
+  assert.match(hrHtml, /Approve Leave/);
+  assert.match(hrHtml, /Reject Leave/);
 });
 
 test("email delivery failure is returned to the caller instead of being swallowed", async () => {

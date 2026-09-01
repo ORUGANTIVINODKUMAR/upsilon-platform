@@ -66,7 +66,7 @@ test("only email action page navigations bypass global API CORS", () => {
   assert.equal(bypassApiCors({ method: "POST", path: "/api/auth/login" }), false);
 });
 
-test("action URLs are issued only for the assigned Manager and contain no leave ID", async () => {
+test("action URLs are issued to the assigned Manager and HR and contain no leave ID", async () => {
   const TokenModel = createTokenModel();
   const leaveRequest = {
     _id: "leave-123",
@@ -84,9 +84,18 @@ test("action URLs are issued only for the assigned Manager and contain no leave 
   assert.doesNotMatch(urls.approveUrl, /leave-123|manager-1/);
   assert.notEqual(urls.approveUrl, urls.rejectUrl);
   assert.deepEqual(TokenModel.records.map((record) => record.action).sort(), ["approve", "reject"]);
-  assert.deepEqual(await createLeaveEmailActionUrls({
+  const hrUrls = await createLeaveEmailActionUrls({
     leaveRequest,
     recipient: { _id: "hr-1", role: "HR" },
+    env: { BACKEND_PUBLIC_URL: "https://api.example.com" },
+    TokenModel,
+  });
+  assert.match(hrUrls.approveUrl, /\/email-action\/[^/]+\/approve$/);
+  assert.match(hrUrls.rejectUrl, /\/email-action\/[^/]+\/reject$/);
+
+  assert.deepEqual(await createLeaveEmailActionUrls({
+    leaveRequest,
+    recipient: { _id: "manager-2", role: "Manager" },
     env: { BACKEND_PUBLIC_URL: "https://api.example.com" },
     TokenModel,
   }), {});

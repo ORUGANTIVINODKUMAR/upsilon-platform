@@ -8,6 +8,7 @@ import {
 
 import api from "../api/api";
 import StatusBadge from "../components/ui/StatusBadge";
+import SearchField from "../components/ui/SearchField";
 import {
   EmptyState,
   ErrorState,
@@ -232,20 +233,14 @@ const TLApprovals = () => {
         ))}
       </div>
 
-      <div style={{ marginBottom: "18px" }}>
-        <input
-          type="text"
-          aria-label="Search Team Leader leave requests"
+      <div className="ui-filter-search-row">
+        <SearchField
+          id="team-leader-leave-search"
+          label="Search Team Leader leave requests"
           placeholder="Search by employee, email, leave type or status..."
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "14px",
-            borderRadius: "12px",
-            border: "1px solid #d1d5db",
-            fontSize: "14px",
-          }}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          onClear={() => setSearchTerm("")}
         />
       </div>
 

@@ -86,13 +86,17 @@ export const createLeaveEmailActionUrls = async ({
   const isAssignedManager =
     recipient?.role === "Manager"
     && recipient?._id?.toString() === leaveRequest.managerId?.toString();
+  const isHrApprover = recipient?.role === "HR";
 
-  if (!isAssignedManager || !PENDING_STATUSES.has(leaveRequest.finalStatus)) {
+  if (
+    (!isAssignedManager && !isHrApprover)
+    || !PENDING_STATUSES.has(leaveRequest.finalStatus)
+  ) {
     return {};
   }
   if (!backendUrl) {
     throw new LeaveEmailActionError(
-      "No public backend URL is available for Manager email actions.",
+      "No public backend URL is available for leave email actions.",
       { code: "MISSING_PUBLIC_URL", status: 500 },
     );
   }

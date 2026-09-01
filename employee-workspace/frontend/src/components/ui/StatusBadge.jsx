@@ -50,7 +50,11 @@ const prettifyStatus = (status) =>
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
 const StatusBadge = ({ status, label }) => (
-  <span className={`ui-status ui-status--${getStatusTone(status)}`}>
+  <span
+    className={`ui-status ui-status--${getStatusTone(status)}`}
+    title={label || prettifyStatus(status)}
+    aria-label={`Status: ${label || prettifyStatus(status)}`}
+  >
     <span className="ui-status-dot" aria-hidden="true" />
     {label || prettifyStatus(status)}
   </span>

@@ -475,6 +475,9 @@ const Dashboard = () => {
 
   return (
     <div className={`dashboard-layout portal-redesign ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+      <a className="skip-link" href="#workspace-main">
+        Skip to workspace content
+      </a>
       <div className="mobile-topbar">
         <button
           type="button"
@@ -744,7 +747,7 @@ const Dashboard = () => {
         </div>
       </aside>
 
-      <main className="dashboard-main modern-main">
+      <main id="workspace-main" className="dashboard-main modern-main" tabIndex={-1}>
         <div className="modern-page-header">
           <div className="header-copy">
             <div className="page-breadcrumb" aria-label="Breadcrumb">

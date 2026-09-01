@@ -179,6 +179,64 @@ test("decimal HR adjustments retain hundredth-day precision", () => {
   assert.equal(summary.availablePaidLeave, 2.35);
 });
 
+test("a manual paid-used adjustment consumes available leave and raises paid used", () => {
+  const summary = calculateBalanceSummary(
+    [
+      credit("2026-08"),
+      {
+        entryType: "PAID_USED_ADJUSTMENT",
+        period: "2026-08",
+        amount: 1,
+        active: true,
+        effectiveDate: "2026-08-15T00:00:00.000Z",
+      },
+    ],
+    "2026-08",
+  );
+  assert.equal(summary.availablePaidLeave, 1);
+  assert.equal(summary.paidLeaveUsed, 1);
+  assert.equal(summary.excessLeaveDays, 0);
+});
+
+test("a manual paid-used adjustment beyond available leave records excess", () => {
+  const summary = calculateBalanceSummary(
+    [
+      credit("2026-08"),
+      {
+        entryType: "PAID_USED_ADJUSTMENT",
+        period: "2026-08",
+        amount: 3,
+        active: true,
+        effectiveDate: "2026-08-15T00:00:00.000Z",
+      },
+    ],
+    "2026-08",
+  );
+  assert.equal(summary.availablePaidLeave, 0);
+  assert.equal(summary.paidLeaveUsed, 3);
+  assert.equal(summary.excessLeaveDays, 1);
+});
+
+test("a negative paid-used adjustment refunds days back to the available balance", () => {
+  const summary = calculateBalanceSummary(
+    [
+      credit("2026-07"),
+      credit("2026-08"),
+      approvedLeave("2026-07", 2),
+      {
+        entryType: "PAID_USED_ADJUSTMENT",
+        period: "2026-08",
+        amount: -1,
+        active: true,
+        effectiveDate: "2026-08-15T00:00:00.000Z",
+      },
+    ],
+    "2026-08",
+  );
+  assert.equal(summary.paidLeaveUsed, 1);
+  assert.equal(summary.availablePaidLeave, 3);
+});
+
 test("period generation handles the December to January year boundary once", () => {
   assert.deepEqual(getPeriodsBetween("2026-12", "2027-02"), [
     "2026-12",
