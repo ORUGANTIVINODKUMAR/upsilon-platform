@@ -19,7 +19,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 
-import logo from "../assets/logo.png";
+import logo from "../api/logo.png";
 
 import { useAuth } from "../context/useAuth";
 import api from "../api/api";

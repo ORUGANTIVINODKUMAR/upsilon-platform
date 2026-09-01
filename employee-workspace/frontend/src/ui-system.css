@@ -637,7 +637,6 @@ textarea,
   width: 132px;
   height: auto;
   object-fit: contain;
-  filter: brightness(0) invert(1);
 }
 
 .sidebar-brand-monogram {
