@@ -14,6 +14,9 @@ export const FINAL_APPROVED_LEAVE_STATUSES = [
   "Approved by HR",
 ];
 
+export const roundLeaveDays = (value) =>
+  Number(Number(value || 0).toFixed(2));
+
 export const toPeriod = (value = new Date()) => {
   const date = new Date(value);
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
@@ -130,14 +133,14 @@ export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => 
 
   return {
     period: currentPeriod,
-    monthlyAllocation: currentMonthlyCredit,
-    carryForward,
-    hrAdjustments: totalAdjustments,
-    availablePaidLeave: totals.available,
-    paidLeaveUsed: totals.paidUsed,
-    approvedLeaveDays,
-    uninformedAbsenceDays,
-    excessLeaveDays: totals.excess + uninformedAbsenceDays,
+    monthlyAllocation: roundLeaveDays(currentMonthlyCredit),
+    carryForward: roundLeaveDays(carryForward),
+    hrAdjustments: roundLeaveDays(totalAdjustments),
+    availablePaidLeave: roundLeaveDays(totals.available),
+    paidLeaveUsed: roundLeaveDays(totals.paidUsed),
+    approvedLeaveDays: roundLeaveDays(approvedLeaveDays),
+    uninformedAbsenceDays: roundLeaveDays(uninformedAbsenceDays),
+    excessLeaveDays: roundLeaveDays(totals.excess + uninformedAbsenceDays),
     lastUpdated,
   };
 };

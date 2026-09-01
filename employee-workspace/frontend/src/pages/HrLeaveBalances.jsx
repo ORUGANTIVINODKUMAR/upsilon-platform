@@ -15,8 +15,14 @@ import api from "../api/api";
 import { EmptyState, ErrorState, LoadingState } from "../components/ui/StatePanel";
 
 const roles = ["All", "Employee", "TeamLeader", "Manager", "HR"];
-const formatNumber = (value) => Number(value || 0).toFixed(1).replace(/\.0$/, "");
+const formatNumber = (value) =>
+  Number(value || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
 const formatRole = (value) => (value === "TeamLeader" ? "Team Leader" : value);
+const hasAtMostTwoDecimalPlaces = (value) =>
+  Math.abs(value * 100 - Math.round(value * 100)) < 1e-8;
 
 const HrLeaveBalances = () => {
   const [rows, setRows] = useState([]);
@@ -101,6 +107,10 @@ const HrLeaveBalances = () => {
     const numericAmount = Number(amount);
     if (!Number.isFinite(numericAmount) || numericAmount === 0) {
       setModalError("Enter a non-zero adjustment. Use a positive value to add leave or a negative value to reduce it.");
+      return;
+    }
+    if (!hasAtMostTwoDecimalPlaces(numericAmount)) {
+      setModalError("Enter an adjustment with no more than two decimal places, such as 0.1, 0.25, or 0.75.");
       return;
     }
 
@@ -283,10 +293,10 @@ const HrLeaveBalances = () => {
 
             <div className="input-group">
               <label htmlFor="adjustment-days">Adjustment days</label>
-              <input id="adjustment-days" type="number" step="0.5" min="-365" max="365" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Example: 1 or -1" required autoFocus />
-              <small>Positive values add leave; negative values reduce leave.</small>
+              <input id="adjustment-days" type="number" step="0.01" min="-365" max="365" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Example: 0.25 or -0.75" required autoFocus />
+              <small>Use up to two decimal places. Positive values add leave; negative values reduce leave.</small>
               <div className="balance-quick-adjustments">
-                {[1, 2, -1].map((value) => (
+                {[0.25, 0.5, 1, -0.25, -0.5, -1].map((value) => (
                   <button type="button" key={value} onClick={() => setAmount(String(value))}>{value > 0 ? "+" : ""}{value} day{Math.abs(value) === 1 ? "" : "s"}</button>
                 ))}
               </div>

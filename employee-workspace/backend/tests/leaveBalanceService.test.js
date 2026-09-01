@@ -153,6 +153,32 @@ test("HR adjustments are auditable capacity changes", () => {
   assert.equal(summary.hrAdjustments, 1);
 });
 
+test("decimal HR adjustments retain hundredth-day precision", () => {
+  const summary = calculateBalanceSummary(
+    [
+      credit("2026-08"),
+      {
+        entryType: "HR_ADJUSTMENT",
+        period: "2026-08",
+        amount: 0.1,
+        active: true,
+        effectiveDate: "2026-08-15T00:00:00.000Z",
+      },
+      {
+        entryType: "HR_ADJUSTMENT",
+        period: "2026-08",
+        amount: 0.25,
+        active: true,
+        effectiveDate: "2026-08-16T00:00:00.000Z",
+      },
+    ],
+    "2026-08",
+  );
+
+  assert.equal(summary.hrAdjustments, 0.35);
+  assert.equal(summary.availablePaidLeave, 2.35);
+});
+
 test("period generation handles the December to January year boundary once", () => {
   assert.deepEqual(getPeriodsBetween("2026-12", "2027-02"), [
     "2026-12",
@@ -209,4 +235,34 @@ test("Manager passes management authorization", async () => {
   );
   assert.equal(response.statusCode, 400);
   assert.equal(response.payload.message, "Invalid user ID");
+});
+
+test("adjustment endpoint rejects values beyond hundredth-day precision", async () => {
+  const response = {
+    statusCode: 200,
+    payload: null,
+    status(value) {
+      this.statusCode = value;
+      return this;
+    },
+    json(value) {
+      this.payload = value;
+      return this;
+    },
+  };
+
+  await createHrLeaveAdjustment(
+    {
+      user: { role: "HR" },
+      params: { userId: "507f1f77bcf86cd799439011" },
+      body: { amount: 0.001, reason: "Test adjustment" },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(
+    response.payload.message,
+    "Adjustment must have no more than two decimal places",
+  );
 });

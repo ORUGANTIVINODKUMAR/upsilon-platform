@@ -32,6 +32,9 @@ const requireBalanceManager = (req, res) => {
 const escapeRegex = (value) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const hasAtMostTwoDecimalPlaces = (value) =>
+  Math.abs(value * 100 - Math.round(value * 100)) < 1e-8;
+
 export const getMyLeaveBalance = async (req, res) => {
   try {
     if (!requirePersonalLeaveRole(req, res)) return;
@@ -140,6 +143,12 @@ export const createHrLeaveAdjustment = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Adjustment must be a non-zero number between -365 and 365",
+      });
+    }
+    if (!hasAtMostTwoDecimalPlaces(amount)) {
+      return res.status(400).json({
+        success: false,
+        message: "Adjustment must have no more than two decimal places",
       });
     }
     if (reason.length < 3 || reason.length > 500) {
