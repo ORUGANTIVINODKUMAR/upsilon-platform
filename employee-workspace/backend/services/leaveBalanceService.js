@@ -49,6 +49,10 @@ export const getPeriodsBetween = (startPeriod, endPeriod) => {
 export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => {
   const activeEntries = entries.filter((entry) => {
     if (entry.active === false) return false;
+
+    const entryPeriod = entry.period || toPeriod(entry.effectiveDate);
+    if (entryPeriod > currentPeriod) return false;
+
     if (
       entry.entryType === "APPROVED_LEAVE" &&
       entry.leaveRequestId?.finalStatus
@@ -66,15 +70,20 @@ export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => 
     if (dateDifference !== 0) return dateDifference;
     const priority = {
       MONTHLY_CREDIT: 0,
+      MONTHLY_ALLOCATION_ADJUSTMENT: 0,
       HR_ADJUSTMENT: 1,
+      CARRY_FORWARD_ADJUSTMENT: 1,
       APPROVED_LEAVE: 2,
       PAID_USED_ADJUSTMENT: 2,
       UNINFORMED_ABSENCE: 3,
+      EXCESS_ADJUSTMENT: 4,
     };
     return (priority[left.entryType] || 0) - (priority[right.entryType] || 0);
   });
-  const credits = sortedEntries.filter(
-    (entry) => entry.entryType === "MONTHLY_CREDIT",
+  const monthlyEntries = sortedEntries.filter(
+    (entry) =>
+      entry.entryType === "MONTHLY_CREDIT" ||
+      entry.entryType === "MONTHLY_ALLOCATION_ADJUSTMENT",
   );
   const adjustments = sortedEntries.filter(
     (entry) => entry.entryType === "HR_ADJUSTMENT",
@@ -119,6 +128,13 @@ export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => 
             state.paidUsed -= refundDays;
             state.available += refundDays;
           }
+        } else if (entry.entryType === "UNINFORMED_ABSENCE") {
+          state.excess += Number(entry.leaveDays || 1);
+        } else if (entry.entryType === "EXCESS_ADJUSTMENT") {
+          state.excess = Math.max(
+            state.excess + Number(entry.amount || 0),
+            0,
+          );
         } else {
           state.available = Math.max(
             state.available + Number(entry.amount || 0),
@@ -136,7 +152,7 @@ export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => 
     return entryPeriod < currentPeriod;
   });
   const carryForward = consumeEntries(priorEntries).available;
-  const currentMonthlyCredit = credits
+  const currentMonthlyCredit = monthlyEntries
     .filter((entry) => entry.period === currentPeriod)
     .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
   const lastUpdated = activeEntries.reduce((latest, entry) => {
@@ -153,7 +169,7 @@ export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => 
     paidLeaveUsed: roundLeaveDays(totals.paidUsed),
     approvedLeaveDays: roundLeaveDays(approvedLeaveDays),
     uninformedAbsenceDays: roundLeaveDays(uninformedAbsenceDays),
-    excessLeaveDays: roundLeaveDays(totals.excess + uninformedAbsenceDays),
+    excessLeaveDays: roundLeaveDays(totals.excess),
     lastUpdated,
   };
 };

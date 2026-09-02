@@ -2729,6 +2729,38 @@ body {
 .balance-number-clear { color: #64748b; background: #f1f5f9; }
 .balance-number-excess { color: #be123c; background: #ffe4e6; }
 
+.balance-editable-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.balance-field-edit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #cfe7db;
+  border-radius: 8px;
+  color: #16744b;
+  background: #f2faf6;
+}
+
+.balance-field-edit-button:hover {
+  border-color: #78b89a;
+  color: #ffffff;
+  background: #19a866;
+  transform: translateY(-1px);
+}
+
+.balance-field-edit-button:focus-visible {
+  outline: 3px solid rgba(25, 168, 102, 0.22);
+  outline-offset: 2px;
+}
+
 .balance-updated-time {
   display: block;
   min-width: 125px;

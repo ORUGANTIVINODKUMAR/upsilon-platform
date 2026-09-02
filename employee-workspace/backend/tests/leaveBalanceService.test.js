@@ -51,6 +51,31 @@ test("approved leave consumes paid capacity without going negative", () => {
   assert.equal(summary.excessLeaveDays, 0);
 });
 
+test("future-month approved leave waits for that month's credit", () => {
+  const entries = [
+    credit("2026-08"),
+    approvedLeave("2026-08", 1),
+    approvedLeave("2026-09", 2),
+  ];
+
+  const augustSummary = calculateBalanceSummary(entries, "2026-08");
+  assert.equal(augustSummary.availablePaidLeave, 1);
+  assert.equal(augustSummary.paidLeaveUsed, 1);
+  assert.equal(augustSummary.approvedLeaveDays, 1);
+  assert.equal(augustSummary.excessLeaveDays, 0);
+
+  const septemberSummary = calculateBalanceSummary(
+    [...entries, credit("2026-09")],
+    "2026-09",
+  );
+  assert.equal(septemberSummary.carryForward, 1);
+  assert.equal(septemberSummary.monthlyAllocation, 2);
+  assert.equal(septemberSummary.availablePaidLeave, 1);
+  assert.equal(septemberSummary.paidLeaveUsed, 3);
+  assert.equal(septemberSummary.approvedLeaveDays, 3);
+  assert.equal(septemberSummary.excessLeaveDays, 0);
+});
+
 test("leave beyond available balance is recorded as excess LOP", () => {
   const summary = calculateBalanceSummary(
     [credit("2026-07"), credit("2026-08"), approvedLeave("2026-07", 1), approvedLeave("2026-08", 4)],
@@ -177,6 +202,83 @@ test("decimal HR adjustments retain hundredth-day precision", () => {
 
   assert.equal(summary.hrAdjustments, 0.35);
   assert.equal(summary.availablePaidLeave, 2.35);
+});
+
+test("monthly allocation adjustments update allocation and available leave", () => {
+  const summary = calculateBalanceSummary(
+    [
+      credit("2026-08"),
+      {
+        entryType: "MONTHLY_ALLOCATION_ADJUSTMENT",
+        period: "2026-08",
+        amount: 0.5,
+        active: true,
+        effectiveDate: "2026-08-01T00:00:00.000Z",
+      },
+    ],
+    "2026-08",
+  );
+
+  assert.equal(summary.monthlyAllocation, 2.5);
+  assert.equal(summary.availablePaidLeave, 2.5);
+});
+
+test("carry-forward adjustments update the balance brought into the month", () => {
+  const summary = calculateBalanceSummary(
+    [
+      credit("2026-08"),
+      approvedLeave("2026-08", 1),
+      {
+        entryType: "CARRY_FORWARD_ADJUSTMENT",
+        period: "2026-08",
+        amount: 0.5,
+        active: true,
+        effectiveDate: "2026-08-31T23:59:59.999Z",
+      },
+      credit("2026-09"),
+    ],
+    "2026-09",
+  );
+
+  assert.equal(summary.carryForward, 1.5);
+  assert.equal(summary.availablePaidLeave, 3.5);
+});
+
+test("excess adjustments correct approved and uninformed LOP without changing available leave", () => {
+  const summary = calculateBalanceSummary(
+    [
+      credit("2026-08"),
+      approvedLeave("2026-08", 3),
+      {
+        entryType: "EXCESS_ADJUSTMENT",
+        period: "2026-08",
+        amount: -1,
+        active: true,
+        effectiveDate: "2026-08-20T00:00:00.000Z",
+      },
+      {
+        entryType: "UNINFORMED_ABSENCE",
+        period: "2026-08",
+        amount: 0,
+        leaveDays: 1,
+        active: true,
+        effectiveDate: "2026-08-19T00:00:00.000Z",
+      },
+      {
+        entryType: "EXCESS_ADJUSTMENT",
+        period: "2026-08",
+        amount: -1,
+        active: true,
+        effectiveDate: "2026-08-21T00:00:00.000Z",
+      },
+    ],
+    "2026-08",
+  );
+
+  assert.equal(summary.availablePaidLeave, 0);
+  assert.equal(summary.paidLeaveUsed, 2);
+  assert.equal(summary.excessLeaveDays, 0);
+  assert.equal(summary.uninformedAbsenceDays, 1);
 });
 
 test("a manual paid-used adjustment consumes available leave and raises paid used", () => {

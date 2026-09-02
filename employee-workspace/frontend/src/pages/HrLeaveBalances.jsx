@@ -25,6 +25,16 @@ const hasAtMostTwoDecimalPlaces = (value) =>
   Math.abs(value * 100 - Math.round(value * 100)) < 1e-8;
 
 const ADJUSTMENT_FIELDS = {
+  monthly: {
+    label: "Monthly allocation",
+    valueKey: "monthlyAllocation",
+    helpText: "Adjust this month's allocation. The correction is applied at the start of the current month.",
+  },
+  carryForward: {
+    label: "Carry forward",
+    valueKey: "carryForward",
+    helpText: "Correct the balance brought into this month from the previous month.",
+  },
   available: {
     label: "Available leave",
     valueKey: "availablePaidLeave",
@@ -34,6 +44,11 @@ const ADJUSTMENT_FIELDS = {
     label: "Paid leave used",
     valueKey: "paidLeaveUsed",
     helpText: "Use up to two decimal places. Positive values record more leave as used; negative values correct/reduce used leave.",
+  },
+  excess: {
+    label: "Excess / LOP",
+    valueKey: "excessLeaveDays",
+    helpText: "Positive values add LOP; negative values correct or remove incorrectly recorded LOP.",
   },
 };
 
@@ -157,6 +172,21 @@ const HrLeaveBalances = () => {
     { label: "Excess / LOP", value: formatNumber(totals.excess), caption: "days requiring review", icon: AlertTriangle, tone: "red" },
   ];
 
+  const renderEditableBalance = (row, field, valueClass = "balance-number-muted") => (
+    <div className="balance-editable-value">
+      <span className={valueClass}>{formatNumber(row.balance[ADJUSTMENT_FIELDS[field].valueKey])}</span>
+      <button
+        type="button"
+        className="balance-field-edit-button"
+        onClick={() => openAdjustment(row, field)}
+        aria-label={`Edit ${ADJUSTMENT_FIELDS[field].label} for ${row.user.name}`}
+        title={`Edit ${ADJUSTMENT_FIELDS[field].label}`}
+      >
+        <PencilLine size={14} />
+      </button>
+    </div>
+  );
+
   return (
     <div className="balance-management-page">
       <div className="balance-management-header">
@@ -234,7 +264,6 @@ const HrLeaveBalances = () => {
                 <th scope="col">Paid Used</th>
                 <th scope="col">Excess / LOP</th>
                 <th scope="col">Last Updated</th>
-                <th scope="col"><span className="sr-only">Action</span></th>
               </tr>
             </thead>
             <tbody>
@@ -252,33 +281,20 @@ const HrLeaveBalances = () => {
                     <td>
                       <div className="balance-org-cell"><strong>{row.user.subcategoryId?.name || "Not assigned"}</strong><small>{row.user.teamId?.name || "No team"}</small></div>
                     </td>
-                    <td><span className="balance-number-muted">{formatNumber(row.balance.monthlyAllocation)}</span></td>
-                    <td><span className="balance-number-muted">{formatNumber(row.balance.carryForward)}</span></td>
-                    <td><span className="balance-number-pill balance-number-available">{formatNumber(row.balance.availablePaidLeave)}</span></td>
-                    <td><span className="balance-number-muted">{formatNumber(row.balance.paidLeaveUsed)}</span></td>
-                    <td><span className={`balance-number-pill ${hasExcess ? "balance-number-excess" : "balance-number-clear"}`}>{formatNumber(row.balance.excessLeaveDays)}</span></td>
+                    <td>{renderEditableBalance(row, "monthly")}</td>
+                    <td>{renderEditableBalance(row, "carryForward")}</td>
+                    <td>{renderEditableBalance(row, "available", "balance-number-pill balance-number-available")}</td>
+                    <td>{renderEditableBalance(row, "paidUsed")}</td>
+                    <td>{renderEditableBalance(row, "excess", `balance-number-pill ${hasExcess ? "balance-number-excess" : "balance-number-clear"}`)}</td>
                     <td><span className="balance-updated-time">{row.balance.lastUpdated ? new Date(row.balance.lastUpdated).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "Not updated"}</span></td>
-                    <td>
-                      <div className="balance-action-buttons">
-                        <button className="balance-adjust-button" onClick={() => openAdjustment(row, "available")}>
-                          <PencilLine size={15} /> Adjust available
-                        </button>
-                        <button
-                          className="balance-adjust-button balance-adjust-button--secondary"
-                          onClick={() => openAdjustment(row, "paidUsed")}
-                        >
-                          <PencilLine size={15} /> Adjust used
-                        </button>
-                      </div>
-                    </td>
                   </tr>
                 );
               })}
               {!loading && filteredRows.length === 0 && (
-                <tr><td colSpan="10"><EmptyState title="No users found" description="Try changing the search term or role filter." compact /></td></tr>
+                <tr><td colSpan="9"><EmptyState title="No users found" description="Try changing the search term or role filter." compact /></td></tr>
               )}
               {loading && rows.length === 0 && (
-                <tr><td colSpan="10"><LoadingState label="Loading leave balances..." compact /></td></tr>
+                <tr><td colSpan="9"><LoadingState label="Loading leave balances..." compact /></td></tr>
               )}
             </tbody>
           </table>

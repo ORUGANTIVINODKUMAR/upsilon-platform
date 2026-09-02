@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import {
   PERSONAL_LEAVE_ROLES,
   getLeaveBalanceForUser,
+  periodToDate,
   toPeriod,
 } from "../services/leaveBalanceService.js";
 
@@ -38,6 +39,24 @@ const hasAtMostTwoDecimalPlaces = (value) =>
 const ADJUSTMENT_ENTRY_TYPES = {
   available: "HR_ADJUSTMENT",
   paidUsed: "PAID_USED_ADJUSTMENT",
+  monthly: "MONTHLY_ALLOCATION_ADJUSTMENT",
+  carryForward: "CARRY_FORWARD_ADJUSTMENT",
+  excess: "EXCESS_ADJUSTMENT",
+};
+
+const getAdjustmentTiming = (field, now) => {
+  const currentPeriod = toPeriod(now);
+
+  if (field === "monthly") {
+    return { period: currentPeriod, effectiveDate: periodToDate(currentPeriod) };
+  }
+
+  if (field === "carryForward") {
+    const effectiveDate = new Date(periodToDate(currentPeriod).getTime() - 1);
+    return { period: toPeriod(effectiveDate), effectiveDate };
+  }
+
+  return { period: currentPeriod, effectiveDate: now };
 };
 
 export const getMyLeaveBalance = async (req, res) => {
@@ -175,25 +194,23 @@ export const createHrLeaveAdjustment = async (req, res) => {
     }
 
     const now = new Date();
+    const timing = getAdjustmentTiming(field, now);
     await LeaveBalanceLedger.create({
       userId: user._id,
       entryType,
-      period: toPeriod(now),
+      period: timing.period,
       amount,
       leaveDays: 0,
       reason,
       createdBy: req.user._id,
-      effectiveDate: now,
+      effectiveDate: timing.effectiveDate,
       active: true,
     });
     const balance = await getLeaveBalanceForUser(user._id);
 
     return res.status(201).json({
       success: true,
-      message:
-        field === "paidUsed"
-          ? "Paid leave used adjustment recorded"
-          : "Leave balance adjustment recorded",
+      message: "Leave balance adjustment recorded",
       balance,
     });
   } catch (error) {

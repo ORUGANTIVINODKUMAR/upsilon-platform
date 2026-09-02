@@ -17,6 +17,10 @@ const formatNumber = (value) => Number(value || 0).toFixed(1).replace(/\.0$/, ""
 const entryLabel = (entry) => {
   if (entry.entryType === "MONTHLY_CREDIT") return "+ Monthly leave credit";
   if (entry.entryType === "HR_ADJUSTMENT") return "HR adjustment";
+  if (entry.entryType === "MONTHLY_ALLOCATION_ADJUSTMENT") return "Monthly allocation adjustment";
+  if (entry.entryType === "CARRY_FORWARD_ADJUSTMENT") return "Carry-forward adjustment";
+  if (entry.entryType === "PAID_USED_ADJUSTMENT") return "Paid leave used adjustment";
+  if (entry.entryType === "EXCESS_ADJUSTMENT") return "Excess / LOP adjustment";
   if (entry.entryType === "APPROVED_LEAVE") return "Approved leave";
   if (entry.entryType === "UNINFORMED_ABSENCE") return "Uninformed absence (LOP)";
   return entry.entryType;
