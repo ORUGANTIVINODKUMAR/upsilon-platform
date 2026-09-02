@@ -9,6 +9,36 @@ export const ATTENDANCE_EMPLOYEE_ROLES = [
   "HR",
 ];
 
+export const ATTENDANCE_TYPE_DETAILS = Object.freeze({
+  FULL_DAY: Object.freeze({
+    attendanceType: "FULL_DAY",
+    status: "Absent \u2013 Uninformed",
+    durationDays: 1,
+    label: "Full-day absence",
+  }),
+  HALF_DAY: Object.freeze({
+    attendanceType: "HALF_DAY",
+    status: "Half Day Leave",
+    durationDays: 0.5,
+    label: "Half-day leave",
+  }),
+  PERMISSION: Object.freeze({
+    attendanceType: "PERMISSION",
+    status: "Permission",
+    durationDays: 0,
+    label: "Permission",
+  }),
+});
+
+export const getAttendanceTypeDetails = (value = "FULL_DAY") =>
+  ATTENDANCE_TYPE_DETAILS[value] || null;
+
+export const getAttendanceBalanceTreatment = (attendanceType, value) => {
+  if (attendanceType === "PERMISSION") return "NONE";
+  if (value === undefined || value === null || value === "") return "LOP";
+  return ["LOP", "PAID"].includes(value) ? value : null;
+};
+
 export const canManageAttendance = (role) =>
   ATTENDANCE_MANAGEMENT_ROLES.includes(role);
 

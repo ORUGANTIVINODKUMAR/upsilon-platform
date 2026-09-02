@@ -10,6 +10,8 @@ import {
   ATTENDANCE_AUDIT_ROLES,
   ATTENDANCE_EMPLOYEE_ROLES,
   canManageAttendance,
+  getAttendanceBalanceTreatment,
+  getAttendanceTypeDetails,
   isManagerAuthorizedForEmployee,
   parseAttendanceDate,
   validateAttendanceDate,
@@ -108,6 +110,7 @@ const getAttendanceConflict = async ({ employeeId, attendanceDate, excludeId }) 
     AttendanceRecord.findOne({
       employeeId,
       attendanceDate,
+      active: { $ne: false },
       ...(excludeId ? { _id: { $ne: excludeId } } : {}),
     }).select("status").lean(),
   ]);
@@ -131,11 +134,18 @@ const getAttendanceConflict = async ({ employeeId, attendanceDate, excludeId }) 
 };
 
 const sendAttendanceNotification = (record) => {
+  const deductionText = record.active === false
+    ? " This record was cancelled and no longer affects your leave balance."
+    : record.balanceTreatment === "PAID"
+    ? ` This uses ${record.durationDays} paid leave day${record.durationDays === 1 ? "" : "s"}.`
+    : record.durationDays > 0
+    ? ` This records ${record.durationDays} LOP day${record.durationDays === 1 ? "" : "s"}.`
+    : " This permission does not deduct leave.";
   return createNotification({
     recipientId: record.employeeId,
     type: "Attendance",
     title: "Attendance Update",
-    message: `You have been marked as '${UNINFORMED_ABSENCE_STATUS}' for ${record.attendanceDate.toISOString().slice(0, 10)}. If this is incorrect, please contact your manager or HR.`,
+    message: `Your attendance for ${record.attendanceDate.toISOString().slice(0, 10)} is '${record.status}'.${deductionText} If this is incorrect, please contact your manager or HR.`,
     link: "/dashboard?page=attendance",
   }).catch((error) => {
     console.error("ATTENDANCE NOTIFICATION ERROR:", error.message);
@@ -268,6 +278,18 @@ export const createUninformedAbsence = async (req, res) => {
       return res.status(400).json({ success: false, message: "Remarks cannot exceed 500 characters" });
     }
 
+    const attendanceDetails = getAttendanceTypeDetails(req.body.attendanceType || "FULL_DAY");
+    if (!attendanceDetails) {
+      return res.status(400).json({ success: false, message: "Select a valid attendance type" });
+    }
+    const balanceTreatment = getAttendanceBalanceTreatment(
+      attendanceDetails.attendanceType,
+      req.body.balanceTreatment,
+    );
+    if (!balanceTreatment) {
+      return res.status(400).json({ success: false, message: "Select paid leave or LOP treatment" });
+    }
+
     const conflict = await getAttendanceConflict({
       employeeId: employee._id,
       attendanceDate: dateResult.attendanceDate,
@@ -276,32 +298,32 @@ export const createUninformedAbsence = async (req, res) => {
       return res.status(409).json({ success: false, code: "ATTENDANCE_CONFLICT", ...conflict });
     }
 
-    const record = await AttendanceRecord.create({
-      employeeId: employee._id,
-      employeeName: employee.name,
-      attendanceDate: dateResult.attendanceDate,
-      status: UNINFORMED_ABSENCE_STATUS,
-      remarks,
-      createdBy: req.user._id,
-      createdByRole: req.user.role,
-      lastModifiedBy: req.user._id,
-      lastModifiedByRole: req.user.role,
-      lastModifiedAt: new Date(),
+    let record;
+    await mongoose.connection.transaction(async (session) => {
+      [record] = await AttendanceRecord.create([{
+        employeeId: employee._id,
+        employeeName: employee.name,
+        attendanceDate: dateResult.attendanceDate,
+        attendanceType: attendanceDetails.attendanceType,
+        status: attendanceDetails.status,
+        durationDays: attendanceDetails.durationDays,
+        balanceTreatment,
+        remarks,
+        createdBy: req.user._id,
+        createdByRole: req.user.role,
+        lastModifiedBy: req.user._id,
+        lastModifiedByRole: req.user.role,
+        lastModifiedAt: new Date(),
+      }], { session });
+      await syncUninformedAbsenceLedger(record, req.user._id, { session });
     });
-
-    try {
-      await syncUninformedAbsenceLedger(record, req.user._id);
-    } catch (ledgerError) {
-      await AttendanceRecord.findByIdAndDelete(record._id);
-      throw ledgerError;
-    }
 
     await sendAttendanceNotification(record);
 
     const populatedRecord = await populateAttendance(AttendanceRecord.findById(record._id)).lean();
     return res.status(201).json({
       success: true,
-      message: `${employee.name} has been marked as ${UNINFORMED_ABSENCE_STATUS}.`,
+      message: `${employee.name} has been marked as ${attendanceDetails.label}.`,
       record: populatedRecord,
     });
   } catch (error) {
@@ -352,6 +374,21 @@ export const updateUninformedAbsence = async (req, res) => {
       return res.status(400).json({ success: false, message: "Remarks cannot exceed 500 characters" });
     }
 
+
+    const attendanceDetails = getAttendanceTypeDetails(
+      req.body.attendanceType || record.attendanceType || "FULL_DAY",
+    );
+    if (!attendanceDetails) {
+      return res.status(400).json({ success: false, message: "Select a valid attendance type" });
+    }
+    const balanceTreatment = getAttendanceBalanceTreatment(
+      attendanceDetails.attendanceType,
+      req.body.balanceTreatment ?? record.balanceTreatment,
+    );
+    if (!balanceTreatment) {
+      return res.status(400).json({ success: false, message: "Select paid leave or LOP treatment" });
+    }
+
     const conflict = await getAttendanceConflict({
       employeeId: record.employeeId,
       attendanceDate: dateResult.attendanceDate,
@@ -363,7 +400,10 @@ export const updateUninformedAbsence = async (req, res) => {
 
     const changed =
       record.attendanceDate.toISOString().slice(0, 10) !== nextDateValue ||
-      record.remarks !== remarks;
+      record.remarks !== remarks ||
+      record.attendanceType !== attendanceDetails.attendanceType ||
+      record.balanceTreatment !== balanceTreatment ||
+      record.active === false;
     if (!changed) {
       await syncUninformedAbsenceLedger(record, req.user._id);
       const populatedRecord = await populateAttendance(AttendanceRecord.findById(record._id)).lean();
@@ -376,15 +416,29 @@ export const updateUninformedAbsence = async (req, res) => {
       modifiedAt: new Date(),
       previousDate: record.attendanceDate,
       previousRemarks: record.remarks,
+      previousAttendanceType: record.attendanceType || "FULL_DAY",
+      previousStatus: record.status,
+      previousDurationDays: record.durationDays ?? 1,
+      previousBalanceTreatment: record.balanceTreatment || "LOP",
     });
     record.attendanceDate = dateResult.attendanceDate;
+    record.attendanceType = attendanceDetails.attendanceType;
+    record.status = attendanceDetails.status;
+    record.durationDays = attendanceDetails.durationDays;
+    record.balanceTreatment = balanceTreatment;
+    record.active = true;
+    record.cancelledAt = null;
+    record.cancelledBy = null;
+    record.cancelledByRole = null;
+    record.cancellationReason = "";
     record.remarks = remarks;
     record.lastModifiedBy = req.user._id;
     record.lastModifiedByRole = req.user.role;
     record.lastModifiedAt = new Date();
-    await record.save();
-
-    await syncUninformedAbsenceLedger(record, req.user._id);
+    await mongoose.connection.transaction(async (session) => {
+      await record.save({ session });
+      await syncUninformedAbsenceLedger(record, req.user._id, { session });
+    });
 
     await sendAttendanceNotification(record);
 
@@ -408,5 +462,70 @@ export const updateUninformedAbsence = async (req, res) => {
       return res.status(400).json({ success: false, message: Object.values(error.errors).map((item) => item.message).join(", ") });
     }
     return res.status(500).json({ success: false, message: "Unable to update attendance record" });
+  }
+};
+
+export const cancelAttendanceRecord = async (req, res) => {
+  try {
+    if (!canManageAttendance(req.user.role)) {
+      return res.status(403).json({ success: false, message: "Only HR or Managers can manage attendance" });
+    }
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid attendance record ID" });
+    }
+
+    const record = await AttendanceRecord.findById(req.params.id);
+    if (!record) {
+      return res.status(404).json({ success: false, message: "Attendance record not found" });
+    }
+    const employee = await getAuthorizedEmployee(req.user, record.employeeId);
+    if (!employee) {
+      return res.status(403).json({ success: false, message: "You are not authorized to manage this employee" });
+    }
+    if (record.active === false) {
+      return res.status(200).json({ success: true, message: "Attendance record is already cancelled." });
+    }
+
+    const reason = String(req.body.reason || "").trim();
+    if (reason.length < 3 || reason.length > 500) {
+      return res.status(400).json({ success: false, message: "Cancellation reason must contain between 3 and 500 characters" });
+    }
+
+    record.changeHistory.push({
+      modifiedBy: req.user._id,
+      modifiedByRole: req.user.role,
+      modifiedAt: new Date(),
+      previousDate: record.attendanceDate,
+      previousRemarks: record.remarks,
+      previousAttendanceType: record.attendanceType || "FULL_DAY",
+      previousStatus: record.status,
+      previousDurationDays: record.durationDays ?? 1,
+      previousBalanceTreatment: record.balanceTreatment || "LOP",
+    });
+    record.active = false;
+    record.status = "Cancelled";
+    record.cancelledAt = new Date();
+    record.cancelledBy = req.user._id;
+    record.cancelledByRole = req.user.role;
+    record.cancellationReason = reason;
+    record.lastModifiedBy = req.user._id;
+    record.lastModifiedByRole = req.user.role;
+    record.lastModifiedAt = new Date();
+
+    await mongoose.connection.transaction(async (session) => {
+      await record.save({ session });
+      await syncUninformedAbsenceLedger(record, req.user._id, { session });
+    });
+    await sendAttendanceNotification(record);
+
+    const populatedRecord = await populateAttendance(AttendanceRecord.findById(record._id)).lean();
+    return res.status(200).json({
+      success: true,
+      message: `${employee.name}'s attendance record has been cancelled.`,
+      record: populatedRecord,
+    });
+  } catch (error) {
+    console.error("CANCEL ATTENDANCE RECORD ERROR:", error);
+    return res.status(500).json({ success: false, message: "Unable to cancel attendance record" });
   }
 };

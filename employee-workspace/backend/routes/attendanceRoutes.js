@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  cancelAttendanceRecord,
   createUninformedAbsence,
   getAttendanceEmployees,
   getAttendanceRecords,
@@ -28,6 +29,12 @@ router.patch(
   protect,
   authorizeRoles("Manager", "HR"),
   updateUninformedAbsence,
+);
+router.patch(
+  "/uninformed-absence/:id/cancel",
+  protect,
+  authorizeRoles("Manager", "HR"),
+  cancelAttendanceRecord,
 );
 
 export default router;

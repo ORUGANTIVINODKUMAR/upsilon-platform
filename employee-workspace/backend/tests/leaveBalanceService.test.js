@@ -121,6 +121,56 @@ test("uninformed absence adds one LOP day without consuming paid leave", () => {
   assert.equal(summary.excessLeaveDays, 1);
 });
 
+test("half-day attendance adds half LOP and permission adds no LOP", () => {
+  const summary = calculateBalanceSummary(
+    [
+      credit("2026-08"),
+      {
+        entryType: "UNINFORMED_ABSENCE",
+        period: "2026-08",
+        amount: 0,
+        leaveDays: 0.5,
+        active: true,
+        effectiveDate: "2026-08-11T00:00:00.000Z",
+      },
+      {
+        entryType: "UNINFORMED_ABSENCE",
+        period: "2026-08",
+        amount: 0,
+        leaveDays: 0,
+        active: true,
+        effectiveDate: "2026-08-12T00:00:00.000Z",
+      },
+    ],
+    "2026-08",
+  );
+
+  assert.equal(summary.availablePaidLeave, 2);
+  assert.equal(summary.uninformedAbsenceDays, 0.5);
+  assert.equal(summary.excessLeaveDays, 0.5);
+});
+
+test("manually recorded paid attendance leave consumes paid balance", () => {
+  const summary = calculateBalanceSummary(
+    [
+      credit("2026-08"),
+      {
+        entryType: "ATTENDANCE_PAID_LEAVE",
+        period: "2026-08",
+        amount: -0.5,
+        leaveDays: 0.5,
+        active: true,
+        effectiveDate: "2026-08-11T00:00:00.000Z",
+      },
+    ],
+    "2026-08",
+  );
+
+  assert.equal(summary.availablePaidLeave, 1.5);
+  assert.equal(summary.paidLeaveUsed, 0.5);
+  assert.equal(summary.excessLeaveDays, 0);
+});
+
 test("pending, rejected, and inactive reapproval entries consume nothing", () => {
   const inactive = approvedLeave("2026-08", 2, false);
   const stalePending = {
@@ -300,7 +350,7 @@ test("a manual paid-used adjustment consumes available leave and raises paid use
   assert.equal(summary.excessLeaveDays, 0);
 });
 
-test("a manual paid-used adjustment beyond available leave records excess", () => {
+test("a manual paid-used adjustment counts only available days as paid and records the rest as excess", () => {
   const summary = calculateBalanceSummary(
     [
       credit("2026-08"),
@@ -315,7 +365,7 @@ test("a manual paid-used adjustment beyond available leave records excess", () =
     "2026-08",
   );
   assert.equal(summary.availablePaidLeave, 0);
-  assert.equal(summary.paidLeaveUsed, 3);
+  assert.equal(summary.paidLeaveUsed, 2);
   assert.equal(summary.excessLeaveDays, 1);
 });
 

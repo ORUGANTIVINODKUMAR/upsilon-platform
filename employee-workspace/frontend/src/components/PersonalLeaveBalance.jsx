@@ -22,7 +22,12 @@ const entryLabel = (entry) => {
   if (entry.entryType === "PAID_USED_ADJUSTMENT") return "Paid leave used adjustment";
   if (entry.entryType === "EXCESS_ADJUSTMENT") return "Excess / LOP adjustment";
   if (entry.entryType === "APPROVED_LEAVE") return "Approved leave";
-  if (entry.entryType === "UNINFORMED_ABSENCE") return "Uninformed absence (LOP)";
+  if (entry.entryType === "ATTENDANCE_PAID_LEAVE") {
+    return entry.attendanceRecordId?.status || "Manual paid leave";
+  }
+  if (entry.entryType === "UNINFORMED_ABSENCE") {
+    return entry.attendanceRecordId?.status || "Uninformed absence (LOP)";
+  }
   return entry.entryType;
 };
 
@@ -162,9 +167,17 @@ const PersonalLeaveBalance = ({ compact = false }) => {
                     <td>{entry.reason || "Not provided"}</td>
                     <td>
                       <StatusBadge
-                        status={entry.entryType === "UNINFORMED_ABSENCE" || entry.amount < 0 ? "rejected" : "paid"}
-                        label={entry.entryType === "UNINFORMED_ABSENCE"
-                          ? `${formatNumber(entry.leaveDays || 1)} day LOP`
+                        status={entry.entryType === "ATTENDANCE_PAID_LEAVE"
+                          ? "paid"
+                          : entry.entryType === "UNINFORMED_ABSENCE"
+                          ? Number(entry.leaveDays ?? 1) > 0 ? "rejected" : "active"
+                          : entry.amount < 0 ? "rejected" : "paid"}
+                        label={entry.entryType === "ATTENDANCE_PAID_LEAVE"
+                          ? `${formatNumber(entry.leaveDays)} day paid leave`
+                          : entry.entryType === "UNINFORMED_ABSENCE"
+                          ? Number(entry.leaveDays ?? 1) > 0
+                            ? `${formatNumber(entry.leaveDays ?? 1)} day LOP`
+                            : "No leave deduction"
                           : `${entry.amount >= 0 ? "+" : ""}${formatNumber(entry.amount)}`}
                       />
                     </td>

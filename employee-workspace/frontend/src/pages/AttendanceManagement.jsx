@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarX2, Download, Pencil, Plus, RefreshCw, Search, X } from "lucide-react";
+import { CalendarX2, Download, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import api from "../api/api";
 import { useAuth } from "../context/useAuth";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
@@ -7,7 +7,11 @@ import PageHeader from "../components/ui/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../components/ui/StatePanel";
 import "./AttendanceManagement.css";
 
-const STATUS = "Absent \u2013 Uninformed";
+const ATTENDANCE_OPTIONS = {
+  FULL_DAY: { label: "Full-day absence", status: "Absent \u2013 Uninformed", durationDays: 1 },
+  HALF_DAY: { label: "Half-day leave", status: "Half Day Leave", durationDays: 0.5 },
+  PERMISSION: { label: "Permission", status: "Permission", durationDays: 0 },
+};
 
 const businessDate = () => {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -44,7 +48,7 @@ const formatDateTime = (value) => {
   }).format(new Date(value));
 };
 
-const emptyForm = () => ({ employeeId: "", date: businessDate(), remarks: "" });
+const emptyForm = () => ({ employeeId: "", date: businessDate(), attendanceType: "FULL_DAY", balanceTreatment: "LOP", remarks: "" });
 
 const AttendanceManagement = () => {
   const { user } = useAuth();
@@ -64,6 +68,9 @@ const AttendanceManagement = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelError, setCancelError] = useState("");
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
@@ -113,6 +120,19 @@ const AttendanceManagement = () => {
   }, [employeeSearch, employees]);
 
   const selectedEmployee = employees.find((employee) => employee._id === form.employeeId);
+  const selectedAttendance = ATTENDANCE_OPTIONS[form.attendanceType] || ATTENDANCE_OPTIONS.FULL_DAY;
+  const STATUS = selectedAttendance.status;
+
+  const selectFilterMonth = (value) => {
+    if (!/^\d{4}-\d{2}$/.test(value)) return;
+    const [year, month] = value.split("-").map(Number);
+    const monthEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+    setFilters((current) => ({
+      ...current,
+      startDate: `${value}-01`,
+      endDate: monthEnd > businessDate() ? businessDate() : monthEnd,
+    }));
+  };
 
   const openCreate = () => {
     setEditingRecord(null);
@@ -127,6 +147,8 @@ const AttendanceManagement = () => {
     setForm({
       employeeId: record.employeeId?._id || record.employeeId,
       date: String(record.attendanceDate).slice(0, 10),
+      attendanceType: record.attendanceType || "FULL_DAY",
+      balanceTreatment: record.balanceTreatment || (record.attendanceType === "PERMISSION" ? "NONE" : "LOP"),
       remarks: record.remarks || "",
     });
     setEmployeeSearch(record.employeeId?.name || record.employeeName || "");
@@ -159,7 +181,13 @@ const AttendanceManagement = () => {
     setSaving(true);
     setFormError("");
     try {
-      const payload = { employeeId: form.employeeId, date: form.date, remarks: form.remarks };
+      const payload = {
+        employeeId: form.employeeId,
+        date: form.date,
+        attendanceType: form.attendanceType,
+        balanceTreatment: form.attendanceType === "PERMISSION" ? "NONE" : form.balanceTreatment,
+        remarks: form.remarks,
+      };
       const { data } = editingRecord
         ? await api.patch(`/attendance/uninformed-absence/${editingRecord._id}`, payload)
         : await api.post("/attendance/uninformed-absence", payload);
@@ -191,6 +219,8 @@ const AttendanceManagement = () => {
         Email: record.employeeId?.email || "",
         Date: String(record.attendanceDate).slice(0, 10),
         Status: record.status,
+        "Balance Treatment": record.balanceTreatment || "LOP",
+        "Leave / LOP Days": record.active === false ? 0 : record.durationDays ?? 1,
         Remarks: record.remarks || "",
         "Created By": record.createdBy?.name || "",
         "Created By Role": record.createdByRole,
@@ -204,12 +234,37 @@ const AttendanceManagement = () => {
       const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
       fileSaver.saveAs(
         new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
-        `Uninformed_Absence_${filters.startDate}_to_${filters.endDate}.xlsx`,
+        `Attendance_Exceptions_${filters.startDate}_to_${filters.endDate}.xlsx`,
       );
     } catch {
       setError("Unable to export attendance records.");
     } finally {
       setExporting(false);
+    }
+  };
+
+  const cancelRecord = async (event) => {
+    event.preventDefault();
+    if (!cancelTarget) return;
+    if (cancelReason.trim().length < 3) {
+      setCancelError("Enter a cancellation reason of at least 3 characters.");
+      return;
+    }
+    try {
+      setSaving(true);
+      setCancelError("");
+      const { data } = await api.patch(`/attendance/uninformed-absence/${cancelTarget._id}/cancel`, {
+        reason: cancelReason.trim(),
+      });
+      setSuccess(data.message);
+      setCancelTarget(null);
+      setCancelReason("");
+      await fetchRecords();
+      window.dispatchEvent(new CustomEvent("leave-balance-updated"));
+    } catch (requestError) {
+      setCancelError(requestError.response?.data?.message || "Unable to cancel the attendance record.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -219,12 +274,12 @@ const AttendanceManagement = () => {
     <section className="attendance-page">
       <PageHeader
         eyebrow="Attendance"
-        title="Uninformed Absence"
-        description={canManage ? "Record and review employees who were absent without informing the company." : "Review your attendance history."}
+        title="Attendance Exceptions"
+        description={canManage ? "Record full-day absence, half-day leave, or permission for current and previous working dates." : "Review your attendance history."}
         icon={CalendarX2}
         actions={canManage ? (
           <button type="button" className="btn btn-primary" onClick={openCreate}>
-            <Plus size={16} /> Add Uninformed Absence
+            <Plus size={16} /> Add Attendance Record
           </button>
         ) : null}
       />
@@ -233,6 +288,15 @@ const AttendanceManagement = () => {
       {error && <ErrorState title="Attendance could not be loaded" description={error} compact />}
 
       <div className="attendance-filters">
+        <label>
+          <span>Month</span>
+          <input
+            type="month"
+            value={filters.startDate.slice(0, 7)}
+            max={businessDate().slice(0, 7)}
+            onChange={(event) => selectFilterMonth(event.target.value)}
+          />
+        </label>
         <label>
           <span>From</span>
           <input type="date" value={filters.startDate} max={filters.endDate} onChange={(event) => setFilters((current) => ({ ...current, startDate: event.target.value }))} />
@@ -263,7 +327,7 @@ const AttendanceManagement = () => {
       </div>
 
       {loading ? <LoadingState label="Loading attendance records..." /> : records.length === 0 ? (
-        <EmptyState title="No uninformed absences" description="No matching attendance records were found for this period." />
+        <EmptyState title="No attendance exceptions" description="No matching attendance records were found for this period." />
       ) : (
         <div className="attendance-table-wrap">
           <table className="attendance-table">
@@ -273,10 +337,10 @@ const AttendanceManagement = () => {
                 <tr key={record._id}>
                   <td data-label="Employee"><strong>{record.employeeId?.name || record.employeeName}</strong><small>{record.employeeId?.employeeId || record.employeeId?.email || ""}</small></td>
                   <td data-label="Date">{formatDate(record.attendanceDate)}</td>
-                  <td data-label="Status"><span className="attendance-status-badge">{record.status}</span></td>
-                  <td data-label="Remarks">{record.remarks || "-"}</td>
+                  <td data-label="Status"><span className="attendance-status-badge">{record.status}</span><small>{record.active === false ? "No balance effect" : record.balanceTreatment === "PAID" ? `${record.durationDays} paid leave` : record.balanceTreatment === "NONE" ? "No deduction" : `${record.durationDays} LOP`}</small></td>
+                  <td data-label="Remarks">{record.remarks || "-"}{record.cancellationReason && <small>Cancelled: {record.cancellationReason}</small>}</td>
                   <td data-label="Audit"><strong>{record.createdBy?.name || "Unknown"} · {record.createdByRole}</strong><small>Created {formatDateTime(record.createdAt)}</small><small>Last updated by {record.lastModifiedBy?.name || "Unknown"} · {formatDateTime(record.lastModifiedAt)}</small>{record.changeHistory?.length > 0 && <small>{record.changeHistory.length} correction{record.changeHistory.length === 1 ? "" : "s"}</small>}</td>
-                  {canManage && <td data-label="Actions"><button type="button" className="btn btn-secondary btn-compact" onClick={() => openEdit(record)}><Pencil size={14} /> Edit</button></td>}
+                  {canManage && <td data-label="Actions"><div className="attendance-row-actions"><button type="button" className="btn btn-secondary btn-compact" onClick={() => openEdit(record)}><Pencil size={14} /> {record.active === false ? "Reactivate" : "Edit"}</button>{record.active !== false && <button type="button" className="btn btn-danger btn-compact" onClick={() => { setCancelTarget(record); setCancelReason(""); setCancelError(""); }}><Trash2 size={14} /> Cancel</button>}</div></td>}
                 </tr>
               ))}
             </tbody>
@@ -288,7 +352,7 @@ const AttendanceManagement = () => {
         <div className="modal-overlay" role="presentation" onMouseDown={closeForm}>
           <section className="modal-card attendance-modal" role="dialog" aria-modal="true" aria-labelledby="attendance-form-title" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modal-header">
-              <div><span className="ui-eyebrow">Manual attendance</span><h3 id="attendance-form-title">{editingRecord ? "Correct uninformed absence" : "Add uninformed absence"}</h3></div>
+              <div><span className="ui-eyebrow">Manual attendance</span><h3 id="attendance-form-title">{editingRecord ? "Correct attendance record" : "Add attendance record"}</h3></div>
               <button type="button" className="modal-close" onClick={closeForm} disabled={saving} aria-label="Close attendance form"><X size={18} /></button>
             </div>
             {formError && <ErrorState title="Attendance not saved" description={formError} compact />}
@@ -309,21 +373,50 @@ const AttendanceManagement = () => {
                 </>
               )}
               {editingRecord && <div className="attendance-employee-summary"><strong>{editingRecord.employeeId?.name || editingRecord.employeeName}</strong><span>{editingRecord.employeeId?.employeeId || editingRecord.employeeId?.email || ""}</span></div>}
-              <div className="input-group"><label htmlFor="attendance-date">Date</label><input id="attendance-date" type="date" value={form.date} max={businessDate()} onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} required /></div>
-              <div className="input-group"><label htmlFor="attendance-status">Attendance status</label><input id="attendance-status" value={STATUS} readOnly aria-readonly="true" /></div>
+              <div className="input-group"><label htmlFor="attendance-date">Date</label><input id="attendance-date" type="date" value={form.date} min={selectedEmployee?.dateOfJoining ? String(selectedEmployee.dateOfJoining).slice(0, 10) : undefined} max={businessDate()} onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} required /><small>You can select any previous working date after the employee&apos;s joining date.</small></div>
+              <div className="input-group">
+                <label htmlFor="attendance-type">Record type</label>
+                <select id="attendance-type" value={form.attendanceType} onChange={(event) => setForm((current) => ({ ...current, attendanceType: event.target.value }))} required>
+                  {Object.entries(ATTENDANCE_OPTIONS).map(([value, option]) => <option key={value} value={value}>{option.label}</option>)}
+                </select>
+              </div>
+              {form.attendanceType !== "PERMISSION" ? (
+                <div className="input-group">
+                  <label htmlFor="attendance-balance-treatment">Balance treatment</label>
+                  <select id="attendance-balance-treatment" value={form.balanceTreatment} onChange={(event) => setForm((current) => ({ ...current, balanceTreatment: event.target.value }))} required>
+                    <option value="LOP">Loss of Pay (LOP)</option>
+                    <option value="PAID">Use available paid leave</option>
+                  </select>
+                  <small>{selectedAttendance.durationDays} day{selectedAttendance.durationDays === 1 ? "" : "s"} will be applied using the selected treatment.</small>
+                </div>
+              ) : <div className="input-group"><small>Permission is shown in attendance and the leave calendar with no leave deduction.</small></div>}
               <div className="input-group"><label htmlFor="attendance-remarks">Remarks <span>(optional)</span></label><textarea id="attendance-remarks" rows="4" maxLength="500" value={form.remarks} onChange={(event) => setForm((current) => ({ ...current, remarks: event.target.value }))} placeholder="Employee did not inform the manager before the start of the shift." /><small>{form.remarks.length}/500</small></div>
-              <div className="form-actions"><button type="button" className="btn btn-secondary" onClick={closeForm}>Cancel</button><button type="submit" className="btn btn-primary">{editingRecord ? "Review Correction" : "Mark as Absent"}</button></div>
+              <div className="form-actions"><button type="button" className="btn btn-secondary" onClick={closeForm}>Cancel</button><button type="submit" className="btn btn-primary">{editingRecord ? "Review Correction" : "Review Record"}</button></div>
             </form>
           </section>
         </div>
       )}
 
+      {cancelTarget && (
+        <div className="modal-overlay" role="presentation" onMouseDown={() => !saving && setCancelTarget(null)}>
+          <form className="modal-card attendance-modal" role="dialog" aria-modal="true" aria-labelledby="attendance-cancel-title" onSubmit={cancelRecord} onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div><span className="ui-eyebrow">Audited correction</span><h3 id="attendance-cancel-title">Cancel attendance record</h3></div>
+              <button type="button" className="modal-close" onClick={() => setCancelTarget(null)} disabled={saving} aria-label="Close cancellation form"><X size={18} /></button>
+            </div>
+            {cancelError && <ErrorState title="Record not cancelled" description={cancelError} compact />}
+            <div className="input-group"><label htmlFor="attendance-cancel-reason">Cancellation reason</label><textarea id="attendance-cancel-reason" rows="4" minLength="3" maxLength="500" value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} placeholder="Explain why this attendance record must be cancelled" required autoFocus /><small>Cancelling reverses its linked paid-leave or LOP entry and preserves the audit history.</small></div>
+            <div className="form-actions"><button type="button" className="btn btn-secondary" onClick={() => setCancelTarget(null)} disabled={saving}>Keep Record</button><button type="submit" className="btn btn-danger" disabled={saving || cancelReason.trim().length < 3}>{saving ? "Cancelling..." : "Cancel Record"}</button></div>
+          </form>
+        </div>
+      )}
+
       <ConfirmDialog
         open={confirmOpen}
-        title={editingRecord ? "Confirm attendance correction" : "Confirm uninformed absence"}
-        description={`${editingRecord ? "Update" : "Mark"} ${confirmationName} as “${STATUS}” for ${formatDate(`${form.date}T00:00:00.000Z`)}?`}
-        confirmLabel={editingRecord ? "Update Record" : "Mark as Absent"}
-        tone="danger"
+        title={editingRecord ? "Confirm attendance correction" : "Confirm attendance record"}
+        description={`${editingRecord ? "Update" : "Mark"} ${confirmationName} as “${STATUS}” for ${formatDate(`${form.date}T00:00:00.000Z`)}? ${form.attendanceType === "PERMISSION" ? "No leave will be deducted." : `${selectedAttendance.durationDays} day${selectedAttendance.durationDays === 1 ? "" : "s"} will be recorded as ${form.balanceTreatment === "PAID" ? "paid leave" : "LOP"}.`}`}
+        confirmLabel={editingRecord ? "Update Record" : "Save Record"}
+        tone={selectedAttendance.durationDays > 0 ? "danger" : "default"}
         busy={saving}
         onCancel={() => !saving && setConfirmOpen(false)}
         onConfirm={saveRecord}

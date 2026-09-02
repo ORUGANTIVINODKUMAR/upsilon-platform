@@ -13,6 +13,7 @@ const leaveBalanceLedgerSchema = new mongoose.Schema(
       enum: [
         "MONTHLY_CREDIT",
         "APPROVED_LEAVE",
+        "ATTENDANCE_PAID_LEAVE",
         "UNINFORMED_ABSENCE",
         "HR_ADJUSTMENT",
         "PAID_USED_ADJUSTMENT",

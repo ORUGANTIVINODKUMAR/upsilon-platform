@@ -28,6 +28,15 @@ const LEAVE_COLORS = {
   Earned: "#16828e",
   Emergency: "#c04d7c",
   "Uninformed Absence": "#b4232f",
+  "Absent \u2013 Uninformed": "#b4232f",
+  "Half Day Leave": "#c47b13",
+  Permission: "#16828e",
+};
+
+const ATTENDANCE_OPTIONS = {
+  FULL_DAY: { label: "Full-day absence", status: "Absent \u2013 Uninformed", durationDays: 1 },
+  HALF_DAY: { label: "Half-day leave", status: "Half Day Leave", durationDays: 0.5 },
+  PERMISSION: { label: "Permission", status: "Permission", durationDays: 0 },
 };
 
 const EXPORT_ROLES = ["Admin", "HR", "Manager"];
@@ -54,7 +63,7 @@ const LeaveCalendar = () => {
   const [success, setSuccess] = useState("");
   const [showAbsenceModal, setShowAbsenceModal] = useState(false);
   const [absenceSearch, setAbsenceSearch] = useState("");
-  const [absenceForm, setAbsenceForm] = useState({ employeeId: "", date: "", remarks: "" });
+  const [absenceForm, setAbsenceForm] = useState({ employeeId: "", date: "", attendanceType: "FULL_DAY", balanceTreatment: "LOP", remarks: "" });
   const [absenceError, setAbsenceError] = useState("");
   const [confirmAbsence, setConfirmAbsence] = useState(false);
   const [savingAbsence, setSavingAbsence] = useState(false);
@@ -85,7 +94,7 @@ const LeaveCalendar = () => {
           endDate: toDateInputValue(rangeEnd),
         },
       });
-      setAttendanceEvents((data.records || []).map((record) => ({
+      setAttendanceEvents((data.records || []).filter((record) => record.active !== false).map((record) => ({
         id: `attendance-${record._id}`,
         attendanceRecordId: record._id,
         sourceType: "Attendance",
@@ -94,7 +103,8 @@ const LeaveCalendar = () => {
         employeeId: record.employeeId?.employeeId || "",
         department: record.employeeId?.subcategoryId?.name || "",
         team: record.employeeId?.teamId?.name || "",
-        leaveType: "Uninformed Absence",
+        leaveType: record.status || "Absent \u2013 Uninformed",
+        durationDays: Number(record.durationDays ?? 1),
         start: record.attendanceDate,
         end: record.attendanceDate,
         status: record.status,
@@ -173,12 +183,13 @@ const LeaveCalendar = () => {
   const selectedAbsenceEmployee = employees.find(
     (employee) => employee._id === absenceForm.employeeId,
   );
+  const selectedAttendance = ATTENDANCE_OPTIONS[absenceForm.attendanceType] || ATTENDANCE_OPTIONS.FULL_DAY;
 
   const openAbsenceModal = (date) => {
     const dateValue = toDateInputValue(date || today);
     setSelectedDate(null);
     setSelectedDateLeaves([]);
-    setAbsenceForm({ employeeId: "", date: dateValue, remarks: "" });
+    setAbsenceForm({ employeeId: "", date: dateValue, attendanceType: "FULL_DAY", balanceTreatment: "LOP", remarks: "" });
     setAbsenceSearch("");
     setAbsenceError("");
     setShowAbsenceModal(true);
@@ -426,7 +437,7 @@ const LeaveCalendar = () => {
             {canAddAbsence && (
               <button type="button" className="btn btn-secondary" onClick={() => openAbsenceModal(today)}>
                 <Plus size={17} aria-hidden="true" />
-                Add Absent Employee
+                Add Attendance Record
               </button>
             )}
             {EXPORT_ROLES.includes(user?.role) && (
@@ -506,7 +517,7 @@ const LeaveCalendar = () => {
                 />
                 <div>
                   <strong>{leave.employeeId?.name || "Employee"}</strong>
-                  <span>{leave.leaveType}{leave.sourceType === "Attendance" ? " · LOP" : " leave"}</span>
+                  <span>{leave.leaveType}{leave.sourceType === "Attendance" && leave.durationDays > 0 ? ` · ${leave.durationDays} LOP` : leave.sourceType === "Attendance" ? "" : " leave"}</span>
                   <small>{formatDate(leave.startDate)} – {formatDate(leave.endDate)}</small>
                 </div>
               </article>
@@ -570,7 +581,7 @@ const LeaveCalendar = () => {
                 onClick={() => openAbsenceModal(viewDate)}
               >
                 <Plus size={16} aria-hidden="true" />
-                Add Absent Employee
+                Add Attendance Record
               </button>
             )}
           </div>
@@ -752,7 +763,7 @@ const LeaveCalendar = () => {
                   onClick={() => openAbsenceModal(selectedDate)}
                 >
                   <Plus size={16} aria-hidden="true" />
-                  Add Absent Employee
+                  Add Attendance Record
                 </button>
               )}
 
@@ -793,7 +804,7 @@ const LeaveCalendar = () => {
             <div className="modal-header">
               <div>
                 <span className="ui-eyebrow">Manual attendance</span>
-                <h3 id="calendar-absence-title">Add absent employee</h3>
+                <h3 id="calendar-absence-title">Add attendance record</h3>
               </div>
               <button type="button" onClick={closeAbsenceModal} disabled={savingAbsence} aria-label="Close absence form">
                 <X size={18} aria-hidden="true" />
@@ -844,17 +855,43 @@ const LeaveCalendar = () => {
                   id="calendar-absence-date"
                   type="date"
                   value={absenceForm.date}
+                  min={selectedAbsenceEmployee?.dateOfJoining ? String(selectedAbsenceEmployee.dateOfJoining).slice(0, 10) : undefined}
                   max={toDateInputValue(today)}
                   onChange={(event) => setAbsenceForm((current) => ({ ...current, date: event.target.value }))}
                   required
                 />
+                <small>Select any current or previous working date after the employee&apos;s joining date.</small>
               </div>
 
               <div className="input-group">
-                <label htmlFor="calendar-absence-status">Attendance status</label>
-                <input id="calendar-absence-status" value="Absent – Uninformed" readOnly />
-                <small>This day will automatically be recorded as one unpaid leave / LOP day.</small>
+                <label htmlFor="calendar-attendance-type">Record type</label>
+                <select
+                  id="calendar-attendance-type"
+                  value={absenceForm.attendanceType}
+                  onChange={(event) => setAbsenceForm((current) => ({ ...current, attendanceType: event.target.value }))}
+                  required
+                >
+                  {Object.entries(ATTENDANCE_OPTIONS).map(([value, option]) => (
+                    <option key={value} value={value}>{option.label}</option>
+                  ))}
+                </select>
+                <small>{selectedAttendance.durationDays > 0 ? "Choose whether this record uses paid leave or becomes LOP." : "Permission will appear in attendance and the leave calendar without deducting leave."}</small>
               </div>
+
+              {absenceForm.attendanceType !== "PERMISSION" && (
+                <div className="input-group">
+                  <label htmlFor="calendar-balance-treatment">Balance treatment</label>
+                  <select
+                    id="calendar-balance-treatment"
+                    value={absenceForm.balanceTreatment}
+                    onChange={(event) => setAbsenceForm((current) => ({ ...current, balanceTreatment: event.target.value }))}
+                    required
+                  >
+                    <option value="LOP">Loss of Pay (LOP)</option>
+                    <option value="PAID">Use available paid leave</option>
+                  </select>
+                </div>
+              )}
 
               <div className="input-group">
                 <label htmlFor="calendar-absence-remarks">Remarks <span>(optional)</span></label>
@@ -871,7 +908,7 @@ const LeaveCalendar = () => {
 
               <div className="form-actions">
                 <button type="button" className="btn btn-secondary" onClick={closeAbsenceModal}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Mark as Absent</button>
+                <button type="submit" className="btn btn-primary">Review Record</button>
               </div>
             </form>
           </section>
@@ -880,10 +917,10 @@ const LeaveCalendar = () => {
 
       <ConfirmDialog
         open={confirmAbsence}
-        title="Confirm uninformed absence"
-        description={`Mark ${selectedAbsenceEmployee?.name || "this employee"} as “Absent – Uninformed” for ${absenceForm.date ? formatDate(`${absenceForm.date}T00:00:00.000Z`) : "the selected date"}? This will add one LOP day.`}
-        confirmLabel="Mark as Absent"
-        tone="danger"
+        title="Confirm attendance record"
+        description={`Record ${selectedAbsenceEmployee?.name || "this employee"} as “${selectedAttendance.status}” for ${absenceForm.date ? formatDate(`${absenceForm.date}T00:00:00.000Z`) : "the selected date"}? ${selectedAttendance.durationDays > 0 ? `${selectedAttendance.durationDays} day${selectedAttendance.durationDays === 1 ? "" : "s"} will be recorded as ${absenceForm.balanceTreatment === "PAID" ? "paid leave" : "LOP"}.` : "No leave will be deducted."}`}
+        confirmLabel="Save Record"
+        tone={selectedAttendance.durationDays > 0 ? "danger" : "default"}
         busy={savingAbsence}
         onCancel={() => !savingAbsence && setConfirmAbsence(false)}
         onConfirm={saveUninformedAbsence}

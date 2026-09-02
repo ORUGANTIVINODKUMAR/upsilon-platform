@@ -16,6 +16,7 @@
 .attendance-employee-summary { display: grid; gap: 3px; border-radius: 11px; background: #edf5f2; padding: 12px 14px; color: #173b31; }
 .attendance-employee-summary span { color: #657b73; font-size: .82rem; }
 .btn-compact { padding: 7px 10px; min-height: 34px; }
+.attendance-row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .calendar-add-absence-button { width: 100%; justify-content: center; margin-bottom: 4px; }
 
 @media (max-width: 900px) {

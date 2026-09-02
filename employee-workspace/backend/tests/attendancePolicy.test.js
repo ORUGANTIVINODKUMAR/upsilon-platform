@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import AttendanceRecord, { UNINFORMED_ABSENCE_STATUS } from "../models/AttendanceRecord.js";
+import AttendanceRecord, {
+  ATTENDANCE_RECORD_STATUSES,
+  UNINFORMED_ABSENCE_STATUS,
+} from "../models/AttendanceRecord.js";
 import { createUninformedAbsence } from "../controllers/attendanceController.js";
 import {
+  getAttendanceBalanceTreatment,
   isManagerAuthorizedForEmployee,
+  getAttendanceTypeDetails,
   parseAttendanceDate,
   validateAttendanceDate,
   validateAttendanceRange,
@@ -33,6 +38,22 @@ test("a current or historical working day is accepted", () => {
   });
   assert.equal(result.valid, true);
   assert.equal(result.attendanceDate.toISOString(), "2026-08-10T00:00:00.000Z");
+});
+
+test("attendance types map to full-day LOP, half-day LOP, and zero-deduction permission", () => {
+  assert.deepEqual(getAttendanceTypeDetails("FULL_DAY"), {
+    attendanceType: "FULL_DAY",
+    status: UNINFORMED_ABSENCE_STATUS,
+    durationDays: 1,
+    label: "Full-day absence",
+  });
+  assert.equal(getAttendanceTypeDetails("HALF_DAY").durationDays, 0.5);
+  assert.equal(getAttendanceTypeDetails("PERMISSION").durationDays, 0);
+  assert.equal(getAttendanceTypeDetails("INVALID"), null);
+  assert.equal(getAttendanceBalanceTreatment("HALF_DAY", "PAID"), "PAID");
+  assert.equal(getAttendanceBalanceTreatment("FULL_DAY", "LOP"), "LOP");
+  assert.equal(getAttendanceBalanceTreatment("PERMISSION", "PAID"), "NONE");
+  assert.equal(getAttendanceBalanceTreatment("HALF_DAY", "INVALID"), null);
 });
 
 test("manager scope accepts direct reports and assigned teams only", () => {
@@ -102,12 +123,18 @@ test("attendance report ranges are ordered and bounded", () => {
   assert.match(validateAttendanceRange({ startDate: "2025-01-01", endDate: "2026-08-31" }).message, /366/i);
 });
 
-test("attendance records retain fixed status, audit fields, and duplicate protection", () => {
-  assert.deepEqual(AttendanceRecord.schema.path("status").enumValues, [UNINFORMED_ABSENCE_STATUS]);
+test("attendance records retain supported statuses, audit fields, and duplicate protection", () => {
+  assert.deepEqual(AttendanceRecord.schema.path("status").enumValues, ATTENDANCE_RECORD_STATUSES);
   for (const path of [
     "employeeId",
     "employeeName",
     "attendanceDate",
+    "attendanceType",
+    "durationDays",
+    "balanceTreatment",
+    "active",
+    "cancelledAt",
+    "cancellationReason",
     "createdBy",
     "createdByRole",
     "lastModifiedBy",
