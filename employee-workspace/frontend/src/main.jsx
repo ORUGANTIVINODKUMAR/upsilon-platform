@@ -7,6 +7,7 @@ import App from "./App.jsx";
 import "./styles.css";
 import "./index.css";
 import "./ui-system.css";
+import "./workspace-refresh.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

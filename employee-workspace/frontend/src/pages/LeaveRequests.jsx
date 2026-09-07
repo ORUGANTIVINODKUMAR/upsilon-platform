@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Plus,
@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 
 import api from "../api/api";
-import PersonalLeaveBalance from "../components/PersonalLeaveBalance";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import PageHeader from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/StatePanel";
@@ -141,6 +140,19 @@ const LeaveRequests = () => {
 
   const [showFormModal, setShowFormModal] =
     useState(false);
+  const formDialogRef = useRef(null);
+
+  useEffect(() => {
+    if (!showFormModal) return undefined;
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    formDialogRef.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus?.();
+    };
+  }, [showFormModal]);
 
   const [editingRequest, setEditingRequest] =
     useState(null);
@@ -1423,16 +1435,43 @@ const LeaveRequests = () => {
         <div className="modal-overlay leave-request-modal-overlay">
           <div
             className="modal-card leave-request-modal"
+            ref={formDialogRef}
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-labelledby="leave-request-modal-title"
+            aria-describedby="leave-request-modal-description"
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && !isSubmitting) {
+                event.preventDefault();
+                closeFormModal();
+              }
+              if (event.key !== "Tab") return;
+              const controls = event.currentTarget.querySelectorAll(
+                'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]'
+              );
+              if (!controls.length) return;
+              const first = controls[0];
+              const last = controls[controls.length - 1];
+              if (event.shiftKey && (document.activeElement === first || document.activeElement === event.currentTarget)) {
+                event.preventDefault();
+                last.focus();
+              } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+              }
+            }}
             style={{
               maxWidth: "760px",
               width: "94%",
             }}
           >
             <div className="modal-header">
-              <h3 id="leave-request-modal-title">{formTitle}</h3>
+              <div>
+                <span className="ui-eyebrow">Time off</span>
+                <h3 id="leave-request-modal-title">{formTitle}</h3>
+                <p id="leave-request-modal-description" className="leave-form-intro">Choose your dates and share the details for review.</p>
+              </div>
 
               <button
                 type="button"
@@ -1484,7 +1523,6 @@ const LeaveRequests = () => {
               onSubmit={handleSubmit}
             >
               <div className="leave-request-modal-body">
-                <PersonalLeaveBalance compact />
 
                 {isPastLeaveRequest && (
                   <div className="past-leave-notice" role="status">
@@ -1498,11 +1536,14 @@ const LeaveRequests = () => {
                   </div>
                 )}
 
+              <fieldset className="leave-form-section">
+                <legend><CalendarDays size={16} aria-hidden="true" /> Dates & duration</legend>
               <div className="grid-2">
                 <div className="input-group">
-                  <label>Leave Type</label>
+                  <label htmlFor="leave-type">Leave type</label>
 
                   <select
+                    id="leave-type"
                     name="leaveType"
                     value={formData.leaveType}
                     onChange={handleChange}
@@ -1523,11 +1564,12 @@ const LeaveRequests = () => {
                 </div>
 
                 <div className="input-group">
-                  <label>
+                  <label htmlFor="leave-working-days">
                     Working Days Preview
                   </label>
 
                   <input
+                    id="leave-working-days"
                     value={
                       workingDaysPreview > 0
                         ? `${workingDaysPreview} day(s)`
@@ -1540,9 +1582,10 @@ const LeaveRequests = () => {
 
               <div className="grid-2">
                 <div className="input-group">
-                  <label>Start Date</label>
+                  <label htmlFor="leave-start-date">Start date</label>
 
                   <input
+                    id="leave-start-date"
                     type="date"
                     name="startDate"
                     min={minimumSelectableStartDate}
@@ -1557,9 +1600,10 @@ const LeaveRequests = () => {
                 </div>
 
                 <div className="input-group">
-                  <label>End Date</label>
+                  <label htmlFor="leave-end-date">End date</label>
 
                   <input
+                    id="leave-end-date"
                     type="date"
                     name="endDate"
                     min={
@@ -1576,10 +1620,14 @@ const LeaveRequests = () => {
                 </div>
               </div>
 
+              </fieldset>
+              <fieldset className="leave-form-section">
+                <legend><ClipboardList size={16} aria-hidden="true" /> Request details</legend>
               <div className="input-group">
-                <label>Reason</label>
+                <label htmlFor="leave-reason">Reason <span className="field-hint">Required</span></label>
 
                 <textarea
+                  id="leave-reason"
                   rows="3"
                   name="reason"
                   placeholder="Enter leave reason"
@@ -1591,12 +1639,13 @@ const LeaveRequests = () => {
               </div>
 
               <div className="input-group">
-                <label>
-                  Leave Explanation
+                <label htmlFor="leave-explanation">
+                  Additional details <span className="field-hint">Optional</span>
                 </label>
 
                 <textarea
-                  rows="3"
+                  id="leave-explanation"
+                  rows="2"
                   name="leaveExplanation"
                   placeholder="Add more details if required"
                   value={
@@ -1609,11 +1658,12 @@ const LeaveRequests = () => {
 
               {editingRequest && (
                 <div className="input-group">
-                  <label>
+                  <label htmlFor="leave-edit-remarks">
                     Edit Remarks
                   </label>
 
                   <textarea
+                    id="leave-edit-remarks"
                     rows="2"
                     name="editRemarks"
                     placeholder="Why are you changing this leave request?"
@@ -1627,11 +1677,12 @@ const LeaveRequests = () => {
               )}
 
               <div className="input-group">
-                <label>
-                  Proof File
+                <label htmlFor="leave-proof">
+                  Supporting document <span className="field-hint">Optional</span>
                 </label>
 
                 <input
+                  id="leave-proof"
                   type="file"
                   name="proofFile"
                   accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
@@ -1679,7 +1730,7 @@ const LeaveRequests = () => {
                   </div>
                 )}
               </div>
-
+              </fieldset>
               </div>
 
               <div className="leave-request-modal-actions">
