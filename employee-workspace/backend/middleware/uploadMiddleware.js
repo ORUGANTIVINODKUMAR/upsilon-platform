@@ -67,8 +67,10 @@ const fileFilter = (req, file, cb) => {
   const validExtension = allowedExtensions.includes(extension);
 
   if (!validMimeType || !validExtension) {
+    const error = new Error("Only PDF, JPG, JPEG, PNG, and WebP files are allowed");
+    error.code = "INVALID_FILE_TYPE";
     return cb(
-      new Error("Only PDF, JPG, JPEG, PNG, and WebP files are allowed"),
+      error,
       false
     );
   }

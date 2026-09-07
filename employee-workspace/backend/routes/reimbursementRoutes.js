@@ -20,14 +20,14 @@ import {
 } from "../controllers/reimbursementController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
-import upload from "../middleware/uploadMiddleware.js";
+import reimbursementUpload from "../middleware/reimbursementUpload.js";
 
 const router = express.Router();
 
 router.post(
   "/request",
   protect,
-  upload.array("receiptFiles", 10),
+  reimbursementUpload,
   createReimbursementRequest
 );
 
@@ -39,7 +39,7 @@ router.get(
 router.put(
   "/request/:id",
   protect,
-  upload.array("receiptFiles", 10),
+  reimbursementUpload,
   updateMyReimbursementRequest
 );
 router.delete(
