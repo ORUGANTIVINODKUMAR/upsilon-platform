@@ -171,7 +171,6 @@ const ROLE_PAGES = {
     "notifications",
     "attendance",
     "leave",
-    "myLeaveBalance",
     "reimbursements",
     "holidays",
     "editProfile",
@@ -181,7 +180,6 @@ const ROLE_PAGES = {
     "notifications",
     "attendance",
     "leave",
-    "myLeaveBalance",
     "reimbursements",
     "tlApprovals",
     "managerApprovals",
@@ -277,6 +275,7 @@ const Dashboard = () => {
   const isManagerOrHR = ["Manager", "HR"].includes(
     user?.role
   );
+  const canViewPersonalLeaveBalance = isManagerOrHR;
   const canUseFinalApprovals = ["TeamLeader", "Manager", "HR", "Admin"].includes(
     user?.role
   );
@@ -618,7 +617,7 @@ const Dashboard = () => {
                 "Leaves"
               )}
 
-            {hasPersonalLeaveBalance &&
+            {canViewPersonalLeaveBalance &&
               menuButton(
                 "myLeaveBalance",
                 <Wallet size={18} />,
@@ -1393,7 +1392,7 @@ const Dashboard = () => {
                   )}
                 </div>
               )}
-            {hasPersonalLeaveBalance && !isEmployee && (
+            {canViewPersonalLeaveBalance && (
               <div style={{ marginBottom: "20px" }}>
                 <PersonalLeaveBalance compact />
               </div>
@@ -1523,7 +1522,6 @@ const Dashboard = () => {
                     </div>
                   </div>
 
-                  <PersonalLeaveBalance compact />
                 </div>
 
                 <div className="modern-stats-grid">
@@ -2898,7 +2896,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {hasPersonalLeaveBalance && activePage === "myLeaveBalance" && (
+        {canViewPersonalLeaveBalance && activePage === "myLeaveBalance" && (
           <div className="modern-section-card">
             <PersonalLeaveBalance />
           </div>
