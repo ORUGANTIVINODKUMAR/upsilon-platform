@@ -171,6 +171,7 @@ const ROLE_PAGES = {
     "notifications",
     "attendance",
     "leave",
+    "myLeaveBalance",
     "reimbursements",
     "holidays",
     "editProfile",
@@ -180,6 +181,7 @@ const ROLE_PAGES = {
     "notifications",
     "attendance",
     "leave",
+    "myLeaveBalance",
     "reimbursements",
     "tlApprovals",
     "managerApprovals",
@@ -275,7 +277,7 @@ const Dashboard = () => {
   const isManagerOrHR = ["Manager", "HR"].includes(
     user?.role
   );
-  const canViewPersonalLeaveBalance = isManagerOrHR;
+  const canViewPersonalLeaveBalance = hasPersonalLeaveBalance;
   const canUseFinalApprovals = ["TeamLeader", "Manager", "HR", "Admin"].includes(
     user?.role
   );
