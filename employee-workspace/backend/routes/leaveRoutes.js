@@ -27,12 +27,14 @@ import {
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
 import upload from "../middleware/uploadMiddleware.js";
+import { calendarLeaveReport } from "../controllers/leaveCalendarReportController.js";
 import {
   processLeaveEmailAction,
   showLeaveEmailAction,
 } from "../controllers/leaveEmailActionController.js";
 
 const router = express.Router();
+router.get("/calendar-report", protect, authorizeRoles("HR", "Manager"), calendarLeaveReport);
 
 // Public bearer-token routes used by Outlook. GET only shows a confirmation
 // form, preventing email security scanners from changing leave state.

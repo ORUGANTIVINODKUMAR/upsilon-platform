@@ -6,6 +6,7 @@ import ConfirmDialog from "../components/ui/ConfirmDialog";
 import PageHeader from "../components/ui/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../components/ui/StatePanel";
 import "./AttendanceManagement.css";
+import AttendanceCalendar from "../components/AttendanceCalendar";
 
 const ATTENDANCE_OPTIONS = {
   FULL_DAY: { label: "Full-day absence", status: "Absent \u2013 Uninformed", durationDays: 1 },
@@ -51,6 +52,8 @@ const formatDateTime = (value) => {
 const emptyForm = () => ({ employeeId: "", date: businessDate(), attendanceType: "FULL_DAY", balanceTreatment: "LOP", remarks: "" });
 
 const AttendanceManagement = () => {
+  const [view, setView] = useState("calendar");
+  const [calendarRevision, setCalendarRevision] = useState(0);
   const { user } = useAuth();
   const canManage = ["Manager", "HR"].includes(user?.role);
   const canExport = ["Manager", "HR", "Admin"].includes(user?.role);
@@ -192,6 +195,7 @@ const AttendanceManagement = () => {
         ? await api.patch(`/attendance/uninformed-absence/${editingRecord._id}`, payload)
         : await api.post("/attendance/uninformed-absence", payload);
       setSuccess(data.message);
+      setCalendarRevision((value) => value + 1);
       setShowForm(false);
       setConfirmOpen(false);
       await fetchRecords();
@@ -258,6 +262,7 @@ const AttendanceManagement = () => {
       });
       setSuccess(data.message);
       setCancelTarget(null);
+      setCalendarRevision((value) => value + 1);
       setCancelReason("");
       await fetchRecords();
       window.dispatchEvent(new CustomEvent("leave-balance-updated"));
@@ -274,8 +279,8 @@ const AttendanceManagement = () => {
     <section className="attendance-page">
       <PageHeader
         eyebrow="Attendance"
-        title="Attendance Exceptions"
-        description={canManage ? "Record full-day absence, half-day leave, or permission for current and previous working dates." : "Review your attendance history."}
+        title="Attendance"
+        description="Review monthly attendance, approved leave, and company holidays."
         icon={CalendarX2}
         actions={canManage ? (
           <button type="button" className="btn btn-primary" onClick={openCreate}>
@@ -284,9 +289,16 @@ const AttendanceManagement = () => {
         ) : null}
       />
 
+      <div className="attendance-view-switch" aria-label="Attendance view">
+        <button className="btn btn-secondary" aria-pressed={view === "calendar"} onClick={() => setView("calendar")}>Monthly calendar</button>
+        <button className="btn btn-secondary" aria-pressed={view === "records"} onClick={() => setView("records")}>Recorded exceptions</button>
+      </div>
+      {view === "calendar" && <AttendanceCalendar revision={calendarRevision} />}
+
       {success && <div className="success-banner" role="status">{success}</div>}
       {error && <ErrorState title="Attendance could not be loaded" description={error} compact />}
 
+      {view === "records" && <>
       <div className="attendance-filters">
         <label>
           <span>Month</span>
@@ -348,6 +360,7 @@ const AttendanceManagement = () => {
         </div>
       )}
 
+      </>}
       {showForm && (
         <div className="modal-overlay" role="presentation" onMouseDown={closeForm}>
           <section className="modal-card attendance-modal" role="dialog" aria-modal="true" aria-labelledby="attendance-form-title" onMouseDown={(event) => event.stopPropagation()}>

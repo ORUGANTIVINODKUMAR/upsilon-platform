@@ -4,12 +4,15 @@ import {
   createUninformedAbsence,
   getAttendanceEmployees,
   getAttendanceRecords,
+  getAttendanceCalendar,
   updateUninformedAbsence,
 } from "../controllers/attendanceController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
+
+router.get("/calendar", protect, getAttendanceCalendar);
 
 router.get("/", protect, getAttendanceRecords);
 router.get(

@@ -46,7 +46,7 @@ export const getPeriodsBetween = (startPeriod, endPeriod) => {
   return periods;
 };
 
-export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => {
+export const calculateBalanceSummary = (entries, currentPeriod = toPeriod(), { onLeaveAllocated } = {}) => {
   const activeEntries = entries.filter((entry) => {
     if (entry.active === false) return false;
 
@@ -110,7 +110,7 @@ export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => 
     (sum, entry) => sum + Number(entry.leaveDays ?? 1),
     0,
   );
-  const consumeEntries = (items) =>
+  const consumeEntries = (items, onAllocation) =>
     items.reduce(
       (state, entry) => {
         if (
@@ -119,6 +119,7 @@ export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => 
         ) {
           const days = Number(entry.leaveDays || Math.abs(entry.amount) || 0);
           const paidDays = Math.min(state.available, days);
+          onAllocation?.(entry, { paidDays: roundLeaveDays(paidDays), lopDays: roundLeaveDays(Math.max(days - paidDays, 0)) });
           state.available -= paidDays;
           state.paidUsed += paidDays;
           state.excess += Math.max(days - paidDays, 0);
@@ -152,7 +153,7 @@ export const calculateBalanceSummary = (entries, currentPeriod = toPeriod()) => 
       { available: 0, paidUsed: 0, excess: 0 },
     );
 
-  const totals = consumeEntries(sortedEntries);
+  const totals = consumeEntries(sortedEntries, onLeaveAllocated);
   const priorEntries = sortedEntries.filter((entry) => {
     const entryPeriod = entry.period || toPeriod(entry.effectiveDate);
     return entryPeriod < currentPeriod;

@@ -1,0 +1,14 @@
+.calendar-report-toolbar.calendar-view-toolbar { flex-wrap: wrap; }
+.calendar-report-toolbar .calendar-view-controls { flex: 1 1 100%; flex-wrap: wrap; }
+.calendar-report-toolbar .calendar-date-selectors { flex-wrap: wrap; }
+.calendar-report-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.calendar-report-summary { margin-bottom: 16px; }
+.calendar-report-summary .custom-table { min-width: 950px; }
+.calendar-report-employee-id { display: block; color: var(--neutral-500); }
+.calendar-report-summary > .section-subtitle { margin-top: 10px; }
+@media (max-width: 700px) {
+  .calendar-report-actions { width: 100%; }
+  .calendar-report-actions .btn { flex: 1 1 160px; }
+  .calendar-report-toolbar .calendar-date-field { flex: 1 1 145px; }
+  .calendar-report-toolbar .calendar-date-field input { min-width: 0; width: 100%; }
+}

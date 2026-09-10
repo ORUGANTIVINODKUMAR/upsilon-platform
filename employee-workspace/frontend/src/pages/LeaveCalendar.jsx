@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Building2,
   CalendarCheck2,
@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
+  FileText,
   Plus,
   RotateCw,
   Search,
@@ -18,6 +19,7 @@ import PageHeader from "../components/ui/PageHeader";
 import StatusBadge from "../components/ui/StatusBadge";
 import { EmptyState, ErrorState, LoadingState } from "../components/ui/StatePanel";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import "./LeaveCalendar.css";
 
 const LEAVE_COLORS = {
   Sick: "#dc4c4c",
@@ -51,6 +53,7 @@ const toDateInputValue = (date) => {
 const LeaveCalendar = () => {
   const { user } = useAuth();
   const canAddAbsence = ["Manager", "HR"].includes(user?.role);
+  const canReport = ["Manager", "HR"].includes(user?.role);
   const [leaveEvents, setLeaveEvents] = useState([]);
   const [attendanceEvents, setAttendanceEvents] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -67,6 +70,42 @@ const LeaveCalendar = () => {
   const [absenceError, setAbsenceError] = useState("");
   const [confirmAbsence, setConfirmAbsence] = useState(false);
   const [savingAbsence, setSavingAbsence] = useState(false);
+  const [customStart, setCustomStart] = useState(() => toDateInputValue(new Date()));
+  const [customEnd, setCustomEnd] = useState(() => toDateInputValue(new Date()));
+  const [report, setReport] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState("");
+  const [exporting, setExporting] = useState("");
+  const reportRequest = useRef(0);
+  const reportQuery = useMemo(() => activeView === "Custom"
+    ? { filterType: "custom", startDate: customStart, endDate: customEnd }
+    : activeView === "Monthly" ? { filterType: "month", month: toDateInputValue(viewDate).slice(0, 7) }
+    : { filterType: activeView === "Weekly" ? "week" : "day", date: toDateInputValue(viewDate) }, [activeView, customStart, customEnd, viewDate]);
+  const reportKey = JSON.stringify(reportQuery);
+  const currentReport = report?.queryKey === reportKey ? report : null;
+  const fetchReport = useCallback(async () => {
+    if (!canReport) return;
+    const request = ++reportRequest.current;
+    setReportLoading(true);
+    setReportError("");
+    try {
+      const { data } = await api.get("/leave/calendar-report", { params: reportQuery });
+      if (request === reportRequest.current) setReport({ ...data, queryKey: JSON.stringify(reportQuery) });
+    } catch (requestError) {
+      if (request === reportRequest.current) {
+        setReport(null);
+        setReportError(requestError.response?.data?.message || "Unable to load the leave report.");
+      }
+    } finally {
+      if (request === reportRequest.current) setReportLoading(false);
+    }
+  }, [canReport, reportQuery]);
+  useEffect(() => {
+    // Refresh the single report snapshot shared by calendar, Excel and PDF.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchReport();
+    return () => { reportRequest.current += 1; };
+  }, [fetchReport]);
 
   const fetchCalendarData = async () => {
     setLoading(true);
@@ -105,6 +144,7 @@ const LeaveCalendar = () => {
         team: record.employeeId?.teamId?.name || "",
         leaveType: record.status || "Absent \u2013 Uninformed",
         durationDays: Number(record.durationDays ?? 1),
+        balanceTreatment: record.balanceTreatment || (record.attendanceType === "PERMISSION" ? "NONE" : "LOP"),
         start: record.attendanceDate,
         end: record.attendanceDate,
         status: record.status,
@@ -162,6 +202,7 @@ const LeaveCalendar = () => {
       day: "2-digit",
       month: "short",
       year: "numeric",
+      ...(typeof date === "string" ? { timeZone: "UTC" } : {}),
     });
 
   const parseLocalDate = (value) => {
@@ -220,7 +261,7 @@ const LeaveCalendar = () => {
       setSuccess(data.message);
       setShowAbsenceModal(false);
       setConfirmAbsence(false);
-      await Promise.all([fetchAttendanceData(), fetchCalendarData()]);
+      await Promise.all([fetchAttendanceData(), fetchCalendarData(), fetchReport()]);
     } catch (requestError) {
       const response = requestError.response?.data;
       setAbsenceError(
@@ -237,6 +278,7 @@ const LeaveCalendar = () => {
   const getLeaveColor = (leaveType) => LEAVE_COLORS[leaveType] || "#66736d";
 
   const isDateInLeaveRange = (date, event) => {
+    if (event.dates) return event.dates.includes(toDateInputValue(date));
     const checkDate = new Date(date);
     const start = new Date(event.start);
     const end = new Date(event.end);
@@ -248,8 +290,8 @@ const LeaveCalendar = () => {
     return checkDate >= start && checkDate <= end;
   };
 
-  const events = [...leaveEvents, ...attendanceEvents];
-  const todayAwayEvents = events
+  const events = canReport ? currentReport?.records || [] : [...leaveEvents, ...attendanceEvents];
+  const todayAwayEvents = [...leaveEvents, ...attendanceEvents]
     .filter((event) => isDateInLeaveRange(today, event))
     .map((event) => ({
       ...event,
@@ -270,7 +312,7 @@ const LeaveCalendar = () => {
     return { start, end };
   };
 
-  const filteredEvents = events.filter((event) => {
+  const filteredEvents = canReport ? events : events.filter((event) => {
     const start = new Date(event.start);
     const end = new Date(event.end);
 
@@ -307,6 +349,7 @@ const LeaveCalendar = () => {
   ).size;
 
   const exportCalendar = async () => {
+    if (canReport) return downloadReport("excel");
     if (!EXPORT_ROLES.includes(user?.role) || filteredEvents.length === 0) return;
     const [XLSX, fileSaver] = await Promise.all([import("xlsx"), import("file-saver")]);
     const saveAs = fileSaver.saveAs || fileSaver.default;
@@ -341,6 +384,27 @@ const LeaveCalendar = () => {
       : toDateInputValue(viewDate);
 
     saveAs(fileData, `Leave_Calendar_${activeView}_${period}.xlsx`);
+  };
+
+  const downloadReport = async (format) => {
+    if (!canReport || !currentReport || reportLoading || exporting) return;
+    setExporting(format);
+    setReportError("");
+    try {
+      const { createLeaveReportWorkbook, createLeaveReportPdf } = await import("../utils/leaveReportExport");
+      const fileName = `Leave_Calendar_${currentReport.startDate}_to_${currentReport.endDate}`;
+      if (format === "pdf") {
+        const doc = await createLeaveReportPdf(currentReport);
+        doc.save(`${fileName}.pdf`);
+      } else {
+        const { workbook, XLSX } = await createLeaveReportWorkbook(currentReport);
+        XLSX.writeFile(workbook, `${fileName}.xlsx`);
+      }
+    } catch {
+      setReportError(`Unable to download ${format === "pdf" ? "PDF" : "Excel"}. Please try again.`);
+    } finally {
+      setExporting("");
+    }
   };
 
   const getMonthDays = () => {
@@ -379,6 +443,7 @@ const LeaveCalendar = () => {
   const selectedMonthValue = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, "0")}`;
   const selectedDateValue = toDateInputValue(viewDate);
   const selectedPeriodLabel = (() => {
+    if (activeView === "Custom") return `${customStart} to ${customEnd}`;
     if (activeView === "Daily") return formatDate(viewDate);
     if (activeView === "Weekly") {
       const { start, end } = getWeekRange(viewDate);
@@ -440,7 +505,7 @@ const LeaveCalendar = () => {
                 Add Attendance Record
               </button>
             )}
-            {EXPORT_ROLES.includes(user?.role) && (
+            {!canReport && EXPORT_ROLES.includes(user?.role) && (
               <button
                 type="button"
                 className="btn btn-primary"
@@ -517,7 +582,7 @@ const LeaveCalendar = () => {
                 />
                 <div>
                   <strong>{leave.employeeId?.name || "Employee"}</strong>
-                  <span>{leave.leaveType}{leave.sourceType === "Attendance" && leave.durationDays > 0 ? ` · ${leave.durationDays} LOP` : leave.sourceType === "Attendance" ? "" : " leave"}</span>
+                  <span>{leave.leaveType}{leave.sourceType === "Attendance" && leave.durationDays > 0 ? ` · ${leave.durationDays} recorded as ${leave.balanceTreatment === "PAID" ? "paid leave" : "LOP"}` : leave.sourceType === "Attendance" ? "" : " leave"}</span>
                   <small>{formatDate(leave.startDate)} – {formatDate(leave.endDate)}</small>
                 </div>
               </article>
@@ -532,10 +597,10 @@ const LeaveCalendar = () => {
         )}
       </section>
 
-      <section className="calendar-view-toolbar modern-section-card" aria-label="Calendar view options">
+      <section className={`calendar-view-toolbar modern-section-card${canReport ? " calendar-report-toolbar" : ""}`} aria-label="Calendar view options">
         <div className="calendar-view-controls">
           <div className="leave-filter-tabs" aria-label="Calendar period type">
-            {["Daily", "Weekly", "Monthly"].map((view) => (
+            {["Daily", "Weekly", "Monthly", ...(canReport ? ["Custom"] : [])].map((view) => (
               <button
                 type="button"
                 key={view}
@@ -549,6 +614,10 @@ const LeaveCalendar = () => {
           </div>
 
           <div className="calendar-date-selectors">
+            {canReport && activeView === "Custom" && <>
+              <label className="calendar-date-field"><span>From</span><input type="date" value={customStart} max={customEnd} onChange={(event) => setCustomStart(event.target.value)} /></label>
+              <label className="calendar-date-field"><span>To</span><input type="date" value={customEnd} min={customStart} onChange={(event) => setCustomEnd(event.target.value)} /></label>
+            </>}
             <label className="calendar-date-field">
               <span>Specific date</span>
               <input
@@ -585,6 +654,11 @@ const LeaveCalendar = () => {
               </button>
             )}
           </div>
+          {canReport && <div className="calendar-report-actions">
+            <button type="button" className="btn btn-secondary" onClick={fetchReport} disabled={reportLoading}><RotateCw size={16} /> Refresh report</button>
+            <button type="button" className="btn btn-primary" onClick={() => downloadReport("excel")} disabled={!currentReport || reportLoading || Boolean(exporting)}><FileSpreadsheet size={17} />{exporting === "excel" ? "Downloading..." : "Download Excel"}</button>
+            <button type="button" className="btn btn-secondary" onClick={() => downloadReport("pdf")} disabled={!currentReport || reportLoading || Boolean(exporting)}><FileText size={17} />{exporting === "pdf" ? "Downloading..." : "Download PDF"}</button>
+          </div>}
         </div>
 
         <div className="calendar-legend" aria-label="Leave type colors">
@@ -596,6 +670,9 @@ const LeaveCalendar = () => {
           ))}
         </div>
       </section>
+
+      {canReport && reportLoading && <LoadingState label="Loading leave report..." compact />}
+      {canReport && reportError && <ErrorState title="Leave report unavailable" description={reportError} compact />}
 
       {activeView === "Monthly" && (
         <section className="modern-section-card calendar-month-card">
@@ -677,13 +754,25 @@ const LeaveCalendar = () => {
         </section>
       )}
 
+      {canReport && currentReport && <section className="modern-section-card calendar-report-summary" aria-labelledby="employee-leave-summary-title">
+        <div className="section-header"><div><h3 id="employee-leave-summary-title">Employee-wise leave summary</h3><p className="section-subtitle">{currentReport.startDate} to {currentReport.endDate}</p></div></div>
+        <div className="table-wrapper modern-table-wrapper"><table className="custom-table">
+          <caption className="sr-only">Leave totals for each employee in the selected period</caption>
+          <thead><tr><th>Employee</th><th>Team / Department</th><th>Paid days</th><th>LOP days</th><th>Unallocated days</th><th>Half days (count / days)</th><th>Approved (count / days)</th><th>Total days</th></tr></thead>
+          <tbody>{currentReport.summary.map((row) => <tr key={row.employeeKey}><td>{row.employeeName}<small className="calendar-report-employee-id">{row.employeeId}</small></td><td>{[row.team, row.department].filter(Boolean).join(" / ") || "N/A"}</td><td>{row.paidDays}</td><td>{row.lopDays}</td><td>{row.unallocatedDays}</td><td>{row.halfDayCount} / {row.halfDayDays}</td><td>{row.approvedCount} / {row.approvedDays}</td><td>{row.totalDays}</td></tr>)}
+            {!currentReport.summary.length && <tr><td colSpan="8">No leave records in this period.</td></tr>}
+          </tbody>
+        </table></div>
+        {currentReport.notes.map((note) => <p className="section-subtitle" key={note}>{note}</p>)}
+      </section>}
+
       <section className="modern-section-card calendar-list-card" aria-labelledby="calendar-list-title">
         <div className="section-header">
           <div>
             <span className="ui-eyebrow">Availability schedule</span>
             <h3 id="calendar-list-title">{activeView} absence details</h3>
             <p className="section-subtitle">
-              {selectedPeriodLabel} · {filteredEvents.length} approved leave {filteredEvents.length === 1 ? "record" : "records"}.
+              {selectedPeriodLabel} · {filteredEvents.length} leave / attendance {filteredEvents.length === 1 ? "record" : "records"}.
             </p>
           </div>
         </div>
@@ -699,6 +788,7 @@ const LeaveCalendar = () => {
               <th>From</th>
               <th>To</th>
               <th>Status</th>
+              {canReport && <th>Days in period</th>}
             </tr>
           </thead>
 
@@ -713,12 +803,13 @@ const LeaveCalendar = () => {
                 <td>
                   <StatusBadge status={event.status || "Approved"} />
                 </td>
+                {canReport && <td>{event.totalDays}</td>}
               </tr>
             ))}
 
             {filteredEvents.length === 0 && (
               <tr>
-                <td colSpan="6">
+                <td colSpan={canReport ? 7 : 6}>
                   <EmptyState
                     compact
                     title={`No absences in the ${activeView.toLowerCase()} view`}
@@ -781,6 +872,9 @@ const LeaveCalendar = () => {
                         {formatDate(leave.start)} - {formatDate(leave.end)}
                       </p>
                       <StatusBadge status={leave.status || "Approved"} />
+                      {leave.days?.filter((day) => day.date === toDateInputValue(selectedDate)).map((day) => (
+                        <p key={day.date}>This date: {day.days} total days · {day.paidDays} paid · {day.lopDays} LOP{day.unallocatedDays > 0 ? ` · ${day.unallocatedDays} unallocated` : ""}</p>
+                      ))}
                     </div>
                   </div>
                 ))

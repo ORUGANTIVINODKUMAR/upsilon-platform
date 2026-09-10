@@ -20,6 +20,55 @@ import {
 import { getRetrospectivePolicy } from "../services/leaveRequestPolicy.js";
 import { createNotification } from "../services/notificationService.js";
 import { syncUninformedAbsenceLedger } from "../services/leaveBalanceService.js";
+import { buildAttendanceCalendar, calendarPeriod } from "../services/attendanceCalendarService.js";
+import { employeeBaseFilter, getManagedTeamIds, getAuthorizedEmployeeFilter } from "../services/attendanceScopeService.js";
+
+export const getAttendanceCalendar = async (req, res) => {
+  try {
+    const period = calendarPeriod(req.query.month);
+    if (!period) return res.status(400).json({ message: "Enter a valid month (YYYY-MM)." });
+    let scope;
+    if (["HR", "Admin", "Finance"].includes(req.user.role)) {
+      scope = { role: { $in: ATTENDANCE_EMPLOYEE_ROLES } };
+    } else if (req.user.role === "Manager") {
+      scope = await getAuthorizedEmployeeFilter(req.user);
+    } else if (req.user.role === "TeamLeader") {
+      const teamIds = await Team.find({ teamLeaderId: req.user._id }).distinct("_id");
+      scope = { role: { $in: ATTENDANCE_EMPLOYEE_ROLES }, $or: [
+        { _id: req.user._id }, { teamLeaderId: req.user._id }, { teamId: { $in: teamIds } },
+      ] };
+    } else {
+      scope = { _id: req.user._id };
+    }
+    const employees = await User.find({ ...scope, isActive: true })
+      .select("name employeeId role teamId dateOfJoining").populate("teamId", "name").sort({ name: 1 }).lean();
+    const selectedId = req.query.employeeId;
+    if (selectedId && !employees.some((employee) => String(employee._id) === selectedId)) {
+      return res.status(403).json({ message: "You are not authorized to view this employee." });
+    }
+    const selected = selectedId ? employees.filter((employee) => String(employee._id) === selectedId) : employees;
+    const ids = selected.map((employee) => employee._id);
+    const [records, leaves, holidays] = await Promise.all([
+      AttendanceRecord.find({ employeeId: { $in: ids }, active: { $ne: false }, attendanceDate: { $gte: period.start, $lt: period.end } })
+        .select("employeeId attendanceDate attendanceType status durationDays balanceTreatment remarks active").lean(),
+      LeaveRequest.find({ employeeId: { $in: ids }, finalStatus: { $in: ["Approved by Manager", "Approved by HR"] },
+        startDate: { $lt: period.end }, endDate: { $gte: period.start } })
+        .select("employeeId startDate endDate leaveType workingDays finalStatus requiresReapproval").lean(),
+      Holiday.find({ holidayDate: { $gte: period.start, $lt: period.end } }).select("name holidayDate type").lean(),
+    ]);
+    return res.json({ month: period.month, today: period.today, employees,
+      calendars: selected.map((employee) => ({ employee,
+        days: buildAttendanceCalendar({ period, employee, holidays,
+          records: records.filter((record) => String(record.employeeId) === String(employee._id)),
+          leaves: leaves.filter((leave) => String(leave.employeeId) === String(employee._id)),
+        }),
+      })),
+    });
+  } catch (error) {
+    console.error("GET ATTENDANCE CALENDAR ERROR:", error);
+    return res.status(500).json({ message: "Unable to load the attendance calendar." });
+  }
+};
 
 const ATTENDANCE_POPULATE = [
   {
@@ -36,36 +85,6 @@ const ATTENDANCE_POPULATE = [
 ];
 
 const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const getManagedTeamIds = async (user) => {
-  const teams = await Team.find({ managerIds: user._id }).select("_id").lean();
-  return [
-    ...new Set([
-      ...(user.assignedTeamIds || []).map((id) => id.toString()),
-      ...teams.map((team) => team._id.toString()),
-    ]),
-  ];
-};
-
-const employeeBaseFilter = (actor) => ({
-  isActive: true,
-  role: { $in: ATTENDANCE_EMPLOYEE_ROLES },
-  _id: { $ne: actor._id },
-});
-
-const getAuthorizedEmployeeFilter = async (actor) => {
-  const base = employeeBaseFilter(actor);
-  if (actor.role === "HR") return base;
-
-  const managedTeamIds = await getManagedTeamIds(actor);
-  return {
-    ...base,
-    $or: [
-      { managerId: actor._id },
-      ...(managedTeamIds.length > 0 ? [{ teamId: { $in: managedTeamIds } }] : []),
-    ],
-  };
-};
 
 const getAuthorizedEmployee = async (actor, employeeId) => {
   if (!mongoose.isValidObjectId(employeeId)) return null;

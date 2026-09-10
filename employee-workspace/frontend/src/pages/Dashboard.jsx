@@ -59,8 +59,8 @@ const PAGE_META = {
   },
   attendance: {
     eyebrow: "Attendance",
-    title: "Uninformed absence",
-    description: "Review attendance history and manage absences that were not reported in advance.",
+    title: "Attendance",
+    description: "Review monthly attendance, approved leave, and company holidays.",
   },
   departments: {
     eyebrow: "Administration",
