@@ -1,7 +1,23 @@
-.env
-backend/.env
-frontend/.env
-node_modules
-dist
-build
-uploads
+# Node modules
+**/node_modules/
+
+# Build folders
+**/dist/
+
+# Environment files
+**/.env
+**/.env.local
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# npm
+npm-debug.log*
+

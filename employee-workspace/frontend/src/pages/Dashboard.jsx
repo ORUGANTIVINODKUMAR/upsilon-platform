@@ -564,12 +564,6 @@ const Dashboard = () => {
                 "Notifications"
               )}
 
-            {menuButton(
-              "attendance",
-              <CalendarCheck size={18} />,
-              "Attendance"
-            )}
-
             {isAdmin && (
               <span className="sidebar-group-label">Administration</span>
             )}
