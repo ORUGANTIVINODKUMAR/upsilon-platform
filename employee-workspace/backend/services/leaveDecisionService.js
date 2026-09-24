@@ -1,4 +1,5 @@
 import LeaveRequest from "../models/LeaveRequest.js";
+import Team from "../models/Team.js";
 import User from "../models/User.js";
 import { syncApprovedLeaveLedger } from "./leaveBalanceService.js";
 import { canApproverManageLeave } from "./leaveEmailRecipientService.js";
@@ -18,7 +19,7 @@ export class LeaveDecisionError extends Error {
 }
 
 export const hasRequiredTeamLeaderApproval = (leaveRequest) =>
-  leaveRequest.tlStatus === "Not Required" || leaveRequest.tlStatus === "Approved";
+  ["Not Required", "Approved", "Overridden"].includes(leaveRequest.tlStatus);
 
 export const assertLeaveDecisionAuthorized = ({ actor, leaveRequest, action }) => {
   if (!["Manager", "HR"].includes(actor.role)) {
@@ -152,6 +153,7 @@ export const processLeaveDecision = async ({
   action,
   rejectionReason = "",
   allowRevision = false,
+  overrideTeamLeaderApproval = false,
 }) => {
   if (!["approve", "reject"].includes(action)) {
     throw new LeaveDecisionError("Invalid leave decision", { code: "INVALID_ACTION" });
@@ -170,13 +172,32 @@ export const processLeaveDecision = async ({
   }
 
   const leaveRequest = await LeaveRequest.findById(leaveRequestId)
-    .populate("employeeId", "name email employeeId role");
+    .populate("employeeId", "name email employeeId role")
+    .populate("teamLeaderId", "name email role isActive");
   if (!leaveRequest) {
     throw new LeaveDecisionError("Leave request not found", {
       code: "NOT_FOUND",
       status: 404,
     });
   }
+
+  const team = overrideTeamLeaderApproval && leaveRequest.teamId
+    ? await Team.findById(leaveRequest.teamId).populate("teamLeaderId", "role isActive")
+    : null;
+  const hasActiveAssignedTeamLeader = leaveRequest.teamLeaderId?.isActive !== false
+    && Boolean(leaveRequest.teamLeaderId)
+    || team?.teamLeaderId?.role === "TeamLeader" && team.teamLeaderId.isActive !== false;
+  const canOverrideMissingTeamLeader = action === "approve"
+    && overrideTeamLeaderApproval
+    && leaveRequest.tlStatus === "Pending"
+    && !hasActiveAssignedTeamLeader;
+  if (overrideTeamLeaderApproval && !canOverrideMissingTeamLeader) {
+    throw new LeaveDecisionError(
+      "Team Leader approval can only be overridden when no active Team Leader is assigned",
+      { code: "TEAM_LEADER_OVERRIDE_NOT_ALLOWED", status: 409 },
+    );
+  }
+  if (canOverrideMissingTeamLeader) leaveRequest.tlStatus = "Overridden";
 
   assertLeaveDecisionAuthorized({ actor, leaveRequest, action });
 
@@ -220,7 +241,9 @@ export const processLeaveDecision = async ({
         ? `Decision revised to approved by ${actor.role}`
         : `Decision revised to rejected by ${actor.role}: ${reason}`
       : action === "approve"
-        ? wasReapproval ? `Reapproved by ${actor.role}` : `Approved by ${actor.role}`
+        ? canOverrideMissingTeamLeader
+          ? `Approved by ${actor.role} while overriding unavailable Team Leader approval`
+          : wasReapproval ? `Reapproved by ${actor.role}` : `Approved by ${actor.role}`
         : wasReapproval ? `Updated leave rejected by ${actor.role}: ${reason}` : reason,
   });
 

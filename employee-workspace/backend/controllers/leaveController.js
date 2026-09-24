@@ -363,18 +363,6 @@ export const createLeaveRequest = async (
         ) || null
       : reportingManager;
 
-    if (
-      requiresTeam &&
-      !isTeamLeader &&
-      !assignedTeamLeader
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "No Team Leader assigned for this team",
-      });
-    }
-
     if (requiresTeam && !assignedManager) {
       return res.status(400).json({
         success: false,
@@ -476,8 +464,7 @@ export const createLeaveRequest = async (
         teamLeaderId:
           isTeamLeader || !requiresTeam
             ? null
-            : assignedTeamLeader?._id ||
-              null,
+            : assignedTeamLeader?.isActive ? assignedTeamLeader._id : null,
 
         managerId:
           assignedManager?._id || null,
@@ -1138,7 +1125,7 @@ export const updateMyLeaveRequest = async (
         )
         .populate(
           "teamLeaderId",
-          "name email role"
+          "name email role isActive"
         )
         .populate(
           "managerId",
@@ -1359,7 +1346,7 @@ export const getMyLeaveRequests = async (
       })
         .populate(
           "teamLeaderId",
-          "name email role"
+          "name email role isActive"
         )
         .populate(
           "managerId",
@@ -2137,6 +2124,7 @@ export const approveLeaveByManager = async (
       leaveRequestId: req.params.id,
       actor: req.user,
       action: "approve",
+      overrideTeamLeaderApproval: req.body?.overrideTeamLeaderApproval === true,
     });
     if (decision.alreadyProcessed) {
       if (decision.alreadyApproved) {
@@ -2774,7 +2762,7 @@ export const getAllManagerLeaveRequests = async (req, res) => {
       )
       .populate("subcategoryId", "name")
       .populate("teamId", "name")
-      .populate("teamLeaderId", "name email role")
+      .populate("teamLeaderId", "name email role isActive")
       .populate("managerApprovedBy", "name email role")
       .populate("hrApprovedBy", "name email role")
       .populate("lastEditedBy", "name email role")

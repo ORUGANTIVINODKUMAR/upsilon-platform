@@ -227,7 +227,7 @@ const leaveRequestSchema = new mongoose.Schema(
 
     tlStatus: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected", "Not Required"],
+      enum: ["Pending", "Approved", "Rejected", "Not Required", "Overridden"],
       default: "Pending",
     },
 

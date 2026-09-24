@@ -547,10 +547,15 @@ const ManagerApprovals = () => {
   };
 
   const hasTeamLeaderApproval = (request) =>
-    request.tlStatus === "Approved" || request.tlStatus === "Not Required";
+    ["Approved", "Not Required", "Overridden"].includes(request.tlStatus);
+
+  const canOverrideMissingTeamLeader = (request) =>
+    request.tlStatus === "Pending" &&
+    (!request.teamLeaderId || request.teamLeaderId.isActive === false);
 
   const canApprove = (request) =>
-    canApproveOrReject(request) && hasTeamLeaderApproval(request);
+    canApproveOrReject(request) &&
+    (hasTeamLeaderApproval(request) || canOverrideMissingTeamLeader(request));
 
   const canChangeStatus = (
     request
@@ -886,13 +891,18 @@ const ManagerApprovals = () => {
     const isReapproval =
       request.finalStatus ===
       "Pending Reapproval";
+    const isTeamLeaderOverride = canOverrideMissingTeamLeader(request);
 
     const confirmed = await confirmAction({
-      title: isReapproval
+      title: isTeamLeaderOverride
+        ? "Approve without Team Leader approval?"
+        : isReapproval
         ? "Reapprove this updated leave request?"
         : "Approve this leave request?",
-      description: "This records a final approval decision and may notify Finance and update the employee's leave balance.",
-      confirmLabel: isReapproval ? "Reapprove request" : "Approve request",
+      description: isTeamLeaderOverride
+        ? "No active Team Leader is assigned. You are overriding the Team Leader approval step and giving the final leave approval. This may notify Finance and update the employee's leave balance."
+        : "This records a final approval decision and may notify Finance and update the employee's leave balance.",
+      confirmLabel: isTeamLeaderOverride ? "Override and approve" : isReapproval ? "Reapprove request" : "Approve request",
       tone: "warning",
     });
 
@@ -906,7 +916,8 @@ const ManagerApprovals = () => {
 
       const { data } =
         await api.put(
-          `/leave/manager-approve/${request._id}`
+          `/leave/manager-approve/${request._id}`,
+          { overrideTeamLeaderApproval: isTeamLeaderOverride }
         );
 
       setMessage(
@@ -2073,7 +2084,9 @@ const ManagerApprovals = () => {
                                     disabled={isSubmitting || !canApprove(item)}
                                     title={
                                       canApprove(item)
-                                        ? ""
+                                        ? canOverrideMissingTeamLeader(item)
+                                          ? "No active Team Leader is assigned. Confirm to override this approval step."
+                                          : ""
                                         : "Waiting for Team Leader approval"
                                     }
                                   >
