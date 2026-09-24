@@ -33,7 +33,7 @@ The endpoint reads existing User, Team, AttendanceRecord, LeaveRequest, and Holi
 | Admin | Company-wide visibility for active personal-leave employees, consistent with existing attendance audit access |
 | Finance | Company-wide read visibility, consistent with existing attendance access |
 
-Personal-leave employee roles are Employee, TeamLeader, Manager, and HR. Admin and Finance accounts do not acquire personal leave entitlements. Attendance mutation permissions remain Manager/HR only and do not allow recording their own attendance.
+Personal-leave employee roles are Employee, TeamLeader, Manager, and HR. Admin and Finance accounts do not acquire personal leave entitlements. Attendance mutations remain limited to Manager/HR. HR and Managers can record their own attendance; Manager access to other employees continues to use the existing direct-report and managed-team scope.
 
 The team/employee/status filters operate on backend-scoped results. The overview counts dates in each status, not payroll days: a half-day record occupies one date. Select an employee name to open their calendar.
 

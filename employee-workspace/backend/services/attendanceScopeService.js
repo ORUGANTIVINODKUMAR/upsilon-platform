@@ -15,11 +15,16 @@ export const employeeBaseFilter = (actor) => ({
   _id: { $ne: actor._id },
 });
 
-export const getAuthorizedEmployeeFilter = async (actor) => {
-  const base = employeeBaseFilter(actor);
+export const getAuthorizedEmployeeFilter = async (actor, { includeSelf = false } = {}) => {
+  const base = {
+    isActive: true,
+    role: { $in: ATTENDANCE_EMPLOYEE_ROLES },
+    ...(!includeSelf ? { _id: { $ne: actor._id } } : {}),
+  };
   if (actor.role === "HR") return base;
   const managedTeamIds = await getManagedTeamIds(actor);
   return { ...base, $or: [
+    ...(includeSelf ? [{ _id: actor._id }] : []),
     { managerId: actor._id },
     ...(managedTeamIds.length > 0 ? [{ teamId: { $in: managedTeamIds } }] : []),
   ] };

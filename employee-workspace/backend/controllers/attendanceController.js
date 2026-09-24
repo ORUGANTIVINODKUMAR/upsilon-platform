@@ -89,7 +89,10 @@ const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\
 const getAuthorizedEmployee = async (actor, employeeId) => {
   if (!mongoose.isValidObjectId(employeeId)) return null;
   if (!["Manager", "HR"].includes(actor.role)) return null;
-  if (employeeId.toString() === actor._id.toString()) return null;
+  if (employeeId.toString() === actor._id.toString()) {
+    return User.findOne({ _id: actor._id, isActive: true, role: { $in: ATTENDANCE_EMPLOYEE_ROLES } })
+      .select("name email employeeId role teamId managerId subcategoryId dateOfJoining isActive");
+  }
 
   const employee = await User.findOne({
     ...employeeBaseFilter(actor),
@@ -187,7 +190,8 @@ export const getAttendanceEmployees = async (req, res) => {
       return res.status(400).json({ success: false, message: "Search text cannot exceed 100 characters" });
     }
 
-    const filter = await getAuthorizedEmployeeFilter(req.user);
+    // Include the authenticated HR/Manager so they can record their own absence.
+    const filter = await getAuthorizedEmployeeFilter(req.user, { includeSelf: true });
     if (query) {
       const search = new RegExp(escapeRegExp(query), "i");
       filter.$and = [{ $or: [{ name: search }, { email: search }, { employeeId: search }] }];
