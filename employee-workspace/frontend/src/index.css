@@ -1000,6 +1000,7 @@ code {
 }
 
 .leave-primary-action {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1016,6 +1017,37 @@ code {
     transform 0.18s ease,
     box-shadow 0.18s ease,
     background 0.18s ease;
+}
+
+.leave-primary-action[data-tooltip]::after {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  bottom: calc(100% + 9px);
+  width: max-content;
+  max-width: 250px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: #173b31;
+  color: #fff;
+  content: attr(data-tooltip);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+}
+
+.leave-primary-action[data-tooltip]:hover::after,
+.leave-primary-action[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
 }
 
 .leave-primary-action:hover {

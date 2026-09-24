@@ -1,5 +1,4 @@
 import LeaveRequest from "../models/LeaveRequest.js";
-import Team from "../models/Team.js";
 import User from "../models/User.js";
 import { syncApprovedLeaveLedger } from "./leaveBalanceService.js";
 import { canApproverManageLeave } from "./leaveEmailRecipientService.js";
@@ -181,23 +180,16 @@ export const processLeaveDecision = async ({
     });
   }
 
-  const team = overrideTeamLeaderApproval && leaveRequest.teamId
-    ? await Team.findById(leaveRequest.teamId).populate("teamLeaderId", "role isActive")
-    : null;
-  const hasActiveAssignedTeamLeader = leaveRequest.teamLeaderId?.isActive !== false
-    && Boolean(leaveRequest.teamLeaderId)
-    || team?.teamLeaderId?.role === "TeamLeader" && team.teamLeaderId.isActive !== false;
-  const canOverrideMissingTeamLeader = action === "approve"
+  const canOverridePendingTeamLeader = action === "approve"
     && overrideTeamLeaderApproval
-    && leaveRequest.tlStatus === "Pending"
-    && !hasActiveAssignedTeamLeader;
-  if (overrideTeamLeaderApproval && !canOverrideMissingTeamLeader) {
+    && leaveRequest.tlStatus === "Pending";
+  if (overrideTeamLeaderApproval && !canOverridePendingTeamLeader) {
     throw new LeaveDecisionError(
-      "Team Leader approval can only be overridden when no active Team Leader is assigned",
+      "Team Leader approval can only be overridden while it is pending",
       { code: "TEAM_LEADER_OVERRIDE_NOT_ALLOWED", status: 409 },
     );
   }
-  if (canOverrideMissingTeamLeader) leaveRequest.tlStatus = "Overridden";
+  if (canOverridePendingTeamLeader) leaveRequest.tlStatus = "Overridden";
 
   assertLeaveDecisionAuthorized({ actor, leaveRequest, action });
 
@@ -241,7 +233,7 @@ export const processLeaveDecision = async ({
         ? `Decision revised to approved by ${actor.role}`
         : `Decision revised to rejected by ${actor.role}: ${reason}`
       : action === "approve"
-        ? canOverrideMissingTeamLeader
+        ? canOverridePendingTeamLeader
           ? `Approved by ${actor.role} while overriding unavailable Team Leader approval`
           : wasReapproval ? `Reapproved by ${actor.role}` : `Approved by ${actor.role}`
         : wasReapproval ? `Updated leave rejected by ${actor.role}: ${reason}` : reason,

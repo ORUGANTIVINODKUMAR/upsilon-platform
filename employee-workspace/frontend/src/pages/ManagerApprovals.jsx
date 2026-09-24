@@ -549,13 +549,12 @@ const ManagerApprovals = () => {
   const hasTeamLeaderApproval = (request) =>
     ["Approved", "Not Required", "Overridden"].includes(request.tlStatus);
 
-  const canOverrideMissingTeamLeader = (request) =>
-    request.tlStatus === "Pending" &&
-    (!request.teamLeaderId || request.teamLeaderId.isActive === false);
+  const canOverridePendingTeamLeader = (request) =>
+    request.tlStatus === "Pending";
 
   const canApprove = (request) =>
     canApproveOrReject(request) &&
-    (hasTeamLeaderApproval(request) || canOverrideMissingTeamLeader(request));
+    (hasTeamLeaderApproval(request) || canOverridePendingTeamLeader(request));
 
   const canChangeStatus = (
     request
@@ -891,7 +890,7 @@ const ManagerApprovals = () => {
     const isReapproval =
       request.finalStatus ===
       "Pending Reapproval";
-    const isTeamLeaderOverride = canOverrideMissingTeamLeader(request);
+    const isTeamLeaderOverride = canOverridePendingTeamLeader(request);
 
     const confirmed = await confirmAction({
       title: isTeamLeaderOverride
@@ -900,7 +899,7 @@ const ManagerApprovals = () => {
         ? "Reapprove this updated leave request?"
         : "Approve this leave request?",
       description: isTeamLeaderOverride
-        ? "No active Team Leader is assigned. You are overriding the Team Leader approval step and giving the final leave approval. This may notify Finance and update the employee's leave balance."
+        ? "Team Leader approval is still pending. Confirm that the Team Leader is unavailable before overriding that approval step and giving final leave approval. This may notify Finance and update the employee's leave balance."
         : "This records a final approval decision and may notify Finance and update the employee's leave balance.",
       confirmLabel: isTeamLeaderOverride ? "Override and approve" : isReapproval ? "Reapprove request" : "Approve request",
       tone: "warning",
@@ -2084,11 +2083,14 @@ const ManagerApprovals = () => {
                                     disabled={isSubmitting || !canApprove(item)}
                                     title={
                                       canApprove(item)
-                                        ? canOverrideMissingTeamLeader(item)
-                                          ? "No active Team Leader is assigned. Confirm to override this approval step."
+                                        ? canOverridePendingTeamLeader(item)
+                                          ? "Team Leader approval is pending. Hover for details; clicking Approve will ask you to confirm the override."
                                           : ""
                                         : "Waiting for Team Leader approval"
                                     }
+                                    data-tooltip={canOverridePendingTeamLeader(item)
+                                      ? "TL approval is pending. You are overriding this step and giving final approval; confirmation required."
+                                      : undefined}
                                   >
                                     <CheckCircle
                                       size={
