@@ -28,6 +28,20 @@ export const applyManagedLeaveStatus = ({
     throw new Error("Invalid status");
   }
 
+  if (
+    status.startsWith("Approved by ")
+    && !["Approved", "Not Required"].includes(leaveRequest.tlStatus)
+  ) {
+    const error = new Error(
+      leaveRequest.tlStatus === "Rejected"
+        ? "This leave request was rejected by the Team Leader and cannot be approved"
+        : "Team Leader approval is required before Manager or HR approval",
+    );
+    error.code = "TEAM_LEADER_APPROVAL_REQUIRED";
+    error.status = 409;
+    throw error;
+  }
+
   const trimmedRemarks = remarks.trim();
   const previousStatus = leaveRequest.finalStatus;
   const rolePrefix = role === "Manager" ? "manager" : "hr";

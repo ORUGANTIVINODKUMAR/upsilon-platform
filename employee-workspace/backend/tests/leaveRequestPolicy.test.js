@@ -129,6 +129,7 @@ test("the schema preserves approval statuses and supports cancellation audit his
   assert.ok(finalStatuses.includes("Pending Final Approval"));
   assert.ok(finalStatuses.includes("Approved by Manager"));
   assert.ok(finalStatuses.includes("Rejected by HR"));
+  assert.ok(finalStatuses.includes("Rejected by Team Leader"));
   assert.ok(finalStatuses.includes("Cancelled"));
   assert.ok(historyActions.includes("Submitted"));
   assert.ok(historyActions.includes("Approved"));

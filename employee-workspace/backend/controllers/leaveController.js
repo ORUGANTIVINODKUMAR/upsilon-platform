@@ -47,6 +47,7 @@ const APPROVED_LEAVE_STATUSES = [
 ];
 
 const REJECTED_LEAVE_STATUSES = [
+  "Rejected by Team Leader",
   "Rejected by Manager",
   "Rejected by HR",
 ];
@@ -1842,10 +1843,15 @@ export const rejectLeaveByTL = async (
     leaveRequest.tlRejectionReason =
       trimmedReason;
 
-    /*
-     * TL rejection remains advisory in your existing workflow.
-     * Manager or HR can still make the final decision.
-     */
+    leaveRequest.finalStatus =
+      "Rejected by Team Leader";
+
+    leaveRequest.requiresReapproval =
+      false;
+
+    leaveRequest.rejectionReason =
+      trimmedReason;
+
     leaveRequest.approvalHistory.push({
       level:
         "TeamLeader",
@@ -1862,65 +1868,49 @@ export const rejectLeaveByTL = async (
 
     await leaveRequest.save();
 
+    await syncApprovedLeaveLedger(
+      leaveRequest,
+      req.user._id
+    );
+
     await createNotification({
       recipientId:
         leaveRequest.employeeId._id,
 
       title:
-        leaveRequest.finalStatus ===
-        "Pending Reapproval"
-          ? "Updated Leave Not Recommended by Team Leader"
-          : "Leave Not Recommended by Team Leader",
+        "Leave Rejected by Team Leader",
 
       message:
-        `Your leave request was not recommended by the Team Leader. Reason: ${trimmedReason}. Manager or HR will make the final decision.`,
+        `Your leave request was rejected by the Team Leader. Reason: ${trimmedReason}.`,
 
       link:
         "/dashboard",
     });
 
-    const hrUsers =
-      await User.find({
-        role: "HR",
-        isActive: true,
-      }).select(
-        "_id"
-      );
-
-    const finalApproverIds =
-      getUniqueUserIds([
-        leaveRequest.managerId,
-        ...hrUsers.map(
-          (hr) => hr._id
-        ),
-      ]);
-
-    await Promise.all(
-      finalApproverIds.map(
-        (recipientId) =>
-          createNotification({
-            recipientId,
-
-            title:
-              leaveRequest.finalStatus ===
-              "Pending Reapproval"
-                ? "Updated Leave Requires Final Review"
-                : "Leave Requires Final Review",
-
-            message:
-              `${leaveRequest.employeeId.name}'s leave request was not recommended by the Team Leader. Final review is still required.`,
-
-            link:
-              "/dashboard",
-          })
-      )
-    );
+    if (leaveRequest.employeeId.email) {
+      sendDecisionEmail({
+        to: leaveRequest.employeeId.email,
+        subject: "Leave Request Rejected",
+        title: "Leave Request Rejected",
+        employeeName: leaveRequest.employeeId.name,
+        requestType: "Leave",
+        status: "Rejected",
+        rejectionReason: trimmedReason,
+        leaveType: leaveRequest.leaveType,
+        startDate: leaveRequest.startDate,
+        endDate: leaveRequest.endDate,
+        approverName: req.user.name,
+        approverRole: req.user.role,
+      }).catch((emailError) => {
+        console.log("TL leave rejection email failed:", emailError.message);
+      });
+    }
 
     return res.status(200).json({
       success: true,
 
       message:
-        "Team Leader review recorded successfully",
+        "Leave rejected by Team Leader",
 
       leaveRequest,
     });
@@ -2058,6 +2048,7 @@ export const getManagerApprovalHistory = async (
     }
 
     const completedStatuses = [
+      "Rejected by Team Leader",
       "Approved by Manager",
       "Approved by HR",
       "Rejected by Manager",
@@ -2430,6 +2421,13 @@ export const changeLeaveStatus = async (req, res) => {
 
   } catch (error) {
     console.error("CHANGE LEAVE STATUS ERROR:", error);
+
+    if (error.status) {
+      return res.status(error.status).json({
+        success: false,
+        message: error.message,
+      });
+    }
 
     if (error.name === "CastError") {
       return res.status(400).json({

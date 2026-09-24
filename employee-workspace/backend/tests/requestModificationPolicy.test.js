@@ -79,6 +79,7 @@ test("leave deletion protects ownership and approved or cancelled records", () =
   const options = { ownerId: "employee-1", userId: "employee-1" };
   assert.equal(canDeleteOwnLeaveRequest({ ...options, finalStatus: "Pending Final Approval" }), true);
   assert.equal(canDeleteOwnLeaveRequest({ ...options, finalStatus: "Rejected by Manager" }), true);
+  assert.equal(canDeleteOwnLeaveRequest({ ...options, finalStatus: "Rejected by Team Leader" }), true);
   assert.equal(canDeleteOwnLeaveRequest({ ...options, finalStatus: "Approved by HR" }), false);
   assert.equal(canDeleteOwnLeaveRequest({ ...options, finalStatus: "Cancelled" }), false);
   assert.equal(canDeleteOwnLeaveRequest({ ...options, userId: "employee-2", finalStatus: "Pending Final Approval" }), false);
@@ -92,4 +93,3 @@ test("business record schemas retain soft-delete and edit audit fields", () => {
   assert.ok(ReimbursementRequest.schema.path("editHistory"));
   assert.ok(ReimbursementRequest.schema.path("lastEditedAt"));
 });
-

@@ -29,6 +29,7 @@ const APPROVED_STATUSES = [
 ];
 
 const REJECTED_STATUSES = [
+  "Rejected by Team Leader",
   "Rejected by Manager",
   "Rejected by HR",
 ];
@@ -786,6 +787,7 @@ const LeaveRequests = () => {
     "Pending Final Approval",
     "Pending Reapproval",
     "On Hold",
+    "Rejected by Team Leader",
     "Rejected by Manager",
     "Rejected by HR",
   ].includes(request.finalStatus);
@@ -966,6 +968,7 @@ const LeaveRequests = () => {
     "Pending Reapproval",
     "Approved by Manager",
     "Approved by HR",
+    "Rejected by Team Leader",
     "Rejected by Manager",
     "Rejected by HR",
     "Cancelled",

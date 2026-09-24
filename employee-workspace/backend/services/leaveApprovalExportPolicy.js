@@ -93,7 +93,7 @@ export const getLeaveApprovalStatusFilter = (status = "All") => {
     return { finalStatus: { $in: ["Approved by Manager", "Approved by HR"] } };
   }
   if (status === "Rejected") {
-    return { finalStatus: { $in: ["Rejected by Manager", "Rejected by HR"] } };
+    return { finalStatus: { $in: ["Rejected by Team Leader", "Rejected by Manager", "Rejected by HR"] } };
   }
   if (allowedExactStatuses.includes(status)) return { finalStatus: status };
   throw new RangeError("statusFilter is invalid");

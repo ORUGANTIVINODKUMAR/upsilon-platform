@@ -48,6 +48,7 @@ const APPROVED_STATUSES = [
 ];
 
 const REJECTED_STATUSES = [
+  "Rejected by Team Leader",
   "Rejected by Manager",
   "Rejected by HR",
 ];
@@ -545,6 +546,12 @@ const ManagerApprovals = () => {
     );
   };
 
+  const hasTeamLeaderApproval = (request) =>
+    request.tlStatus === "Approved" || request.tlStatus === "Not Required";
+
+  const canApprove = (request) =>
+    canApproveOrReject(request) && hasTeamLeaderApproval(request);
+
   const canChangeStatus = (
     request
   ) => {
@@ -867,13 +874,11 @@ const ManagerApprovals = () => {
   const approveLeave = async (
     request
   ) => {
-    if (
-      !canApproveOrReject(
-        request
-      )
-    ) {
+    if (!canApprove(request)) {
       setError(
-        "This leave request is not awaiting approval."
+        hasTeamLeaderApproval(request)
+          ? "This leave request is not awaiting approval."
+          : "Team Leader approval is required before final approval."
       );
       return;
     }
@@ -1236,14 +1241,18 @@ const ManagerApprovals = () => {
       request.finalStatus ===
       "Pending Final Approval"
     ) {
-      return "Awaiting final approval";
+      return hasTeamLeaderApproval(request)
+        ? "Awaiting Manager or HR approval"
+        : "Awaiting Team Leader approval";
     }
 
     if (
       request.finalStatus ===
       "Pending Reapproval"
     ) {
-      return "Updated request awaiting reapproval";
+      return hasTeamLeaderApproval(request)
+        ? "Updated request awaiting Manager or HR reapproval"
+        : "Updated request awaiting Team Leader reapproval";
     }
 
     if (
@@ -1285,8 +1294,8 @@ const ManagerApprovals = () => {
 
     return allOptions.filter(
       (status) =>
-        status !==
-        request?.finalStatus
+        status !== request?.finalStatus &&
+        (!status.startsWith("Approved by ") || hasTeamLeaderApproval(request))
     );
   };
 
@@ -2061,8 +2070,11 @@ const ManagerApprovals = () => {
                                         item
                                       )
                                     }
-                                    disabled={
-                                      isSubmitting
+                                    disabled={isSubmitting || !canApprove(item)}
+                                    title={
+                                      canApprove(item)
+                                        ? ""
+                                        : "Waiting for Team Leader approval"
                                     }
                                   >
                                     <CheckCircle

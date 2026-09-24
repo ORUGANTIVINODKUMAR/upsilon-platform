@@ -17,6 +17,9 @@ export class LeaveDecisionError extends Error {
   }
 }
 
+export const hasRequiredTeamLeaderApproval = (leaveRequest) =>
+  leaveRequest.tlStatus === "Not Required" || leaveRequest.tlStatus === "Approved";
+
 export const assertLeaveDecisionAuthorized = ({ actor, leaveRequest, action }) => {
   if (!["Manager", "HR"].includes(actor.role)) {
     throw new LeaveDecisionError(`Only Manager or HR can ${action} leave`, {
@@ -46,6 +49,14 @@ export const assertLeaveDecisionAuthorized = ({ actor, leaveRequest, action }) =
     throw new LeaveDecisionError(
       "You are not assigned as Manager for this leave request",
       { code: "FORBIDDEN", status: 403 },
+    );
+  }
+  if (action === "approve" && !hasRequiredTeamLeaderApproval(leaveRequest)) {
+    throw new LeaveDecisionError(
+      leaveRequest.tlStatus === "Rejected"
+        ? "This leave request was rejected by the Team Leader and cannot be approved"
+        : "Team Leader approval is required before Manager or HR approval",
+      { code: "TEAM_LEADER_APPROVAL_REQUIRED", status: 409 },
     );
   }
 };

@@ -213,6 +213,40 @@ test("decision authorization rejects a Manager not assigned to the leave", () =>
   }), (error) => error.status === 403 && /not assigned/.test(error.message));
 });
 
+test("decision authorization requires TL approval before Manager or HR approval", () => {
+  assert.throws(() => assertLeaveDecisionAuthorized({
+    actor: { _id: "manager-1", role: "Manager" },
+    leaveRequest: {
+      employeeId: { _id: "employee-1", role: "Employee" },
+      managerId: "manager-1",
+      tlStatus: "Pending",
+    },
+    action: "approve",
+  }), (error) => error.status === 409 && error.code === "TEAM_LEADER_APPROVAL_REQUIRED");
+
+  assert.doesNotThrow(() => assertLeaveDecisionAuthorized({
+    actor: { _id: "manager-1", role: "Manager" },
+    leaveRequest: {
+      employeeId: { _id: "employee-1", role: "Employee" },
+      managerId: "manager-1",
+      tlStatus: "Approved",
+    },
+    action: "approve",
+  }));
+});
+
+test("Manager or HR may reject while TL approval is pending", () => {
+  assert.doesNotThrow(() => assertLeaveDecisionAuthorized({
+    actor: { _id: "manager-1", role: "Manager" },
+    leaveRequest: {
+      employeeId: { _id: "employee-1", role: "Employee" },
+      managerId: "manager-1",
+      tlStatus: "Pending",
+    },
+    action: "reject",
+  }));
+});
+
 test("email decisions may revise only the opposite decision by the same role", () => {
   assert.equal(isLeaveDecisionRevision({
     finalStatus: "Approved by Manager",

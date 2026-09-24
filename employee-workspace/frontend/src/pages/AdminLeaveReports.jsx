@@ -134,6 +134,7 @@ const AdminLeaveReports = () => {
     "Pending Final Approval",
     "Approved by Manager",
     "Approved by HR",
+    "Rejected by Team Leader",
     "Rejected by Manager",
     "Rejected by HR",
   ];

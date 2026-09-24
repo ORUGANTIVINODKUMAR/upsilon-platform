@@ -192,7 +192,7 @@ export const getDashboardStats = async (req, res) => {
 
       LeaveRequest.countDocuments({
         finalStatus: {
-          $in: ["Rejected by Manager", "Rejected by HR"],
+          $in: ["Rejected by Team Leader", "Rejected by Manager", "Rejected by HR"],
         },
       }),
 
@@ -238,7 +238,7 @@ export const getDashboardStats = async (req, res) => {
       LeaveRequest.countDocuments({
         employeeId: req.user._id,
         finalStatus: {
-          $in: ["Rejected by Manager", "Rejected by HR"],
+          $in: ["Rejected by Team Leader", "Rejected by Manager", "Rejected by HR"],
         },
       }),
 
@@ -261,7 +261,7 @@ export const getDashboardStats = async (req, res) => {
       ReimbursementRequest.countDocuments({
         employeeId: req.user._id,
         finalStatus: {
-          $in: ["Rejected by Manager", "Rejected by HR"],
+          $in: ["Rejected by Team Leader", "Rejected by Manager", "Rejected by HR"],
         },
       }),
 

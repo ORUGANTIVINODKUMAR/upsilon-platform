@@ -11,6 +11,7 @@ const actorId = new mongoose.Types.ObjectId();
 
 const request = (finalStatus) => ({
   finalStatus,
+  tlStatus: "Approved",
   managerStatus: "Pending",
   hrStatus: "Pending",
   managerRejectionReason: "",
@@ -103,6 +104,28 @@ test("roles can only assign statuses attributed to themselves", () => {
     "Rejected by Manager",
   ]);
   assert.equal(getManagedLeaveStatuses("Employee").length, 0);
+});
+
+test("Manager or HR cannot manually approve before the Team Leader", () => {
+  for (const tlStatus of ["Pending", "Rejected"]) {
+    assert.throws(() => applyManagedLeaveStatus({
+      leaveRequest: { ...request("Pending Final Approval"), tlStatus },
+      status: "Approved by Manager",
+      role: "Manager",
+      actorId,
+      remarks: "reviewed",
+    }), (error) => error.status === 409 && error.code === "TEAM_LEADER_APPROVAL_REQUIRED");
+  }
+});
+
+test("Team Leader approval is not required for applicants who skip self-review", () => {
+  assert.doesNotThrow(() => applyManagedLeaveStatus({
+    leaveRequest: { ...request("Pending Final Approval"), tlStatus: "Not Required" },
+    status: "Approved by Manager",
+    role: "Manager",
+    actorId,
+    remarks: "reviewed",
+  }));
 });
 
 test("legacy leave requests without submittedAt remain valid for status updates", async () => {

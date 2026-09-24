@@ -167,6 +167,7 @@ export const canDeleteOwnLeaveRequest = ({ ownerId, userId, finalStatus }) => {
     "Pending Final Approval",
     "Pending Reapproval",
     "On Hold",
+    "Rejected by Team Leader",
     "Rejected by Manager",
     "Rejected by HR",
   ].includes(finalStatus);

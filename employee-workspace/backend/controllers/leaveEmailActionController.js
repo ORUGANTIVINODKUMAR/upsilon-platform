@@ -46,7 +46,7 @@ const getContext = async (rawToken, action) => {
   const [actor, leaveRequest] = await Promise.all([
     User.findById(tokenRecord.approverId).select("_id name email role isActive"),
     LeaveRequest.findById(tokenRecord.leaveRequestId)
-      .select("employeeId managerId finalStatus")
+      .select("employeeId managerId finalStatus tlStatus")
       .populate("employeeId", "_id role"),
   ]);
 
