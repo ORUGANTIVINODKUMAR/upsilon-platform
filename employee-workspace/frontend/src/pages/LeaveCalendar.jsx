@@ -1,3 +1,6 @@
+import TableRegion from "../components/ui/TableRegion";
+import ModalFrame from "../components/ui/ModalFrame";
+import FormField from "../components/ui/FormField";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Building2,
@@ -55,6 +58,15 @@ const LeaveCalendar = () => {
   const canAddAbsence = ["Manager", "HR"].includes(user?.role);
   const canReport = ["Manager", "HR"].includes(user?.role);
   const [leaveEvents, setLeaveEvents] = useState([]);
+  const [holidays, setHolidays] = useState([]);
+  const [holidayError, setHolidayError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    api.get("/holidays", { signal: controller.signal })
+      .then(({ data }) => { if (!controller.signal.aborted) setHolidays(data.holidays || []); })
+      .catch(() => { if (!controller.signal.aborted) setHolidayError("Holiday dates are unavailable. Leave records remain visible."); });
+    return () => controller.abort();
+  }, []);
   const [attendanceEvents, setAttendanceEvents] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [activeView, setActiveView] = useState("Monthly");
@@ -661,7 +673,10 @@ const LeaveCalendar = () => {
           </div>}
         </div>
 
-        <div className="calendar-legend" aria-label="Leave type colors">
+        {holidayError && <p className="calendar-inline-warning" role="status">{holidayError}</p>}
+        <div className="calendar-legend" aria-label="Calendar legend">
+          <span className="ui-status ui-status--neutral">Weekend (shaded)</span>
+          <span className="ui-status ui-status--info">Company holiday (blue label)</span>
           {Object.entries(LEAVE_COLORS).map(([leaveType, color]) => (
             <span key={leaveType} className="ui-status ui-status--neutral">
               <i style={{ "--legend-color": color }} aria-hidden="true" />
@@ -713,6 +728,8 @@ const LeaveCalendar = () => {
                 ? events.filter((event) => isDateInLeaveRange(date, event))
                 : [];
 
+              const dayHolidays = date ? holidays.filter(holiday => holiday.holidayDate?.slice(0, 10) === toDateInputValue(date)) : [];
+              const isWeekend = date && [0, 6].includes(date.getDay());
               const isToday =
                 date &&
                 date.toDateString() === today.toDateString();
@@ -723,13 +740,14 @@ const LeaveCalendar = () => {
                   key={index}
                   onClick={() => openDateModal(date)}
                   disabled={!date}
-                  className={`leave-calendar-day${isToday ? " is-today" : ""}${!date ? " is-empty" : ""}`}
-                  aria-label={date ? `${formatDate(date)}, ${dayLeaves.length} absence${dayLeaves.length === 1 ? "" : "s"}` : undefined}
+                  className={`leave-calendar-day${isWeekend ? " is-weekend" : ""}${isToday ? " is-today" : ""}${!date ? " is-empty" : ""}`}
+                  aria-label={date ? `${formatDate(date)}, ${dayLeaves.length} absence${dayLeaves.length === 1 ? "" : "s"}${dayHolidays.length ? `, ${dayHolidays.map(holiday => holiday.name).join(", ")}` : ""}${isWeekend ? ", weekend" : ""}` : undefined}
                 >
                   <span className="leave-calendar-date">
                     {date ? date.getDate() : ""}
                   </span>
 
+                  {dayHolidays.slice(0, 1).map(holiday => <span key={holiday._id} className="calendar-holiday-label" title={dayHolidays.map(item => item.name).join(", ")}>{holiday.name}{dayHolidays.length > 1 ? ` +${dayHolidays.length - 1}` : ""}</span>)}
                   {dayLeaves.slice(0, 3).map((event) => (
                     <span
                       key={`${event.id}-${event.employeeName}`}
@@ -737,7 +755,7 @@ const LeaveCalendar = () => {
                       style={{ "--event-color": getLeaveColor(event.leaveType) }}
                       title={`${event.employeeName} - ${event.status || event.leaveType}`}
                     >
-                      {event.employeeName}
+                      {event.employeeName}<small>{event.balanceTreatment === "LOP" ? "Unpaid" : event.status || event.leaveType}</small>
                     </span>
                   ))}
 
@@ -756,13 +774,13 @@ const LeaveCalendar = () => {
 
       {canReport && currentReport && <section className="modern-section-card calendar-report-summary" aria-labelledby="employee-leave-summary-title">
         <div className="section-header"><div><h3 id="employee-leave-summary-title">Employee-wise leave summary</h3><p className="section-subtitle">{currentReport.startDate} to {currentReport.endDate}</p></div></div>
-        <div className="table-wrapper modern-table-wrapper"><table className="custom-table">
+        <TableRegion label="Leave Calendar records" className="table-wrapper modern-table-wrapper"><table className="custom-table">
           <caption className="sr-only">Leave totals for each employee in the selected period</caption>
           <thead><tr><th>Employee</th><th>Team / Department</th><th>Paid days</th><th>LOP days</th><th>Unallocated days</th><th>Half days (count / days)</th><th>Approved (count / days)</th><th>Total days</th></tr></thead>
           <tbody>{currentReport.summary.map((row) => <tr key={row.employeeKey}><td>{row.employeeName}<small className="calendar-report-employee-id">{row.employeeId}</small></td><td>{[row.team, row.department].filter(Boolean).join(" / ") || "N/A"}</td><td>{row.paidDays}</td><td>{row.lopDays}</td><td>{row.unallocatedDays}</td><td>{row.halfDayCount} / {row.halfDayDays}</td><td>{row.approvedCount} / {row.approvedDays}</td><td>{row.totalDays}</td></tr>)}
             {!currentReport.summary.length && <tr><td colSpan="8">No leave records in this period.</td></tr>}
           </tbody>
-        </table></div>
+        </table></TableRegion>
         {currentReport.notes.map((note) => <p className="section-subtitle" key={note}>{note}</p>)}
       </section>}
 
@@ -777,7 +795,7 @@ const LeaveCalendar = () => {
           </div>
         </div>
 
-        <div className="table-wrapper modern-table-wrapper">
+        <TableRegion label="Leave Calendar records" className="table-wrapper modern-table-wrapper">
           <table className="custom-table">
           <caption className="sr-only">Employee leave and attendance absences in the selected calendar view</caption>
           <thead>
@@ -820,19 +838,22 @@ const LeaveCalendar = () => {
             )}
           </tbody>
           </table>
-        </div>
+        </TableRegion>
       </section>
 
       {selectedDate && (
         <div className="modal-overlay">
-          <div
+          <ModalFrame onClose={() => { (() => {
+                  setSelectedDate(null);
+                  setSelectedDateLeaves([]);
+                })(); }}
             className="modal-card"
             role="dialog"
             aria-modal="true"
             aria-labelledby="calendar-day-dialog-title"
           >
             <div className="modal-header">
-              <h3 id="calendar-day-dialog-title">Leaves on {formatDate(selectedDate)}</h3>
+              <h3 id="calendar-day-dialog-title">Schedule for {formatDate(selectedDate)}</h3>
 
               <button
                 type="button"
@@ -858,7 +879,8 @@ const LeaveCalendar = () => {
                 </button>
               )}
 
-              {selectedDateLeaves.length > 0 ? (
+              {holidays.filter(holiday => holiday.holidayDate?.slice(0, 10) === toDateInputValue(selectedDate)).map(holiday => <p className="calendar-holiday-label" key={holiday._id}>{holiday.name} &middot; {holiday.type}</p>)}
+            {selectedDateLeaves.length > 0 ? (
                 selectedDateLeaves.map((leave) => (
                   <div
                     key={leave.id}
@@ -882,13 +904,13 @@ const LeaveCalendar = () => {
                 <EmptyState compact title="No approved leaves on this date" />
               )}
             </div>
-          </div>
+          </ModalFrame>
         </div>
       )}
 
       {showAbsenceModal && (
         <div className="modal-overlay" role="presentation" onMouseDown={closeAbsenceModal}>
-          <section
+          <ModalFrame onClose={() => { if (!(savingAbsence)) (closeAbsenceModal)(); }} as="section"
             className="modal-card attendance-modal"
             role="dialog"
             aria-modal="true"
@@ -910,7 +932,7 @@ const LeaveCalendar = () => {
             )}
 
             <form className="auth-form" onSubmit={requestAbsenceConfirmation}>
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="calendar-absence-search">Search employee</label>
                 <div className="attendance-search">
                   <Search size={16} aria-hidden="true" />
@@ -923,9 +945,9 @@ const LeaveCalendar = () => {
                     autoComplete="off"
                   />
                 </div>
-              </div>
+              </FormField>
 
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="calendar-absence-employee">Employee</label>
                 <select
                   id="calendar-absence-employee"
@@ -941,9 +963,9 @@ const LeaveCalendar = () => {
                     </option>
                   ))}
                 </select>
-              </div>
+              </FormField>
 
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="calendar-absence-date">Date</label>
                 <input
                   id="calendar-absence-date"
@@ -955,9 +977,9 @@ const LeaveCalendar = () => {
                   required
                 />
                 <small>Select any current or previous working date after the employee&apos;s joining date.</small>
-              </div>
+              </FormField>
 
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="calendar-attendance-type">Record type</label>
                 <select
                   id="calendar-attendance-type"
@@ -970,10 +992,10 @@ const LeaveCalendar = () => {
                   ))}
                 </select>
                 <small>{selectedAttendance.durationDays > 0 ? "Choose whether this record uses paid leave or becomes LOP." : "Permission will appear in attendance and the leave calendar without deducting leave."}</small>
-              </div>
+              </FormField>
 
               {absenceForm.attendanceType !== "PERMISSION" && (
-                <div className="input-group">
+                <FormField className="input-group">
                   <label htmlFor="calendar-balance-treatment">Balance treatment</label>
                   <select
                     id="calendar-balance-treatment"
@@ -984,10 +1006,10 @@ const LeaveCalendar = () => {
                     <option value="LOP">Loss of Pay (LOP)</option>
                     <option value="PAID">Use available paid leave</option>
                   </select>
-                </div>
+                </FormField>
               )}
 
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="calendar-absence-remarks">Remarks <span>(optional)</span></label>
                 <textarea
                   id="calendar-absence-remarks"
@@ -998,14 +1020,14 @@ const LeaveCalendar = () => {
                   placeholder="Employee did not inform the team before the start of the shift."
                 />
                 <small>{absenceForm.remarks.length}/500</small>
-              </div>
+              </FormField>
 
               <div className="form-actions">
                 <button type="button" className="btn btn-secondary" onClick={closeAbsenceModal}>Cancel</button>
                 <button type="submit" className="btn btn-primary">Review Record</button>
               </div>
             </form>
-          </section>
+          </ModalFrame>
         </div>
       )}
 

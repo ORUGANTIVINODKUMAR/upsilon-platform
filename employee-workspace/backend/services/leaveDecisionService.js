@@ -95,9 +95,10 @@ const notifyEmployee = async ({ leaveRequest, actor, action, reason, wasReapprov
 
   await createNotification({
     recipientId: leaveRequest.employeeId._id,
+    type: "Leave",
     title,
     message,
-    link: "/dashboard",
+    link: "/dashboard?page=leave",
   });
 
   if (leaveRequest.employeeId.email) {
@@ -128,9 +129,10 @@ const notifyFinance = async ({ leaveRequest, wasReapproval }) => {
   const financeUsers = await User.find({ role: "Finance", isActive: true }).select("_id email");
   await Promise.all(financeUsers.map((financeUser) => createNotification({
     recipientId: financeUser._id,
+    type: "Leave",
     title: wasReapproval ? "Reapproved Leave Details" : "Approved Leave Details",
     message: `${leaveRequest.employeeId.name} has an approved ${leaveRequest.leaveType} leave request.`,
-    link: "/dashboard",
+    link: "/finance-leaves",
   })));
 
   Promise.all(financeUsers.filter((user) => user.email).map((user) => sendFinanceLeaveEmail({

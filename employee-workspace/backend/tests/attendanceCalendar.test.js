@@ -31,10 +31,11 @@ test("month parsing, leap years, December rollover, and backend business day", (
   }
 });
 
-test("past working days are display-only absent, today pending, future blank, pre-joining blank", () => {
-  assert.equal(day("2026-09-07").status, "Absent");
-  assert.match(day("2026-09-07").details.note, /no LOP deduction/);
+test("past working days are auto-marked present, today pending, future blank, pre-joining blank", () => {
+  assert.equal(day("2026-09-07").status, "Present");
+  assert.match(day("2026-09-07").details.note, /present automatically/);
   assert.equal(day("2026-09-08").status, "Pending");
+  assert.match(day("2026-09-08").details.note, /after today ends/);
   assert.equal(day("2026-09-08").today, true);
   assert.equal(day("2026-09-09").status, "");
   assert.equal(day("2026-09-07", { employee: { dateOfJoining: "2026-09-08" } }).status, "");
@@ -52,11 +53,25 @@ test("only final approved leave affects calendar, including future approved leav
   for (const finalStatus of ["Approved by Manager", "Approved by HR"]) {
     assert.equal(day("2026-09-10", { leaves: [leave({ finalStatus })] }).status, "Leave");
   }
-  for (const finalStatus of ["Pending Final Approval", "Pending Reapproval", "On Hold", "Rejected by HR", "Cancelled"]) {
-    assert.equal(day("2026-09-07", { leaves: [leave({ finalStatus })] }).status, "Absent");
+  for (const finalStatus of ["Rejected by Team Leader", "Rejected by Manager", "Rejected by HR", "Cancelled"]) {
+    assert.equal(day("2026-09-07", { leaves: [leave({ finalStatus })] }).status, "Present");
   }
-  assert.equal(day("2026-09-07", { leaves: [leave({ isDeleted: true })] }).status, "Absent");
-  assert.equal(day("2026-09-07", { leaves: [leave({ requiresReapproval: true })] }).status, "Absent");
+  assert.equal(day("2026-09-07", { leaves: [leave({ isDeleted: true })] }).status, "Present");
+});
+
+test("leave awaiting a decision keeps the day pending instead of present", () => {
+  for (const finalStatus of ["Pending Final Approval", "Pending Reapproval", "On Hold"]) {
+    const result = day("2026-09-07", { leaves: [leave({ finalStatus })] });
+    assert.equal(result.status, "Pending");
+    assert.equal(result.details.approvalStatus, finalStatus);
+    assert.equal(result.details.leaveType, "Casual");
+  }
+  assert.equal(day("2026-09-07", { leaves: [leave({ requiresReapproval: true })] }).status, "Pending");
+  assert.equal(day("2026-09-07", { leaves: [leave({ finalStatus: "On Hold", isDeleted: true })] }).status, "Present");
+  // Future dates are not inferred, whatever the request state.
+  assert.equal(day("2026-09-09", { leaves: [leave({ finalStatus: "Pending Final Approval" })] }).status, "");
+  // A recorded absence still wins over a pending request.
+  assert.equal(day("2026-09-07", { records: [record()], leaves: [leave({ finalStatus: "On Hold" })] }).status, "LOP");
 });
 
 test("manual paid, half-day, LOP, and permission preserve their actual duration and treatment", () => {
@@ -72,9 +87,9 @@ test("manual paid, half-day, LOP, and permission preserve their actual duration 
 test("cancelled records do not affect calendar; future attendance is not inferred; inputs are unchanged", () => {
   const records = [record({ active: false })];
   const before = structuredClone(records);
-  assert.equal(day("2026-09-07", { records }).status, "Absent");
+  assert.equal(day("2026-09-07", { records }).status, "Present");
   assert.deepEqual(records, before);
-  assert.equal(day("2026-09-07", { records: [record({ status: "Cancelled" })] }).status, "Absent");
+  assert.equal(day("2026-09-07", { records: [record({ status: "Cancelled" })] }).status, "Present");
   assert.equal(day("2026-09-09", { records: [record({ attendanceDate: "2026-09-09" })] }).status, "");
 });
 
@@ -96,7 +111,8 @@ test("calendar API scopes every role, rejects employee-ID tampering, and perform
   t.mock.method(Team, "find", (filter) => { teamFilters.push(filter); return query([]); });
   const attendanceFilters = [];
   t.mock.method(AttendanceRecord, "find", (filter) => { attendanceFilters.push(filter); return query([]); });
-  t.mock.method(LeaveRequest, "find", () => query([]));
+  const leaveFilters = [];
+  t.mock.method(LeaveRequest, "find", (filter) => { leaveFilters.push(filter); return query([]); });
   t.mock.method(Holiday, "find", () => query([]));
   for (const model of [AttendanceRecord, LeaveRequest, LeaveBalanceLedger]) {
     for (const method of ["create", "updateOne", "bulkWrite", "insertMany"]) {
@@ -108,6 +124,9 @@ test("calendar API scopes every role, rejects employee-ID tampering, and perform
     await getAttendanceCalendar({ user: { _id: "self", role, assignedTeamIds: ["managed-team"] }, query: { month: "2026-09" } }, res);
     assert.equal(res.code, 200);
     assert.deepEqual(attendanceFilters.at(-1).employeeId, { $in: ["self"] });
+    // Pending requests are loaded so their days are not auto-marked Present.
+    assert.deepEqual(leaveFilters.at(-1).finalStatus.$in.sort(),
+      ["Approved by HR", "Approved by Manager", "On Hold", "Pending Final Approval", "Pending Reapproval"]);
     const filter = filters.at(-1);
     assert.equal(filter.isActive, true);
     if (role === "Employee") assert.equal(filter._id, "self");

@@ -1,3 +1,7 @@
+import PageHeader from "../components/ui/PageHeader";
+import SearchField from "../components/ui/SearchField";
+import ModalFrame from "../components/ui/ModalFrame";
+import FormField from "../components/ui/FormField";
 import { useEffect, useState } from "react";
 import {
   Plus,
@@ -16,6 +20,7 @@ const HolidayManagement = () => {
   const confirmAction = useConfirm();
   const { user } = useAuth();
 
+  const [search, setSearch] = useState("");
   const [holidays, setHolidays] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -160,15 +165,7 @@ const HolidayManagement = () => {
 
   return (
     <>
-      <div className="section-header">
-        <div>
-          <h2 className="card-title">Holiday Calendar</h2>
-          <p className="section-subtitle">
-            View company, national and festival holidays.
-          </p>
-        </div>
-
-        {canManageHolidays && (
+      <PageHeader title={<>Holiday Calendar</>} description={<>View company, national and festival holidays.</>} actions={<>{canManageHolidays && (
           <button
             className="btn btn-primary"
             onClick={() => {
@@ -179,8 +176,7 @@ const HolidayManagement = () => {
             <Plus size={18} />
             Add Holiday
           </button>
-        )}
-      </div>
+        )}</>} />
 
       {error && (
         <ErrorState
@@ -256,8 +252,9 @@ const HolidayManagement = () => {
         </div>
       </div>
 
+      <div className="directory-toolbar"><SearchField id="holiday-search" label="Search holidays" placeholder="Search holiday name or type..." value={search} onChange={event => setSearch(event.target.value)} onClear={() => setSearch("")} /><span>{holidays.length} holidays</span></div>
       <div className="holiday-card-grid">
-        {sortedHolidays.map((holiday) => (
+        {sortedHolidays.filter(holiday => `${holiday.name} ${holiday.type}`.toLowerCase().includes(search.toLowerCase())).map((holiday) => (
           <div
             key={holiday._id}
             className="holiday-card"
@@ -277,7 +274,8 @@ const HolidayManagement = () => {
                   {holiday.name}
                 </h3>
 
-                <span className="badge badge-success">{holiday.type}</span>
+                <span className="badge badge-info">{holiday.type}</span>
+                <small className="holiday-weekday">{new Date(holiday.holidayDate).toLocaleDateString("en-IN", { weekday: "long", year: "numeric" })}</small>
               </div>
 
               <Sparkles className="holiday-card-sparkle" size={18} aria-hidden="true" />
@@ -310,9 +308,9 @@ const HolidayManagement = () => {
         ))}
 
         {loading && holidays.length === 0 && <LoadingState label="Loading holidays..." />}
-        {!loading && holidays.length === 0 && (
+        {!loading && !sortedHolidays.some(holiday => `${holiday.name} ${holiday.type}`.toLowerCase().includes(search.toLowerCase())) && (
           <EmptyState
-            title="No holidays found"
+            title={search ? "No matching holidays" : "No holidays found"}
             description={canManageHolidays ? "Add a company holiday to display it here." : "No company holidays have been configured yet."}
           />
         )}
@@ -320,7 +318,7 @@ const HolidayManagement = () => {
 
       {showModal && canManageHolidays && (
         <div className="modal-overlay">
-          <div
+          <ModalFrame onClose={() => { if (!(isSubmitting)) (closeModal)(); }}
             className="modal-card modern-department-modal"
             role="dialog"
             aria-modal="true"
@@ -342,7 +340,7 @@ const HolidayManagement = () => {
             {formError && <ErrorState title="Holiday not saved" description={formError} compact />}
 
             <form className="auth-form" onSubmit={handleSubmit}>
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="holiday-name">Holiday Name</label>
 
                 <input
@@ -354,9 +352,9 @@ const HolidayManagement = () => {
                   disabled={isSubmitting}
                   required
                 />
-              </div>
+              </FormField>
 
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="holiday-date">Holiday Date</label>
 
                 <input
@@ -368,9 +366,9 @@ const HolidayManagement = () => {
                   disabled={isSubmitting}
                   required
                 />
-              </div>
+              </FormField>
 
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="holiday-type">Holiday Type</label>
 
                 <select
@@ -385,9 +383,9 @@ const HolidayManagement = () => {
                   <option value="Festival">Festival</option>
                   <option value="Optional">Optional</option>
                 </select>
-              </div>
+              </FormField>
 
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="holiday-description">Description</label>
 
                 <textarea
@@ -399,13 +397,13 @@ const HolidayManagement = () => {
                   onChange={handleChange}
                   disabled={isSubmitting}
                 />
-              </div>
+              </FormField>
 
               <button className="btn btn-primary" type="submit" disabled={isSubmitting}>
                 {isSubmitting ? "Creating..." : "Create Holiday"}
               </button>
             </form>
-          </div>
+          </ModalFrame>
         </div>
       )}
     </>

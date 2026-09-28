@@ -4,6 +4,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import transporter from "../config/mail.js";
+import {
+  contactFormLimiter,
+  resourceDownloadLimiters,
+} from "../middleware/rateLimit.js";
 
 const router = express.Router();
 
@@ -112,7 +116,7 @@ function logEmailError(label, error) {
  * Receives a company website contact form and sends it to the
  * internal Upsilon notification email address.
  */
-router.post("/contact", async (req, res) => {
+router.post("/contact", contactFormLimiter, async (req, res) => {
   try {
     validateEmailConfiguration();
 
@@ -257,7 +261,7 @@ ${cleanMessage}
  * Sends the selected PDF to the visitor and sends a separate
  * lead notification to the Upsilon internal email address.
  */
-router.post("/download-resource", async (req, res) => {
+router.post("/download-resource", ...resourceDownloadLimiters, async (req, res) => {
   try {
     validateEmailConfiguration();
 

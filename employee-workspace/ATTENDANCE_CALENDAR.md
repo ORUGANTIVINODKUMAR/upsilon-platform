@@ -44,9 +44,10 @@ The team/employee/status filters operate on backend-scoped results. The overview
 3. Active dated LOP records display LOP. Half-day LOP retains 0.5 days in details and its calendar annotation. Legacy records without a balance treatment use the existing LOP default.
 4. Final approved, non-deleted leave displays Leave. Pending, rejected, cancelled, or awaiting-reapproval leave does not qualify. A single-date approved leave with workingDays = 0.5 displays Half Day.
 5. Other active manual records display Leave, Half Day, or Permission according to their existing type. Permission has no deduction.
-6. Past working days with no qualifying record display Absent, without a database write or LOP deduction.
-7. Today is highlighted and remains Pending when no qualifying record exists.
-8. Normal future working dates stay blank. Future approved leave, weekends, and holidays remain visible. Future manual attendance is not shown as completed attendance.
+6. A past working day covered by a leave request that is still awaiting a decision (Pending Final Approval, Pending Reapproval, On Hold, or an approved request edited and awaiting reapproval) displays Pending with the request's leave type and status. It is decided once the request is approved or rejected.
+7. Every other past working day is marked Present automatically once the day is over, without a database write. Absences are recorded in the Leave calendar and appear through rules 3 and 5.
+8. Today is highlighted and remains Pending until the day ends; the next day it becomes Present unless leave or an absence was recorded.
+9. Normal future working dates stay blank. Future approved leave, weekends, and holidays remain visible. Future manual attendance is not shown as completed attendance.
 
 The calendar uses the backend's existing `getRetrospectivePolicy()` and `LEAVE_TIME_ZONE` (default Asia/Kolkata) for today. Stored date-only attendance dates remain attached to their existing business date. The calendar refreshes on browser focus, relevant leave-balance updates, manual attendance changes, or the Refresh button.
 
@@ -61,8 +62,8 @@ The calendar uses the backend's existing `getRetrospectivePolicy()` and `LEAVE_T
 
 ## Remaining integration limitations
 
-- This checkout has no check-in/check-out model or API, shift schedule, or overnight attendance implementation. Consequently no dates are fabricated as Present, and worked hours/check-in times are not invented. Integrating those requires the actual source module mentioned in the request.
+- This checkout has no check-in/check-out model or API, shift schedule, or overnight attendance implementation. Present therefore means "no leave or absence was recorded" rather than a confirmed check-in, and worked hours/check-in times are not invented. Integrating those requires the actual source module mentioned in the request.
 - Leave balance excess/LOP is calculated as an aggregate, without a stored per-date paid/unpaid allocation for approved leave. The calendar shows actual dated manual LOP, but does not assign aggregate excess or HR balance adjustments to guessed dates. Calendar Leave is an approval status, not a guarantee the entire date is paid.
-- There is no existing end-of-day attendance processor. An unrecorded current day remains Pending; after it becomes a past working day, a refreshed calendar displays Absent without persisting a record.
+- There is no end-of-day attendance processor. An unrecorded current day remains Pending; after it becomes a past working day, a refreshed calendar displays Present without persisting a record.
 - The production build still reports its existing large JavaScript chunk warning.
 - Changes are local and have not been deployed. Deploy the backend and frontend together so the calendar endpoint is available.

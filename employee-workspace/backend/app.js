@@ -38,6 +38,7 @@ const allowedOrigins = [
   "https://upsilon-platform1.onrender.com",
   "http://localhost:5173",
   "http://localhost:5174",
+  "http://localhost:5178",
 ];
 /* =========================
    CORS
@@ -98,22 +99,10 @@ app.use(cookieParser());
 
 /* =========================
    UPLOADED FILES
+   The local uploads/ folder only holds applicant resumes. It is not served
+   publicly; admins download resumes through the authenticated
+   /api/applications/:id/resume route. Other uploads live on Cloudinary.
 ========================= */
-
-app.use(
-  "/uploads",
-  (req, res, next) => {
-    if (req.path.startsWith("/resumes/")) {
-      return res.status(404).json({
-        success: false,
-        message: "File not found",
-      });
-    }
-
-    return next();
-  },
-  express.static("uploads")
-);
 
 /* =========================
    EMPLOYEE WORKSPACE APIs

@@ -1,3 +1,5 @@
+import FormField from "../components/ui/FormField";
+import TableRegion from "../components/ui/TableRegion";
 import { useCallback, useEffect, useState } from "react";
 import {
   ExternalLink,
@@ -219,7 +221,7 @@ const AdminReimbursementReports = () => {
       ) : (
         <>
           <section aria-label="Reimbursement report filters">
-            <div className="input-group">
+            <FormField className="input-group">
               <label htmlFor="reimbursement-report-search">Search reports</label>
               <input
                 id="reimbursement-report-search"
@@ -232,10 +234,10 @@ const AdminReimbursementReports = () => {
                   setCurrentPage(1);
                 }}
               />
-            </div>
+            </FormField>
 
             <div className="grid-2">
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="reimbursement-report-month">Filter by month</label>
                 <input
                   id="reimbursement-report-month"
@@ -247,9 +249,9 @@ const AdminReimbursementReports = () => {
                     setCurrentPage(1);
                   }}
                 />
-              </div>
+              </FormField>
 
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="reimbursement-report-employee">Filter by employee</label>
                 <select
                   id="reimbursement-report-employee"
@@ -267,7 +269,7 @@ const AdminReimbursementReports = () => {
                     </option>
                   ))}
                 </select>
-              </div>
+              </FormField>
             </div>
 
             <div className="form-actions">
@@ -301,7 +303,7 @@ const AdminReimbursementReports = () => {
             </div>
           </section>
 
-          <div className="table-wrapper modern-table-wrapper">
+          <TableRegion label="Admin Reimbursement Reports records" className="table-wrapper modern-table-wrapper">
             <table className="custom-table responsive-card-table">
               <caption className="sr-only">Filtered employee reimbursement reports</caption>
               <thead>
@@ -401,7 +403,7 @@ const AdminReimbursementReports = () => {
                 )}
               </tbody>
             </table>
-          </div>
+          </TableRegion>
 
           {filteredRequests.length > REPORTS_PER_PAGE && (
             <nav className="pagination" aria-label="Reimbursement report pages">

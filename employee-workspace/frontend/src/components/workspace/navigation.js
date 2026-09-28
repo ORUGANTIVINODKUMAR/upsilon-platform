@@ -1,0 +1,182 @@
+export const PAGE_META = {
+  dashboard: {
+    eyebrow: "Overview",
+    title: "Dashboard",
+    description: "Your people, requests, balances, and recent workspace activity at a glance.",
+  },
+  notifications: {
+    eyebrow: "Inbox",
+    title: "Notifications",
+    description: "Review important updates and keep track of changes that need your attention.",
+  },
+  attendance: {
+    eyebrow: "Attendance",
+    title: "Attendance",
+    description: "Review monthly attendance, approved leave, and company holidays.",
+  },
+  departments: {
+    eyebrow: "Administration",
+    title: "Departments",
+    description: "Organize departments and review the teams and employees within each group.",
+  },
+  teams: {
+    eyebrow: "Administration",
+    title: "Teams",
+    description: "Manage team structures, leaders, managers, and HR assignments.",
+  },
+  users: {
+    eyebrow: "Administration",
+    title: "User management",
+    description: "Create accounts and maintain employee access, roles, and reporting relationships.",
+  },
+  leaveReports: {
+    eyebrow: "Reports",
+    title: "Leave reports",
+    description: "Filter, review, and export organization-wide leave activity.",
+  },
+  reimbursementReports: {
+    eyebrow: "Reports",
+    title: "Reimbursement reports",
+    description: "Review claim outcomes, amounts, receipts, and export-ready records.",
+  },
+  leave: {
+    eyebrow: "Time off",
+    title: "My leaves",
+    description: "Apply for leave, follow approval progress, and review your request history.",
+  },
+  myLeaveBalance: {
+    eyebrow: "Time off",
+    title: "My leave balance",
+    description: "See your current paid leave, carry-forward, usage, and excess leave totals.",
+  },
+  hrLeaveBalances: {
+    eyebrow: "People operations",
+    title: "Leave balance management",
+    description: "Review and adjust employee leave balances with a clear audit trail.",
+  },
+  reimbursements: {
+    eyebrow: "Expenses",
+    title: "My reimbursements",
+    description: "Submit expense claims and track each review and payment stage.",
+  },
+  tlApprovals: {
+    eyebrow: "Approvals",
+    title: "Team leave approvals",
+    description: "Review leave requests submitted by employees in your teams.",
+  },
+  managerApprovals: {
+    eyebrow: "Approvals",
+    title: "Final leave approvals",
+    description: "Make final decisions on requests that have completed team review.",
+  },
+  reimbursementApprovals: {
+    eyebrow: "Approvals",
+    title: "Reimbursement approvals",
+    description: "Review expense evidence and move claims through the correct approval stage.",
+  },
+  leaveCalendar: {
+    eyebrow: "Planning",
+    title: "Leave calendar",
+    description: "See approved absences and plan team coverage across the month.",
+  },
+  financeLeaves: {
+    eyebrow: "Finance",
+    title: "Approved leaves",
+    description: "Review final leave outcomes and the records shared with Finance.",
+  },
+  financeReimbursements: {
+    eyebrow: "Finance",
+    title: "Reimbursement payments",
+    description: "Verify approved claims, record payment details, and review completed payouts.",
+  },
+  holidays: {
+    eyebrow: "Calendar",
+    title: "Holidays",
+    description: "View the company holiday schedule and maintain it when your role allows.",
+  },
+  editProfile: {
+    eyebrow: "Account",
+    title: "Profile and security",
+    description: "Keep your personal details, profile photo, and password up to date.",
+  },
+};
+
+export const formatRole = (role) =>
+  role === "TeamLeader" ? "Team Leader" : role || "Workspace member";
+
+export const ROLE_PAGES = {
+  Admin: [
+    "dashboard",
+    "attendance",
+    "departments",
+    "teams",
+    "users",
+    "managerApprovals",
+    "leaveReports",
+    "reimbursementReports",
+    "leaveCalendar",
+    "holidays",
+    "editProfile",
+  ],
+  Employee: [
+    "dashboard",
+    "notifications",
+    "attendance",
+    "leave",
+    "myLeaveBalance",
+    "reimbursements",
+    "holidays",
+    "editProfile",
+  ],
+  TeamLeader: [
+    "dashboard",
+    "notifications",
+    "attendance",
+    "leave",
+    "myLeaveBalance",
+    "reimbursements",
+    "tlApprovals",
+    "managerApprovals",
+    "reimbursementApprovals",
+    "leaveCalendar",
+    "holidays",
+    "editProfile",
+  ],
+  Manager: [
+    "dashboard",
+    "notifications",
+    "attendance",
+    "leave",
+    "myLeaveBalance",
+    "hrLeaveBalances",
+    "managerApprovals",
+    "reimbursementApprovals",
+    "leaveCalendar",
+    "holidays",
+    "editProfile",
+  ],
+  HR: [
+    "dashboard",
+    "notifications",
+    "attendance",
+    "leave",
+    "myLeaveBalance",
+    "hrLeaveBalances",
+    "managerApprovals",
+    "reimbursementApprovals",
+    "leaveCalendar",
+    "holidays",
+    "editProfile",
+  ],
+  Finance: [
+    "dashboard",
+    "notifications",
+    "attendance",
+    "leaveCalendar",
+    "financeLeaves",
+    "financeReimbursements",
+    "holidays",
+    "editProfile",
+  ],
+};
+

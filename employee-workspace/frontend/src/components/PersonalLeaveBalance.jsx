@@ -1,3 +1,4 @@
+import TableRegion from "./ui/TableRegion";
 import { useCallback, useEffect, useState } from "react";
 import {
   CalendarCheck,
@@ -144,7 +145,7 @@ const PersonalLeaveBalance = ({ compact = false }) => {
             </div>
           </div>
 
-          <div className="table-wrapper modern-table-wrapper">
+          <TableRegion label="Personal Leave Balance records" className="table-wrapper modern-table-wrapper">
             <table className="custom-table">
               <caption className="sr-only">Personal leave balance transaction history</caption>
               <thead>
@@ -196,7 +197,7 @@ const PersonalLeaveBalance = ({ compact = false }) => {
                 )}
               </tbody>
             </table>
-          </div>
+          </TableRegion>
         </section>
       )}
     </section>

@@ -5,7 +5,9 @@ import { useAuth } from "../context/useAuth";
 import { EmptyState, ErrorState, LoadingState } from "./ui/StatePanel";
 import "./AttendanceCalendar.css";
 
-const STATUSES = ["Present", "Absent", "Leave", "Half Day", "LOP", "Holiday", "Weekend", "Permission", "Pending"];
+// Absences recorded in the Leave calendar appear as LOP (unpaid), Leave (paid),
+// Half Day or Permission; every other past working day is Present.
+const STATUSES = ["Present", "Leave", "Half Day", "LOP", "Holiday", "Weekend", "Permission", "Pending"];
 const statusClass = (status) => status.toLowerCase().replaceAll(" ", "-");
 const formatMonth = (month) => new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${month}-01T00:00:00Z`));
 const labels = { note: "Note", holiday: "Holiday", type: "Type", recordType: "Record", durationDays: "Days", balanceTreatment: "Balance treatment", remarks: "Remarks", leaveType: "Leave type", approvalStatus: "Approval" };
@@ -95,7 +97,7 @@ export default function AttendanceCalendar({ revision = 0 }) {
       </>}
       <label>Status<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">All statuses</option>{STATUSES.map((value) => <option key={value}>{value}</option>)}</select></label>
     </div>
-    <p className="attendance-calendar-note">Past working days without a record display Absent. This does not deduct leave or record LOP. Check-in tracking is not available in this workspace.</p>
+    <p className="attendance-calendar-note">Each working day is marked Present automatically once it is over. Approved leave and absences recorded in the Leave calendar (LOP, Half Day, Permission) take its place, and days with a leave request awaiting approval stay Pending.</p>
     <div className="attendance-calendar-legend" aria-label="Status legend">{STATUSES.map((value) => <span key={value} className={`attendance-day-badge ${statusClass(value)}`}>{value}</span>)}</div>
     {error ? <ErrorState title="Calendar could not be loaded" description={error} action={<button className="btn btn-secondary" onClick={() => setRefresh((value) => value + 1)}>Try again</button>} />
       : loading ? <LoadingState label="Loading monthly attendance..." />

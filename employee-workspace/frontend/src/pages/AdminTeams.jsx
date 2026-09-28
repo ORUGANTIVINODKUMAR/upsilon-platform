@@ -1,3 +1,6 @@
+import SearchField from "../components/ui/SearchField";
+import FormField from "../components/ui/FormField";
+import TableRegion from "../components/ui/TableRegion";
 import { useCallback, useEffect, useState } from "react";
 import {
   LoaderCircle,
@@ -25,6 +28,12 @@ const initialFormData = {
 const AdminTeams = () => {
   const confirmAction = useConfirm();
   const [teams, setTeams] = useState([]);
+  const [search, setSearch] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const visibleTeams = teams.filter(team => [team.name, team.departmentId?.name, team.teamLeaderId?.name,
+    ...(team.managerIds || []).map(person => person.name), ...(team.hrIds || []).map(person => person.name)]
+    .filter(Boolean).join(" ").toLowerCase().includes(search.toLowerCase()));
   const [departments, setDepartments] = useState([]);
   const [managers, setManagers] = useState([]);
   const [hrs, setHrs] = useState([]);
@@ -111,11 +120,14 @@ const AdminTeams = () => {
   const resetForm = () => {
     setFormData(initialFormData);
     setEditingTeam(null);
+    setFormOpen(false);
     setError("");
   };
 
   const handleEdit = (team) => {
     setEditingTeam(team);
+    setFormOpen(true);
+    window.scrollTo({ top: 0, behavior: "auto" });
     setError("");
     setFormData({
       name: team.name || "",
@@ -149,7 +161,7 @@ const AdminTeams = () => {
       window.dispatchEvent(new CustomEvent("teams-updated"));
       window.dispatchEvent(new CustomEvent("department-data-updated"));
 
-      window.alert(
+      setMessage(
         editingTeam ? "Team updated successfully" : "Team created successfully"
       );
       resetForm();
@@ -175,7 +187,7 @@ const AdminTeams = () => {
       await Promise.all([fetchTeams(), fetchDepartments()]);
       window.dispatchEvent(new CustomEvent("teams-updated"));
       window.dispatchEvent(new CustomEvent("department-data-updated"));
-      window.alert("Team deleted successfully");
+      setMessage("Team deleted successfully");
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Unable to delete team");
     } finally {
@@ -197,7 +209,9 @@ const AdminTeams = () => {
         title="Team Management"
         description="Create teams and assign Managers, HR users and Team Leaders."
         icon={Users}
+        actions={<button type="button" className="btn btn-primary" onClick={() => { resetForm(); setFormOpen(true); }}><Plus size={16} />Create team</button>}
       />
+      {message && <div className="alert alert-success" role="status">{message}</div>}
 
       {loadError ? (
         <ErrorState
@@ -214,7 +228,7 @@ const AdminTeams = () => {
         <LoadingState label="Loading teams and assignments" />
       ) : (
         <>
-          <div className="card">
+          {formOpen && <section className="card team-editor">
             <div className="section-header">
               <div>
                 <h3 id="team-form-title">
@@ -244,7 +258,7 @@ const AdminTeams = () => {
               aria-busy={isSubmitting}
             >
               <div className="grid-2">
-                <div className="input-group">
+                <FormField className="input-group">
                   <label htmlFor="team-name">Team Name</label>
                   <input
                     id="team-name"
@@ -259,9 +273,9 @@ const AdminTeams = () => {
                     aria-describedby={error ? "team-form-error" : undefined}
                     required
                   />
-                </div>
+                </FormField>
 
-                <div className="input-group">
+                <FormField className="input-group">
                   <label htmlFor="team-department">Department</label>
                   <select
                     id="team-department"
@@ -282,11 +296,11 @@ const AdminTeams = () => {
                       </option>
                     ))}
                   </select>
-                </div>
+                </FormField>
               </div>
 
               <div className="grid-2">
-                <div className="input-group">
+                <FormField className="input-group">
                   <label htmlFor="team-manager">Assign Manager</label>
                   <select
                     id="team-manager"
@@ -301,9 +315,9 @@ const AdminTeams = () => {
                       </option>
                     ))}
                   </select>
-                </div>
+                </FormField>
 
-                <div className="input-group">
+                <FormField className="input-group">
                   <label htmlFor="team-hr">Assign HR</label>
                   <select
                     id="team-hr"
@@ -323,10 +337,10 @@ const AdminTeams = () => {
                       </option>
                     ))}
                   </select>
-                </div>
+                </FormField>
               </div>
 
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="team-leader">Assign Team Leader</label>
                 <select
                   id="team-leader"
@@ -344,7 +358,7 @@ const AdminTeams = () => {
                     </option>
                   ))}
                 </select>
-              </div>
+              </FormField>
 
               <div className="form-actions">
                 <button className="btn btn-primary" type="submit" disabled={isSubmitting}>
@@ -364,21 +378,22 @@ const AdminTeams = () => {
                   </span>
                 </button>
 
-                {editingTeam && (
+                {(
                   <button
                     className="btn btn-secondary"
                     type="button"
                     onClick={resetForm}
                     disabled={isSubmitting}
                   >
-                    Cancel Edit
+                    Cancel
                   </button>
                 )}
               </div>
             </form>
-          </div>
-
-          <div className="table-wrapper modern-table-wrapper">
+          </section>}
+          <div className="directory-toolbar"><SearchField id="team-search" label="Search teams" placeholder="Search teams, departments or leaders..." value={search} onClear={() => setSearch("")} onChange={event => setSearch(event.target.value)} /><span>{visibleTeams.length} of {teams.length} teams</span></div>
+          {error && !formOpen && <ErrorState compact title="Team action failed" description={error} />}
+          <TableRegion label="Admin Teams records" className="table-wrapper modern-table-wrapper">
             <table className="custom-table">
               <caption className="sr-only">Configured employee teams</caption>
               <thead>
@@ -394,7 +409,7 @@ const AdminTeams = () => {
               </thead>
 
               <tbody>
-                {teams.map((team) => (
+                {visibleTeams.map((team) => (
                   <tr key={team._id}>
                     <td>
                       <div className="user-cell">
@@ -455,20 +470,20 @@ const AdminTeams = () => {
                   </tr>
                 ))}
 
-                {teams.length === 0 && (
+                {visibleTeams.length === 0 && (
                   <tr>
                     <td colSpan="7">
                       <EmptyState
                         compact
                         title="No teams found"
-                        description="Create the first team using the form above."
+                        description={search ? "Try another team name or department." : "Choose Create team to configure your first team."}
                       />
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-          </div>
+          </TableRegion>
         </>
       )}
     </>

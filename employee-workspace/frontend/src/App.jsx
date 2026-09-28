@@ -1,14 +1,13 @@
+import WorkspaceErrorBoundary from "./components/ui/WorkspaceErrorBoundary";
+import { lazy, Suspense } from "react";
+import { LoadingState } from "./components/ui/StatePanel";
 import { Routes, Route } from "react-router-dom";
-import FinanceLeaves from "./pages/FinanceLeaves";
-import FinanceReimbursements from "./pages/FinanceReimbursements";
 import Login from "./pages/Login.jsx";
-import Dashboard from "./pages/Dashboard.jsx";
+const Dashboard = lazy(() => import("./pages/Dashboard.jsx"));
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
-import LeaveCalendar from "./pages/LeaveCalendar";
-import EditProfile from "./pages/EditProfile.jsx";
 function App() {
   return (
-    <Routes>
+    <WorkspaceErrorBoundary><Suspense fallback={<LoadingState label="Opening workspace..." />}><Routes>
       <Route path="/" element={<Login />} />
 
       <Route
@@ -23,7 +22,7 @@ function App() {
         path="/finance-leaves"
         element={
           <ProtectedRoute allowedRoles={["Finance"]}>
-            <FinanceLeaves />
+            <Dashboard initialPage="financeLeaves" />
           </ProtectedRoute>
         }
       />
@@ -32,7 +31,7 @@ function App() {
         path="/finance-reimbursements"
         element={
           <ProtectedRoute allowedRoles={["Finance"]}>
-            <FinanceReimbursements />
+            <Dashboard initialPage="financeReimbursements" />
           </ProtectedRoute>
         }
       />
@@ -40,7 +39,7 @@ function App() {
         path="/leave-calendar"
         element={
           <ProtectedRoute allowedRoles={["Admin", "Manager", "HR", "Finance"]}>
-            <LeaveCalendar />
+            <Dashboard initialPage="leaveCalendar" />
           </ProtectedRoute>
         }
       />
@@ -48,11 +47,11 @@ function App() {
         path="/edit-profile"
         element={
           <ProtectedRoute>
-            <EditProfile />
+            <Dashboard initialPage="editProfile" />
           </ProtectedRoute>
         }
       />
-    </Routes>
+    </Routes></Suspense></WorkspaceErrorBoundary>
   );
 }
 

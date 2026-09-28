@@ -1,3 +1,8 @@
+import PageHeader from "../components/ui/PageHeader";
+import SearchField from "../components/ui/SearchField";
+import TableRegion from "../components/ui/TableRegion";
+import ModalFrame from "../components/ui/ModalFrame";
+import FormField from "../components/ui/FormField";
 import { useEffect, useState } from "react";
 import {
   Building2,
@@ -19,6 +24,7 @@ import UserAvatar from "../components/ui/UserAvatar";
 const AdminSubcategories = () => {
   const confirmAction = useConfirm();
   const [name, setName] = useState("");
+  const [listSearch, setListSearch] = useState("");
   const [subcategories, setSubcategories] = useState([]);
   const [approvalUserCount, setApprovalUserCount] = useState(0);
   const [showModal, setShowModal] = useState(false);
@@ -212,15 +218,7 @@ const AdminSubcategories = () => {
 
   return (
     <>
-      <div className="section-header">
-        <div>
-          <h2 className="card-title">Department Management</h2>
-          <p className="section-subtitle">
-            Manage departments and view employees, team leaders, managers and HRs.
-          </p>
-        </div>
-
-        <button
+      <PageHeader title={<>Department Management</>} description={<>Manage departments and view employees, team leaders, managers and HRs.</>} actions={<><button
           type="button"
           className="btn btn-primary"
           onClick={() => {
@@ -230,8 +228,7 @@ const AdminSubcategories = () => {
         >
           <Plus size={18} />
           Add Department
-        </button>
-      </div>
+        </button></>} />
 
       {error && (
         <ErrorState
@@ -269,7 +266,8 @@ const AdminSubcategories = () => {
         </div>
       </div>
 
-      <div className="table-wrapper modern-table-wrapper">
+      <div className="directory-toolbar"><SearchField id="department-search" label="Search departments" placeholder="Search departments..." value={listSearch} onChange={event => setListSearch(event.target.value)} onClear={() => setListSearch("")} /><span>{subcategories.length} departments</span></div>
+      <TableRegion label="Department records" className="table-wrapper modern-table-wrapper">
         <table className="custom-table responsive-card-table">
           <thead>
             <tr>
@@ -286,7 +284,7 @@ const AdminSubcategories = () => {
           </thead>
 
           <tbody>
-            {subcategories.map((item) => (
+            {subcategories.filter(item => item.name.toLowerCase().includes(listSearch.toLowerCase())).map((item) => (
               <tr key={item._id}>
                 <td data-label="Department">
                   <div className="user-cell">
@@ -367,18 +365,18 @@ const AdminSubcategories = () => {
               </tr>
             )}
 
-            {!loading && subcategories.length === 0 && (
+            {!loading && !subcategories.some(item => item.name.toLowerCase().includes(listSearch.toLowerCase())) && (
               <tr>
                 <td colSpan="9"><EmptyState title="No departments found" description="Create a department to begin organizing users and teams." compact /></td>
               </tr>
             )}
           </tbody>
         </table>
-      </div>
+      </TableRegion>
 
       {selectedDepartment && (
         <div className="modal-overlay" onMouseDown={closeDepartmentDetails}>
-          <div
+          <ModalFrame onClose={() => { (closeDepartmentDetails)(); }}
             className="modal-card department-details-modal"
             role="dialog"
             aria-modal="true"
@@ -568,13 +566,18 @@ const AdminSubcategories = () => {
                 )}
               </section>
             </div>
-          </div>
+          </ModalFrame>
         </div>
       )}
 
       {showModal && (
         <div className="modal-overlay">
-          <div
+          <ModalFrame onClose={() => { if (!(isSubmitting)) (() => {
+                  if (isSubmitting) return;
+                  setShowModal(false);
+                  setFormError("");
+                  setName("");
+                })(); }}
             className="modal-card modern-department-modal"
             role="dialog"
             aria-modal="true"
@@ -600,7 +603,7 @@ const AdminSubcategories = () => {
             {formError && <ErrorState title="Department not saved" description={formError} compact />}
 
             <form className="auth-form" onSubmit={handleSubmit}>
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="department-name">Department Name</label>
 
                 <input
@@ -612,13 +615,13 @@ const AdminSubcategories = () => {
                   disabled={isSubmitting}
                   required
                 />
-              </div>
+              </FormField>
 
               <button className="btn btn-primary" type="submit" disabled={isSubmitting || !name.trim()}>
                 {isSubmitting ? "Creating..." : "Create Department"}
               </button>
             </form>
-          </div>
+          </ModalFrame>
         </div>
       )}
     </>

@@ -1,3 +1,5 @@
+import PageHeader from "../components/ui/PageHeader";
+import TableRegion from "../components/ui/TableRegion";
 import { useEffect, useState } from "react";
 import {
   Receipt,
@@ -218,22 +220,14 @@ const FinanceReimbursements = () => {
   };
   return (
     <div aria-busy={loading || Boolean(processingId)}>
-      <div className="section-header">
-        <div>
-          <h2 className="card-title">Finance Reimbursements</h2>
-          <p className="section-subtitle">
-            Approved reimbursement claims ready for payment processing.
-          </p>
-        </div>
-        <button
+      <PageHeader title={<>Finance Reimbursements</>} description={<>Approved reimbursement claims ready for payment processing.</>} actions={<><button
           type="button"
           className="btn btn-primary"
           onClick={exportToExcel}
           disabled={safeRequests.length === 0 || loading}
         >
           Export Excel
-        </button>
-      </div>
+        </button></>} />
 
       {feedback && (
         <div
@@ -317,7 +311,7 @@ const FinanceReimbursements = () => {
         ))}
       </div>
 
-      <div className="table-wrapper modern-table-wrapper">
+      <TableRegion label="Finance Reimbursements records" className="table-wrapper modern-table-wrapper">
         <table className="custom-table">
           <thead>
             <tr>
@@ -434,7 +428,7 @@ const FinanceReimbursements = () => {
             )}
           </tbody>
         </table>
-      </div>
+      </TableRegion>
       {filteredRequests.length > RECORDS_PER_PAGE && (
         <div
           style={{

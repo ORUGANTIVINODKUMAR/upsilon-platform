@@ -52,6 +52,12 @@ const THEMES = [
     description: "Teal, mint, and sunlight",
     colors: ["#026670", "#9FEDD7", "#FEF9C7", "#FCE181", "#EDEAE5"],
   },
+  {
+    id: "chatgpt",
+    name: "ChatGPT",
+    description: "Charcoal sidebar and soft neutral grey",
+    colors: ["#171717", "#303030", "#6B6B6B", "#DEDEDE", "#F0F0F0"],
+  },
 ];
 
 const getStoredTheme = () => {

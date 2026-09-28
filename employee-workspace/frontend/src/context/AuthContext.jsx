@@ -1,18 +1,37 @@
+import ModalFrame from "../components/ui/ModalFrame";
 import { useEffect, useRef, useState } from "react";
-import api from "../api/api";
+import api, { setSessionEndedHandler } from "../api/api";
 import { LoadingState } from "../components/ui/StatePanel";
 import AuthContext from "./auth-context";
+import {
+  ACTIVITY_STORAGE_KEY,
+  LOGOUT_STORAGE_KEY,
+  announceSignOut,
+  getIdleState,
+  readSharedActivity,
+  writeSharedActivity,
+} from "./sessionActivity";
+
+const ACTIVITY_EVENTS = [
+  "mousemove",
+  "mousedown",
+  "keydown",
+  "scroll",
+  "touchstart",
+  "click",
+];
+const IDLE_CHECK_INTERVAL_MS = 5000;
+const SHARED_ACTIVITY_WRITE_MS = 5000;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showSessionWarning, setShowSessionWarning] = useState(false);
 
-  const logoutTimerRef = useRef(null);
-  const warningTimerRef = useRef(null);
-
-  const IDLE_LOGOUT_TIME = 15 * 60 * 1000;
-  const WARNING_TIME = 14 * 60 * 1000;
+  const lastActivityRef = useRef(0);
+  const lastSharedWriteRef = useRef(0);
+  const warningVisibleRef = useRef(false);
+  const sessionEndingRef = useRef(false);
 
   const checkAuth = async () => {
     try {
@@ -34,14 +53,21 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const clearIdleTimers = () => {
-    if (warningTimerRef.current) {
-      clearTimeout(warningTimerRef.current);
+  // Clears this tab's session and returns to the sign-in page. The full page
+  // load resets app state; clearing the user first would let the router
+  // redirect to "/" and cancel this navigation (losing ?session=expired).
+  const endSession = (destination = "/") => {
+    if (sessionEndingRef.current) return;
+    sessionEndingRef.current = true;
+    warningVisibleRef.current = false;
+    setShowSessionWarning(false);
+    try {
+      localStorage.removeItem("activePage");
+      localStorage.removeItem("leaveBalance");
+    } catch {
+      // Storage unavailable; nothing cached to clear.
     }
-
-    if (logoutTimerRef.current) {
-      clearTimeout(logoutTimerRef.current);
-    }
+    window.location.href = destination;
   };
 
   const logout = async () => {
@@ -50,61 +76,89 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.log("Logout error:", error.response?.data || error.message);
     } finally {
-      clearIdleTimers();
-      setShowSessionWarning(false);
-      setUser(null);
-      localStorage.removeItem("activePage");
-      localStorage.removeItem("leaveBalance");
-      window.location.href = "/";
+      // Other open tabs share the same cookie, so sign them out too.
+      announceSignOut();
+      endSession("/");
     }
   };
 
-  const resetIdleTimer = () => {
-    if (!user) return;
+  const lastKnownActivity = () =>
+    Math.max(lastActivityRef.current, readSharedActivity());
 
-    clearIdleTimers();
-    setShowSessionWarning(false);
+  const recordActivity = () => {
+    const now = Date.now();
 
-    warningTimerRef.current = setTimeout(() => {
-      setShowSessionWarning(true);
-    }, WARNING_TIME);
-
-    logoutTimerRef.current = setTimeout(() => {
+    // Waking a computer after the idle limit must not revive the session.
+    if (lastActivityRef.current && getIdleState(lastKnownActivity(), now) === "expired") {
       logout();
-    }, IDLE_LOGOUT_TIME);
-  };
-
-  useEffect(() => {
-    if (!user) {
-      clearIdleTimers();
       return;
     }
 
-    const events = [
-      "mousemove",
-      "mousedown",
-      "keydown",
-      "scroll",
-      "touchstart",
-      "click",
-    ];
+    lastActivityRef.current = now;
 
-    events.forEach((event) => {
-      window.addEventListener(event, resetIdleTimer);
+    if (warningVisibleRef.current) {
+      warningVisibleRef.current = false;
+      setShowSessionWarning(false);
+    }
+
+    if (now - lastSharedWriteRef.current >= SHARED_ACTIVITY_WRITE_MS) {
+      lastSharedWriteRef.current = now;
+      writeSharedActivity(now);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    // Any other API call answering 401 means the session expired or was
+    // revoked on the server.
+    setSessionEndedHandler(() => {
+      announceSignOut();
+      endSession("/?session=expired");
     });
 
-    // Start the idle lifecycle after listeners are attached.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    resetIdleTimer();
+    const checkIdle = () => {
+      const state = getIdleState(lastKnownActivity());
+
+      if (state === "expired") {
+        logout();
+        return;
+      }
+
+      const warn = state === "warning";
+      if (warn !== warningVisibleRef.current) {
+        warningVisibleRef.current = warn;
+        setShowSessionWarning(warn);
+      }
+    };
+
+    const handleStorage = (event) => {
+      if (event.key === LOGOUT_STORAGE_KEY && event.newValue) {
+        endSession("/");
+      } else if (event.key === ACTIVITY_STORAGE_KEY) {
+        checkIdle();
+      }
+    };
+
+    // Start the idle lifecycle for this signed-in session.
+    lastActivityRef.current = 0;
+    recordActivity();
+
+    ACTIVITY_EVENTS.forEach((event) => {
+      window.addEventListener(event, recordActivity, { passive: true });
+    });
+    window.addEventListener("storage", handleStorage);
+    const interval = setInterval(checkIdle, IDLE_CHECK_INTERVAL_MS);
 
     return () => {
-      events.forEach((event) => {
-        window.removeEventListener(event, resetIdleTimer);
+      ACTIVITY_EVENTS.forEach((event) => {
+        window.removeEventListener(event, recordActivity);
       });
-
-      clearIdleTimers();
+      window.removeEventListener("storage", handleStorage);
+      clearInterval(interval);
+      setSessionEndedHandler(null);
     };
-    // The timer callback intentionally captures the current authenticated user.
+    // The handlers intentionally capture the current authenticated user.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -114,6 +168,7 @@ export const AuthProvider = ({ children }) => {
       password,
     });
 
+    sessionEndingRef.current = false;
     setUser(data.user);
     return data.user;
   };
@@ -123,7 +178,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const stayLoggedIn = () => {
-    resetIdleTimer();
+    recordActivity();
   };
 
   if (loading) {
@@ -148,7 +203,7 @@ export const AuthProvider = ({ children }) => {
 
       {showSessionWarning && user && (
         <div className="modal-overlay">
-          <div
+          <ModalFrame
             className="modal-box"
             role="alertdialog"
             aria-modal="true"
@@ -170,7 +225,7 @@ export const AuthProvider = ({ children }) => {
                 Stay signed in
               </button>
             </div>
-          </div>
+          </ModalFrame>
         </div>
       )}
     </AuthContext.Provider>

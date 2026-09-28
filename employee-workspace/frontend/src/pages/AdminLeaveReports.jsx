@@ -1,3 +1,5 @@
+import FormField from "../components/ui/FormField";
+import TableRegion from "../components/ui/TableRegion";
 import { useCallback, useEffect, useState } from "react";
 import { ClipboardList, FileSpreadsheet, RefreshCw } from "lucide-react";
 
@@ -176,7 +178,7 @@ const AdminLeaveReports = () => {
       ) : (
         <>
           <section aria-label="Leave report filters">
-            <div className="input-group">
+            <FormField className="input-group">
               <label htmlFor="leave-report-search">Search reports</label>
               <input
                 id="leave-report-search"
@@ -189,10 +191,10 @@ const AdminLeaveReports = () => {
                   setCurrentPage(1);
                 }}
               />
-            </div>
+            </FormField>
 
             <div className="grid-2">
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="leave-report-month">Filter by month</label>
                 <input
                   id="leave-report-month"
@@ -204,9 +206,9 @@ const AdminLeaveReports = () => {
                     setCurrentPage(1);
                   }}
                 />
-              </div>
+              </FormField>
 
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="leave-report-employee">Filter by employee</label>
                 <select
                   id="leave-report-employee"
@@ -224,7 +226,7 @@ const AdminLeaveReports = () => {
                     </option>
                   ))}
                 </select>
-              </div>
+              </FormField>
             </div>
 
             <div className="form-actions">
@@ -254,7 +256,7 @@ const AdminLeaveReports = () => {
             </div>
           </section>
 
-          <div className="table-wrapper modern-table-wrapper">
+          <TableRegion label="Admin Leave Reports records" className="table-wrapper modern-table-wrapper">
             <table className="custom-table responsive-card-table">
               <caption className="sr-only">Filtered employee leave reports</caption>
               <thead>
@@ -324,7 +326,7 @@ const AdminLeaveReports = () => {
                 )}
               </tbody>
             </table>
-          </div>
+          </TableRegion>
 
           {filteredRequests.length > REPORTS_PER_PAGE && (
             <nav className="pagination" aria-label="Leave report pages">

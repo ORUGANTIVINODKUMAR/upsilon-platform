@@ -1,5 +1,5 @@
 const getInitials = (name = "User") =>
-  name
+  String(name || "User")
     .trim()
     .split(/\s+/)
     .slice(0, 2)

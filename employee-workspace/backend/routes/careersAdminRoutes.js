@@ -14,10 +14,11 @@ import {
 } from "../controllers/careersJobController.js";
 
 import { protectCareersAdmin } from "../middleware/careersAuthMiddleware.js";
+import { signInLimiters } from "../middleware/rateLimit.js";
 
 const router = express.Router();
 
-router.post("/login", loginCareersAdmin);
+router.post("/login", ...signInLimiters, loginCareersAdmin);
 router.post("/logout", logoutCareersAdmin);
 router.get("/me", protectCareersAdmin, getCareersAdminMe);
 

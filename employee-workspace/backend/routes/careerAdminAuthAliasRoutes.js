@@ -9,12 +9,14 @@ import {
 import {
   protectCareersAdmin,
 } from "../middleware/careersAuthMiddleware.js";
+import { signInLimiters } from "../middleware/rateLimit.js";
 
 const router = express.Router();
 
 // Careers admin login
 router.post(
   "/login",
+  ...signInLimiters,
   loginCareersAdmin
 );
 

@@ -1,3 +1,4 @@
+import FormField from "../components/ui/FormField";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import {
@@ -23,6 +24,10 @@ const Login = () => {
 
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Set when an expired or revoked session sent the user back here.
+  const [sessionExpired] = useState(
+    () => new URLSearchParams(window.location.search).get("session") === "expired"
+  );
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -49,9 +54,18 @@ const Login = () => {
 
       navigate("/dashboard", { replace: true });
     } catch (error) {
+      const serverMessage = error.response?.data?.message;
+      // No response, or a 5xx without our JSON body, means the API was
+      // unreachable (e.g. the dev proxy while the backend restarts).
+      const serverUnreachable =
+        !serverMessage &&
+        (!error.response || error.response.status >= 500);
+
       setError(
-        error.response?.data?.message ||
-          "Login failed"
+        serverMessage ||
+          (serverUnreachable
+            ? "Can't reach the server right now. Please try again in a moment."
+            : "Login failed")
       );
     } finally {
       setIsSubmitting(false);
@@ -91,15 +105,12 @@ const Login = () => {
             className="login-brand-logo"
           />
 
-          <h1 className="login-brand-title">
-            Welcome to Upsilon Services
-          </h1>
+          <span className="login-workspace-label">UPSILON / EMPLOYEE WORKSPACE</span>
+          <h1 className="login-brand-title">Your workday,<br />better connected.</h1>
 
           <p className="login-brand-description">
-            Manage employees, attendance,
-            leaves, reimbursements and
-            approvals through one secure HRMS
-            workspace.
+            A single place for your people, time off and expenses.
+            Stay informed, keep things moving, and focus on the work that matters.
           </p>
 
           <div className="login-feature-grid">
@@ -133,8 +144,14 @@ const Login = () => {
 
             <h1 id="login-title">Sign in to Upsilon</h1>
 
-            <p>Employee Management Portal</p>
+            <p>Use your company account to access your workspace.</p>
           </div>
+
+          {sessionExpired && !error && (
+            <div className="alert alert-info" role="status">
+              Your session ended. Please sign in again.
+            </div>
+          )}
 
           {error && (
             <div id="login-error">
@@ -151,7 +168,7 @@ const Login = () => {
             onSubmit={handleSubmit}
             aria-busy={isSubmitting}
           >
-            <div className="input-group">
+            <FormField className="input-group">
               <label htmlFor="login-email">
                 Email Address
               </label>
@@ -169,9 +186,9 @@ const Login = () => {
                 aria-describedby={error ? "login-error" : undefined}
                 required
               />
-            </div>
+            </FormField>
 
-            <div className="input-group">
+            <FormField className="input-group">
               <label htmlFor="login-password">
                 Password
               </label>
@@ -189,7 +206,7 @@ const Login = () => {
                 aria-describedby={error ? "login-error" : undefined}
                 required
               />
-            </div>
+            </FormField>
 
             <button
               type="submit"

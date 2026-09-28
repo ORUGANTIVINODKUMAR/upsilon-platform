@@ -1,3 +1,7 @@
+import PageHeader from "../components/ui/PageHeader";
+import TableRegion from "../components/ui/TableRegion";
+import ModalFrame from "../components/ui/ModalFrame";
+import FormField from "../components/ui/FormField";
 import {
   useEffect,
   useMemo,
@@ -1361,7 +1365,7 @@ const AdminUsers = () => {
             error.message
         );
 
-        window.alert(
+        setError(
           error.response?.data
             ?.message ||
             "Unable to deactivate user."
@@ -1466,19 +1470,8 @@ const AdminUsers = () => {
   };
     return (
     <>
-      <div className="section-header">
-        <div>
-          <h2 className="card-title">
-            User Management
-          </h2>
-
-          <p className="section-subtitle">
-            Create, edit, reset passwords, activate, and deactivate employees,
-            managers, HR users, Team Leaders, and Finance users.
-          </p>
-        </div>
-
-        <div
+      <PageHeader title={<>User Management</>} description={<>Create, edit, reset passwords, activate, and deactivate employees,
+            managers, HR users, Team Leaders, and Finance users.</>} actions={<><div
           style={{
             display: "flex",
             gap: "12px",
@@ -1504,8 +1497,7 @@ const AdminUsers = () => {
             <Plus size={18} />
             Add User
           </button>
-        </div>
-      </div>
+        </div></>} />
 
       {error &&
         !showModal &&
@@ -1558,7 +1550,8 @@ const AdminUsers = () => {
       >
         <input
           type="text"
-          placeholder="Search by name, email, employee ID, phone, or designation..."
+          aria-label="Search users by name, email, employee ID, phone, or designation"
+          placeholder="Search people by name, email or employee ID..."
           value={searchTerm}
           onChange={(event) => {
             setSearchTerm(
@@ -1572,7 +1565,7 @@ const AdminUsers = () => {
             padding: "14px",
             borderRadius: "12px",
             border:
-              "1px solid #d1d5db",
+              "1px solid var(--neutral-300)",
             fontSize: "14px",
           }}
         />
@@ -1591,6 +1584,7 @@ const AdminUsers = () => {
           <button
             type="button"
             key={filter}
+            aria-pressed={activeFilter === filter}
             className={
               activeFilter === filter
                 ? "active-filter"
@@ -1611,7 +1605,7 @@ const AdminUsers = () => {
         ))}
       </div>
 
-      <div className="table-wrapper modern-table-wrapper">
+      <TableRegion label="Admin Users records" className="table-wrapper modern-table-wrapper">
         <table className="custom-table responsive-card-table">
           <thead>
             <tr>
@@ -1694,7 +1688,7 @@ const AdminUsers = () => {
                                 fontSize:
                                   "12px",
                                 color:
-                                  "#64748b",
+                                  "var(--text-muted)",
                               }}
                             >
                               {user.phone}
@@ -1772,18 +1766,8 @@ const AdminUsers = () => {
                     </td>
 
                     <td data-label="Actions">
-                      <div
-                        className="admin-user-actions"
-                        style={{
-                          display:
-                            "flex",
-                          gap: "8px",
-                          alignItems:
-                            "center",
-                          flexWrap:
-                            "wrap",
-                        }}
-                      >
+                      <div className="admin-user-actions">
+
                         <button
                           type="button"
                           className="btn"
@@ -1876,7 +1860,7 @@ const AdminUsers = () => {
               )}
           </tbody>
         </table>
-      </div>
+      </TableRegion>
 
       {filteredUsers.length >
         USERS_PER_PAGE && (
@@ -1985,7 +1969,7 @@ const AdminUsers = () => {
       )}
             {showModal && (
         <div className="modal-overlay">
-          <div className="modal-card user-modal modern-user-modal">
+          <ModalFrame onClose={() => { if (!(isSubmitting)) (closeModal)(); }} className="modal-card user-modal modern-user-modal">
             <div className="modal-header">
               <h3>
                 {editingUser
@@ -1993,7 +1977,7 @@ const AdminUsers = () => {
                   : "Create New User"}
               </h3>
 
-              <button
+              <button aria-label="Close dialog"
                 type="button"
                 onClick={closeModal}
                 disabled={isSubmitting}
@@ -2027,7 +2011,7 @@ const AdminUsers = () => {
               </div>
 
               <div className="grid-2">
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>First Name</label>
 
                   <input
@@ -2038,9 +2022,9 @@ const AdminUsers = () => {
                     disabled={isSubmitting}
                     required
                   />
-                </div>
+                </FormField>
 
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>Last Name</label>
 
                   <input
@@ -2051,11 +2035,11 @@ const AdminUsers = () => {
                     disabled={isSubmitting}
                     required
                   />
-                </div>
+                </FormField>
               </div>
 
               <div className="grid-2">
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>Employee ID</label>
 
                   <input
@@ -2066,9 +2050,9 @@ const AdminUsers = () => {
                     disabled={isSubmitting}
                     required
                   />
-                </div>
+                </FormField>
 
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>Designation / Post</label>
 
                   <input
@@ -2079,11 +2063,11 @@ const AdminUsers = () => {
                     disabled={isSubmitting}
                     required
                   />
-                </div>
+                </FormField>
               </div>
 
               <div className="grid-2">
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>Date of Joining</label>
 
                   <input
@@ -2097,9 +2081,9 @@ const AdminUsers = () => {
                     disabled={isSubmitting}
                     required
                   />
-                </div>
+                </FormField>
 
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>Date of Birth</label>
 
                   <input
@@ -2113,11 +2097,11 @@ const AdminUsers = () => {
                     disabled={isSubmitting}
                     required
                   />
-                </div>
+                </FormField>
               </div>
 
               <div className="grid-2">
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>Email Address</label>
 
                   <input
@@ -2129,9 +2113,9 @@ const AdminUsers = () => {
                     disabled={isSubmitting}
                     required
                   />
-                </div>
+                </FormField>
 
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>Phone Number</label>
 
                   <div
@@ -2144,9 +2128,9 @@ const AdminUsers = () => {
                     <span
                       style={{
                         padding: "12px",
-                        border: "1px solid #d1d5db",
+                        border: "1px solid var(--neutral-300)",
                         borderRadius: "8px",
-                        background: "#f8fafc",
+                        background: "var(--neutral-50)",
                         fontWeight: 600,
                       }}
                     >
@@ -2166,12 +2150,12 @@ const AdminUsers = () => {
                       required
                     />
                   </div>
-                </div>
+                </FormField>
               </div>
 
               {!editingUser && (
                 <div className="grid-2">
-                  <div className="input-group">
+                  <FormField className="input-group">
                     <label>Password</label>
 
                     <input
@@ -2184,7 +2168,7 @@ const AdminUsers = () => {
                       disabled={isSubmitting}
                       required
                     />
-                  </div>
+                  </FormField>
                 </div>
               )}
 
@@ -2196,7 +2180,7 @@ const AdminUsers = () => {
               </div>
 
               <div className="grid-2">
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>Role</label>
 
                   <select
@@ -2226,7 +2210,7 @@ const AdminUsers = () => {
                       Finance
                     </option>
                   </select>
-                </div>
+                </FormField>
 
                 {[
                   "Employee",
@@ -2234,7 +2218,7 @@ const AdminUsers = () => {
                   "Manager",
                   "HR",
                 ].includes(formData.role) && (
-                  <div className="input-group">
+                  <FormField className="input-group">
                     <label>Department</label>
 
                     <select
@@ -2259,13 +2243,13 @@ const AdminUsers = () => {
                         )
                       )}
                     </select>
-                  </div>
+                  </FormField>
                 )}
               </div>
 
               {editingUser && (
                 <div className="grid-2">
-                  <div className="input-group">
+                  <FormField className="input-group">
                     <label>
                       Employment Status
                     </label>
@@ -2311,7 +2295,7 @@ const AdminUsers = () => {
                         and reimbursement records will remain available.
                       </p>
                     )}
-                  </div>
+                  </FormField>
                 </div>
               )}
 
@@ -2325,7 +2309,7 @@ const AdminUsers = () => {
               {formData.role ===
                 "Employee" && (
                 <div className="grid-2">
-                  <div className="input-group">
+                  <FormField className="input-group">
                     <label>Team</label>
 
                     <select
@@ -2357,9 +2341,9 @@ const AdminUsers = () => {
                         )
                       )}
                     </select>
-                  </div>
+                  </FormField>
 
-                  <div className="input-group">
+                  <FormField className="input-group">
                     <label>Team Leader</label>
 
                     <input
@@ -2369,9 +2353,9 @@ const AdminUsers = () => {
                       }
                       disabled
                     />
-                  </div>
+                  </FormField>
 
-                  <div className="input-group">
+                  <FormField className="input-group">
                     <label>
                       Reporting Manager
                     </label>
@@ -2383,9 +2367,9 @@ const AdminUsers = () => {
                       }
                       disabled
                     />
-                  </div>
+                  </FormField>
 
-                  <div className="input-group">
+                  <FormField className="input-group">
                     <label>Reporting HR</label>
 
                     <input
@@ -2395,14 +2379,14 @@ const AdminUsers = () => {
                       }
                       disabled
                     />
-                  </div>
+                  </FormField>
                 </div>
               )}
 
               {formData.role ===
                 "TeamLeader" && (
                 <div className="grid-2">
-                  <div className="input-group">
+                  <FormField className="input-group">
                     <label>Team</label>
 
                     <select
@@ -2434,9 +2418,9 @@ const AdminUsers = () => {
                         )
                       )}
                     </select>
-                  </div>
+                  </FormField>
 
-                  <div className="input-group">
+                  <FormField className="input-group">
                     <label>
                       Reporting Manager
                     </label>
@@ -2462,9 +2446,9 @@ const AdminUsers = () => {
                         )
                       )}
                     </select>
-                  </div>
+                  </FormField>
 
-                  <div className="input-group">
+                  <FormField className="input-group">
                     <label>Reporting HR</label>
 
                     <select
@@ -2488,7 +2472,7 @@ const AdminUsers = () => {
                         )
                       )}
                     </select>
-                  </div>
+                  </FormField>
                 </div>
               )}
 
@@ -2497,7 +2481,7 @@ const AdminUsers = () => {
               ) && (
                 <>
                   {formData.role === "HR" && (
-                    <div className="input-group">
+                    <FormField className="input-group">
                       <label>Reporting Manager</label>
 
                       <select
@@ -2519,15 +2503,15 @@ const AdminUsers = () => {
                           </option>
                         ))}
                       </select>
-                    </div>
+                    </FormField>
                   )}
 
-                  <div className="input-group">
+                  <FormField className="input-group">
                     <label>Assign Teams</label>
 
                   <div
                     style={{
-                      border: "1px solid #d1d5db",
+                      border: "1px solid var(--neutral-300)",
                       borderRadius: "12px",
                       padding: "12px",
                       maxHeight: "220px",
@@ -2538,7 +2522,7 @@ const AdminUsers = () => {
                       <p
                         style={{
                           margin: 0,
-                          color: "#64748b",
+                          color: "var(--text-muted)",
                         }}
                       >
                         Select a department first.
@@ -2551,7 +2535,7 @@ const AdminUsers = () => {
                         <p
                           style={{
                             margin: 0,
-                            color: "#64748b",
+                            color: "var(--text-muted)",
                           }}
                         >
                           No active teams are available for this department.
@@ -2589,7 +2573,7 @@ const AdminUsers = () => {
                       )
                     )}
                   </div>
-                  </div>
+                  </FormField>
                 </>
               )}
 
@@ -2626,14 +2610,14 @@ const AdminUsers = () => {
                 </button>
               </div>
             </form>
-          </div>
+          </ModalFrame>
         </div>
       )}
 
       {showResetPasswordModal &&
         selectedResetUser && (
           <div className="modal-overlay">
-            <div
+            <ModalFrame onClose={() => { if (!(isSubmitting)) (closeResetPasswordModal)(); }}
               className="modal-card"
               style={{
                 maxWidth: "520px",
@@ -2649,7 +2633,7 @@ const AdminUsers = () => {
                   <p
                     style={{
                       marginTop: "5px",
-                      color: "#64748b",
+                      color: "var(--text-muted)",
                       fontSize: "13px",
                     }}
                   >
@@ -2660,7 +2644,7 @@ const AdminUsers = () => {
                   </p>
                 </div>
 
-                <button
+                <button aria-label="Close dialog"
                   type="button"
                   onClick={
                     closeResetPasswordModal
@@ -2694,11 +2678,11 @@ const AdminUsers = () => {
                     padding: "12px 14px",
                     marginBottom: "14px",
                     borderRadius: "10px",
-                    background: "#f8fafc",
+                    background: "var(--neutral-50)",
                     border:
-                      "1px solid #e2e8f0",
+                      "1px solid var(--neutral-200)",
                     fontSize: "13px",
-                    color: "#475569",
+                    color: "var(--text-secondary)",
                   }}
                 >
                   <strong>
@@ -2726,7 +2710,7 @@ const AdminUsers = () => {
                   </div>
                 </div>
 
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>
                     Temporary Password
                   </label>
@@ -2754,9 +2738,9 @@ const AdminUsers = () => {
                     disabled={isSubmitting}
                     required
                   />
-                </div>
+                </FormField>
 
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>
                     Confirm Temporary Password
                   </label>
@@ -2784,12 +2768,12 @@ const AdminUsers = () => {
                     disabled={isSubmitting}
                     required
                   />
-                </div>
+                </FormField>
 
                 <p
                   style={{
                     marginTop: "8px",
-                    color: "#64748b",
+                    color: "var(--text-muted)",
                     fontSize: "12px",
                     lineHeight: 1.6,
                   }}
@@ -2830,7 +2814,7 @@ const AdminUsers = () => {
                   </button>
                 </div>
               </form>
-            </div>
+            </ModalFrame>
           </div>
         )}
     </>

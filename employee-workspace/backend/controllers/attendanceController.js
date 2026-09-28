@@ -19,8 +19,8 @@ import {
 } from "../services/attendancePolicy.js";
 import { getRetrospectivePolicy } from "../services/leaveRequestPolicy.js";
 import { createNotification } from "../services/notificationService.js";
-import { syncUninformedAbsenceLedger } from "../services/leaveBalanceService.js";
-import { buildAttendanceCalendar, calendarPeriod } from "../services/attendanceCalendarService.js";
+import { FINAL_APPROVED_LEAVE_STATUSES, syncUninformedAbsenceLedger } from "../services/leaveBalanceService.js";
+import { AWAITING_LEAVE_STATUSES, buildAttendanceCalendar, calendarPeriod } from "../services/attendanceCalendarService.js";
 import { employeeBaseFilter, getManagedTeamIds, getAuthorizedEmployeeFilter } from "../services/attendanceScopeService.js";
 
 export const getAttendanceCalendar = async (req, res) => {
@@ -51,7 +51,7 @@ export const getAttendanceCalendar = async (req, res) => {
     const [records, leaves, holidays] = await Promise.all([
       AttendanceRecord.find({ employeeId: { $in: ids }, active: { $ne: false }, attendanceDate: { $gte: period.start, $lt: period.end } })
         .select("employeeId attendanceDate attendanceType status durationDays balanceTreatment remarks active").lean(),
-      LeaveRequest.find({ employeeId: { $in: ids }, finalStatus: { $in: ["Approved by Manager", "Approved by HR"] },
+      LeaveRequest.find({ employeeId: { $in: ids }, finalStatus: { $in: [...FINAL_APPROVED_LEAVE_STATUSES, ...AWAITING_LEAVE_STATUSES] },
         startDate: { $lt: period.end }, endDate: { $gte: period.start } })
         .select("employeeId startDate endDate leaveType workingDays finalStatus requiresReapproval").lean(),
       Holiday.find({ holidayDate: { $gte: period.start, $lt: period.end } }).select("name holidayDate type").lean(),

@@ -1,3 +1,6 @@
+import TableRegion from "../components/ui/TableRegion";
+import ModalFrame from "../components/ui/ModalFrame";
+import FormField from "../components/ui/FormField";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarX2, Download, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import api from "../api/api";
@@ -341,7 +344,7 @@ const AttendanceManagement = () => {
       {loading ? <LoadingState label="Loading attendance records..." /> : records.length === 0 ? (
         <EmptyState title="No attendance exceptions" description="No matching attendance records were found for this period." />
       ) : (
-        <div className="attendance-table-wrap">
+        <TableRegion label="Attendance Management records" className="attendance-table-wrap">
           <table className="attendance-table">
             <thead><tr><th>Employee</th><th>Date</th><th>Status</th><th>Remarks</th><th>Audit</th>{canManage && <th>Actions</th>}</tr></thead>
             <tbody>
@@ -357,13 +360,13 @@ const AttendanceManagement = () => {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableRegion>
       )}
 
       </>}
       {showForm && (
         <div className="modal-overlay" role="presentation" onMouseDown={closeForm}>
-          <section className="modal-card attendance-modal" role="dialog" aria-modal="true" aria-labelledby="attendance-form-title" onMouseDown={(event) => event.stopPropagation()}>
+          <ModalFrame onClose={() => { if (!(saving)) (closeForm)(); }} as="section" className="modal-card attendance-modal" role="dialog" aria-modal="true" aria-labelledby="attendance-form-title" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <div><span className="ui-eyebrow">Manual attendance</span><h3 id="attendance-form-title">{editingRecord ? "Correct attendance record" : "Add attendance record"}</h3></div>
               <button type="button" className="modal-close" onClick={closeForm} disabled={saving} aria-label="Close attendance form"><X size={18} /></button>
@@ -372,55 +375,55 @@ const AttendanceManagement = () => {
             <form className="auth-form" onSubmit={requestConfirmation}>
               {!editingRecord && (
                 <>
-                  <div className="input-group">
+                  <FormField className="input-group">
                     <label htmlFor="attendance-employee-search">Search employee</label>
                     <div className="attendance-search"><Search size={16} aria-hidden="true" /><input id="attendance-employee-search" type="search" value={employeeSearch} onChange={(event) => setEmployeeSearch(event.target.value)} placeholder="Search name, email, ID, or team" autoComplete="off" /></div>
-                  </div>
-                  <div className="input-group">
+                  </FormField>
+                  <FormField className="input-group">
                     <label htmlFor="attendance-employee">Employee</label>
                     <select id="attendance-employee" value={form.employeeId} onChange={(event) => setForm((current) => ({ ...current, employeeId: event.target.value }))} required>
                       <option value="">Select employee</option>
                       {visibleEmployees.map((employee) => <option key={employee._id} value={employee._id}>{employee.name} · {employee.employeeId || employee.email}{employee.teamId?.name ? ` · ${employee.teamId.name}` : ""}</option>)}
                     </select>
-                  </div>
+                  </FormField>
                 </>
               )}
               {editingRecord && <div className="attendance-employee-summary"><strong>{editingRecord.employeeId?.name || editingRecord.employeeName}</strong><span>{editingRecord.employeeId?.employeeId || editingRecord.employeeId?.email || ""}</span></div>}
-              <div className="input-group"><label htmlFor="attendance-date">Date</label><input id="attendance-date" type="date" value={form.date} min={selectedEmployee?.dateOfJoining ? String(selectedEmployee.dateOfJoining).slice(0, 10) : undefined} max={businessDate()} onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} required /><small>You can select any previous working date after the employee&apos;s joining date.</small></div>
-              <div className="input-group">
+              <FormField className="input-group"><label htmlFor="attendance-date">Date</label><input id="attendance-date" type="date" value={form.date} min={selectedEmployee?.dateOfJoining ? String(selectedEmployee.dateOfJoining).slice(0, 10) : undefined} max={businessDate()} onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} required /><small>You can select any previous working date after the employee&apos;s joining date.</small></FormField>
+              <FormField className="input-group">
                 <label htmlFor="attendance-type">Record type</label>
                 <select id="attendance-type" value={form.attendanceType} onChange={(event) => setForm((current) => ({ ...current, attendanceType: event.target.value }))} required>
                   {Object.entries(ATTENDANCE_OPTIONS).map(([value, option]) => <option key={value} value={value}>{option.label}</option>)}
                 </select>
-              </div>
+              </FormField>
               {form.attendanceType !== "PERMISSION" ? (
-                <div className="input-group">
+                <FormField className="input-group">
                   <label htmlFor="attendance-balance-treatment">Balance treatment</label>
                   <select id="attendance-balance-treatment" value={form.balanceTreatment} onChange={(event) => setForm((current) => ({ ...current, balanceTreatment: event.target.value }))} required>
                     <option value="LOP">Loss of Pay (LOP)</option>
                     <option value="PAID">Use available paid leave</option>
                   </select>
                   <small>{selectedAttendance.durationDays} day{selectedAttendance.durationDays === 1 ? "" : "s"} will be applied using the selected treatment.</small>
-                </div>
-              ) : <div className="input-group"><small>Permission is shown in attendance and the leave calendar with no leave deduction.</small></div>}
-              <div className="input-group"><label htmlFor="attendance-remarks">Remarks <span>(optional)</span></label><textarea id="attendance-remarks" rows="4" maxLength="500" value={form.remarks} onChange={(event) => setForm((current) => ({ ...current, remarks: event.target.value }))} placeholder="Employee did not inform the manager before the start of the shift." /><small>{form.remarks.length}/500</small></div>
+                </FormField>
+              ) : <FormField className="input-group"><small>Permission is shown in attendance and the leave calendar with no leave deduction.</small></FormField>}
+              <FormField className="input-group"><label htmlFor="attendance-remarks">Remarks <span>(optional)</span></label><textarea id="attendance-remarks" rows="4" maxLength="500" value={form.remarks} onChange={(event) => setForm((current) => ({ ...current, remarks: event.target.value }))} placeholder="Employee did not inform the manager before the start of the shift." /><small>{form.remarks.length}/500</small></FormField>
               <div className="form-actions"><button type="button" className="btn btn-secondary" onClick={closeForm}>Cancel</button><button type="submit" className="btn btn-primary">{editingRecord ? "Review Correction" : "Review Record"}</button></div>
             </form>
-          </section>
+          </ModalFrame>
         </div>
       )}
 
       {cancelTarget && (
         <div className="modal-overlay" role="presentation" onMouseDown={() => !saving && setCancelTarget(null)}>
-          <form className="modal-card attendance-modal" role="dialog" aria-modal="true" aria-labelledby="attendance-cancel-title" onSubmit={cancelRecord} onMouseDown={(event) => event.stopPropagation()}>
+          <ModalFrame onClose={() => { if (!(saving)) (() => setCancelTarget(null))(); }} as="form" className="modal-card attendance-modal" role="dialog" aria-modal="true" aria-labelledby="attendance-cancel-title" onSubmit={cancelRecord} onMouseDown={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <div><span className="ui-eyebrow">Audited correction</span><h3 id="attendance-cancel-title">Cancel attendance record</h3></div>
               <button type="button" className="modal-close" onClick={() => setCancelTarget(null)} disabled={saving} aria-label="Close cancellation form"><X size={18} /></button>
             </div>
             {cancelError && <ErrorState title="Record not cancelled" description={cancelError} compact />}
-            <div className="input-group"><label htmlFor="attendance-cancel-reason">Cancellation reason</label><textarea id="attendance-cancel-reason" rows="4" minLength="3" maxLength="500" value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} placeholder="Explain why this attendance record must be cancelled" required autoFocus /><small>Cancelling reverses its linked paid-leave or LOP entry and preserves the audit history.</small></div>
+            <FormField className="input-group"><label htmlFor="attendance-cancel-reason">Cancellation reason</label><textarea id="attendance-cancel-reason" rows="4" minLength="3" maxLength="500" value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} placeholder="Explain why this attendance record must be cancelled" required autoFocus /><small>Cancelling reverses its linked paid-leave or LOP entry and preserves the audit history.</small></FormField>
             <div className="form-actions"><button type="button" className="btn btn-secondary" onClick={() => setCancelTarget(null)} disabled={saving}>Keep Record</button><button type="submit" className="btn btn-danger" disabled={saving || cancelReason.trim().length < 3}>{saving ? "Cancelling..." : "Cancel Record"}</button></div>
-          </form>
+          </ModalFrame>
         </div>
       )}
 

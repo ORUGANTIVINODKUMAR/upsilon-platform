@@ -41,7 +41,7 @@ const notifyReimbursementApprovers = async ({ request, employee, title, message 
     type: "Reimbursement",
     title,
     message,
-    link: "/dashboard",
+    link: "/dashboard?page=reimbursementApprovals",
   })));
 
   const emailResults = await Promise.allSettled(approvers.filter((approver) => approver.email).map((approver) =>
@@ -208,7 +208,7 @@ export const createReimbursementRequest = async (req, res) => {
           type: "Reimbursement",
           title: "New Reimbursement Request",
           message: `${req.user.name} submitted a reimbursement request.`,
-          link: "/dashboard",
+          link: "/dashboard?page=reimbursementApprovals",
         })
       )
     );
@@ -493,7 +493,7 @@ export const approveReimbursementByTL = async (req, res) => {
       title: "Reimbursement Reviewed by TL",
       message:
         "Your reimbursement request was approved by Team Leader and is pending final approval.",
-      link: "/dashboard",
+      link: "/dashboard?page=reimbursements",
     });
 
     res.status(200).json({
@@ -567,7 +567,7 @@ export const rejectReimbursementByTL = async (req, res) => {
       type: "Reimbursement",
       title: "Reimbursement Reviewed by TL",
       message: `Your reimbursement request was not recommended by the Team Leader. Reason: ${rejectionReason}. Manager or HR will make the final decision.`,
-      link: "/dashboard",
+      link: "/dashboard?page=reimbursements",
     });
 
     res.status(200).json({
@@ -751,7 +751,7 @@ export const approveReimbursementByManager = async (req, res) => {
       title: "Reimbursement Approved",
       message:
         "Your reimbursement request has been finally approved and is pending finance payment.",
-      link: "/dashboard",
+      link: "/dashboard?page=reimbursements",
     });
 
     if (reimbursementRequest.employeeId.email) {
@@ -775,7 +775,7 @@ export const approveReimbursementByManager = async (req, res) => {
         type: "Reimbursement",
         title: "Reimbursement Final Decision",
         message: `${reimbursementRequest.employeeId.name}'s reimbursement was approved by ${req.user.role}.`,
-        link: "/dashboard",
+        link: "/dashboard?page=reimbursementApprovals",
       });
     }
 
@@ -791,7 +791,7 @@ export const approveReimbursementByManager = async (req, res) => {
           type: "Reimbursement",
           title: "Reimbursement Ready for Payment",
           message: `${reimbursementRequest.employeeId.name}'s reimbursement is ready for payment.`,
-          link: "/dashboard",
+          link: "/finance-reimbursements",
         })
       )
     );
@@ -900,7 +900,7 @@ export const rejectReimbursementByManager = async (req, res) => {
       type: "Reimbursement",
       title: "Reimbursement Rejected",
       message: `Your reimbursement request was rejected. Reason: ${rejectionReason}`,
-      link: "/dashboard",
+      link: "/dashboard?page=reimbursements",
     });
     if (reimbursementRequest.teamLeaderId) {
       await createNotification({
@@ -908,7 +908,7 @@ export const rejectReimbursementByManager = async (req, res) => {
         type: "Reimbursement",
         title: "Reimbursement Final Decision",
         message: `${reimbursementRequest.employeeId.name}'s reimbursement was rejected by ${req.user.role}. Reason: ${rejectionReason}`,
-        link: "/dashboard",
+        link: "/dashboard?page=reimbursementApprovals",
       });
     }
     if (reimbursementRequest.employeeId.email) {
@@ -1020,7 +1020,7 @@ export const markReimbursementAsPaid = async (req, res) => {
       type: "Reimbursement",
       title: "Reimbursement Paid",
       message: "Your reimbursement payment has been processed successfully.",
-      link: "/dashboard",
+      link: "/dashboard?page=reimbursements",
     });
 
     res.status(200).json({

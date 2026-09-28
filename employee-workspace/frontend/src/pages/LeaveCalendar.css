@@ -1,4 +1,8 @@
-.calendar-report-toolbar.calendar-view-toolbar { flex-wrap: wrap; }
+/* Controls on the first row, legend on its own row below, so the legend never
+   squeezes or covers the date pickers. */
+.calendar-view-toolbar { flex-wrap: wrap; }
+.calendar-view-toolbar .calendar-legend { flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-start; overflow: visible; white-space: normal; gap: 8px; }
+.calendar-view-toolbar .calendar-view-controls { flex-wrap: wrap; }
 .calendar-report-toolbar .calendar-view-controls { flex: 1 1 100%; flex-wrap: wrap; }
 .calendar-report-toolbar .calendar-date-selectors { flex-wrap: wrap; }
 .calendar-report-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

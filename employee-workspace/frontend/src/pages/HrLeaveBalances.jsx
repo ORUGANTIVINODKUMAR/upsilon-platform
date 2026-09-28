@@ -1,3 +1,6 @@
+import TableRegion from "../components/ui/TableRegion";
+import ModalFrame from "../components/ui/ModalFrame";
+import FormField from "../components/ui/FormField";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -250,7 +253,7 @@ const HrLeaveBalances = () => {
       </div>
 
       <div className="balance-table-shell">
-        <div className="table-wrapper">
+        <TableRegion label="Hr Leave Balances records" className="table-wrapper">
           <table className="custom-table balance-management-table">
             <caption className="sr-only">Leave balances for applicable employees</caption>
             <thead>
@@ -298,12 +301,12 @@ const HrLeaveBalances = () => {
               )}
             </tbody>
           </table>
-        </div>
+        </TableRegion>
       </div>
 
       {selected && (
         <div className="modal-overlay">
-          <form
+          <ModalFrame onClose={() => { if (!(saving)) (closeAdjustment)(); }} as="form"
             className="modal-box balance-adjust-modal"
             onSubmit={submitAdjustment}
             role="dialog"
@@ -331,7 +334,7 @@ const HrLeaveBalances = () => {
               </div>
             )}
 
-            <div className="input-group">
+            <FormField className="input-group">
               <label htmlFor="adjustment-days">Adjustment days</label>
               <input id="adjustment-days" type="number" step="0.01" min="-365" max="365" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Example: 0.25 or -0.75" required autoFocus />
               <small>{ADJUSTMENT_FIELDS[adjustField].helpText}</small>
@@ -340,19 +343,19 @@ const HrLeaveBalances = () => {
                   <button type="button" key={value} onClick={() => setAmount(String(value))}>{value > 0 ? "+" : ""}{value} day{Math.abs(value) === 1 ? "" : "s"}</button>
                 ))}
               </div>
-            </div>
+            </FormField>
 
-            <div className="input-group">
+            <FormField className="input-group">
               <label htmlFor="adjustment-reason">Reason for adjustment</label>
               <textarea id="adjustment-reason" value={reason} onChange={(event) => setReason(event.target.value)} minLength="3" maxLength="500" rows="4" placeholder="Explain why this balance is being adjusted" required />
               <small>This reason will be stored permanently in the audit history.</small>
-            </div>
+            </FormField>
 
             <div className="balance-modal-actions">
               <button type="button" className="btn" onClick={closeAdjustment} disabled={saving}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={saving || !amount || Number(amount) === 0 || !reason.trim()}>{saving ? "Saving adjustment..." : "Save adjustment"}</button>
             </div>
-          </form>
+          </ModalFrame>
         </div>
       )}
     </div>

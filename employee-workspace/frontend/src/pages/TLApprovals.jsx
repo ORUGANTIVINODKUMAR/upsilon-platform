@@ -1,3 +1,6 @@
+import PageHeader from "../components/ui/PageHeader";
+import TableRegion from "../components/ui/TableRegion";
+import ModalFrame from "../components/ui/ModalFrame";
 import { useEffect, useState } from "react";
 import {
   CheckCircle,
@@ -190,14 +193,7 @@ const TLApprovals = () => {
 
   return (
     <div aria-busy={loading || Boolean(processingId) || isRejecting}>
-      <div className="section-header">
-        <div>
-          <h2 className="card-title">Team Leader Leave Review</h2>
-          <p className="section-subtitle">
-            Review leave requests from your reporting employees.
-          </p>
-        </div>
-      </div>
+      <PageHeader title={<>Team Leader Leave Review</>} description={<>Review leave requests from your reporting employees.</>}  />
 
       {feedback && !showRejectModal && (
         <div
@@ -261,7 +257,7 @@ const TLApprovals = () => {
       )}
 
       {!loadError && (
-      <div className="table-wrapper modern-table-wrapper">
+      <TableRegion label="TLApprovals records" className="table-wrapper modern-table-wrapper">
         <table className="custom-table">
           <thead>
             <tr>
@@ -398,12 +394,12 @@ const TLApprovals = () => {
             )}
           </tbody>
         </table>
-      </div>
+      </TableRegion>
       )}
 
       {showReasonModal && (
         <div className="modal-overlay">
-          <div
+          <ModalFrame onClose={() => { (() => setShowReasonModal(false))(); }}
             className="modal-card"
             role="dialog"
             aria-modal="true"
@@ -434,13 +430,13 @@ const TLApprovals = () => {
             >
               {modalContent}
             </div>
-          </div>
+          </ModalFrame>
         </div>
       )}
 
       {showRejectModal && (
         <div className="modal-overlay">
-          <div
+          <ModalFrame onClose={() => { if (!(isRejecting)) (() => setShowRejectModal(false))(); }}
             className="modal-card"
             role="dialog"
             aria-modal="true"
@@ -484,7 +480,7 @@ const TLApprovals = () => {
                 {isRejecting ? "Submitting…" : "Submit Rejection"}
               </button>
             </div>
-          </div>
+          </ModalFrame>
         </div>
       )}
     </div>

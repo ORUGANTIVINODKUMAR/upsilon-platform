@@ -1055,50 +1055,7 @@ body {
 
 /* ===== EMPLOYEE GRID ===== */
 
-.employee-dashboard-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 24px;
-  margin-bottom: 28px;
-}
-
 /* ===== PROFILE CARD ===== */
-
-.modern-profile-card {
-  background: white;
-  border-radius: 28px;
-  padding: 34px;
-  border: 1px solid #edf2ee;
-}
-
-.profile-main-row {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-}
-
-.large-avatar {
-  width: 86px;
-  height: 86px;
-  border-radius: 50%;
-  background: #123524;
-  color: white;
-  font-size: 34px;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.profile-main-row h2 {
-  color: #123524;
-  font-size: 34px;
-}
-
-.profile-main-row p {
-  color: #8b8b8b;
-  margin-top: 4px;
-}
 
 .active-pill {
   margin-left: auto;
@@ -1111,32 +1068,6 @@ body {
   gap: 6px;
   font-size: 13px;
   font-weight: 800;
-}
-
-.profile-divider {
-  height: 1px;
-  background: #edf2ee;
-  margin: 28px 0;
-}
-
-.profile-detail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 26px;
-}
-
-.profile-detail-grid span {
-  display: block;
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: #9ca3af;
-  margin-bottom: 6px;
-}
-
-.profile-detail-grid strong {
-  color: #123524;
-  font-size: 18px;
 }
 
 /* ===== LEAVE BALANCE ===== */
@@ -1240,9 +1171,6 @@ body {
 /* ===== RESPONSIVE ===== */
 
 @media (max-width: 1200px) {
-  .employee-dashboard-grid {
-    grid-template-columns: 1fr;
-  }
 
   .modern-stats-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -1260,15 +1188,6 @@ body {
 
   .modern-stats-grid {
     grid-template-columns: 1fr;
-  }
-
-  .profile-detail-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .profile-main-row {
-    flex-direction: column;
-    align-items: flex-start;
   }
 
   .active-pill {

@@ -1,3 +1,6 @@
+import TableRegion from "../components/ui/TableRegion";
+import ModalFrame from "../components/ui/ModalFrame";
+import FormField from "../components/ui/FormField";
 import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
@@ -285,49 +288,8 @@ const Reimbursements = () => {
     });
   };
 
-  const handleCategoryChange = (
-    index,
-    value
-  ) => {
-    if (value === "__custom__") {
-      const customCategory =
-        window.prompt(
-          "Enter custom category"
-        );
-
-      if (
-        !customCategory?.trim()
-      )
-        return;
-
-      const cleanCategory =
-        customCategory.trim();
-
-      if (
-        !categories.includes(
-          cleanCategory
-        )
-      ) {
-        setCategories([
-          ...categories,
-          cleanCategory,
-        ]);
-      }
-
-      handleItemChange(
-        index,
-        "category",
-        cleanCategory
-      );
-
-      return;
-    }
-
-    handleItemChange(
-      index,
-      "category",
-      value
-    );
+  const handleCategoryChange = (index, value) => {
+    handleItemChange(index, "category", value);
   };
 
   const addItemRow = () => {
@@ -555,6 +517,7 @@ const Reimbursements = () => {
 
   return (
     <div aria-busy={isLoading}>
+      <datalist id="reimbursement-categories">{categories.map(category => <option key={category} value={category} />)}</datalist>
       <PageHeader
         eyebrow="Expenses"
         title="Reimbursements"
@@ -650,7 +613,7 @@ const Reimbursements = () => {
             Showing <strong>{filteredRequests.length}</strong> of {requests.length} claims
           </span>
           {(searchTerm || activeFilter !== "All") && (
-            <button
+            <button aria-label="Close dialog"
               type="button"
               className="btn btn-secondary"
               onClick={() => {
@@ -664,7 +627,7 @@ const Reimbursements = () => {
           )}
         </div>
       </section>
-      <div className="table-wrapper modern-table-wrapper">
+      <TableRegion label="Reimbursements records" className="table-wrapper modern-table-wrapper">
         <table className="custom-table reimbursement-request-table">
           <thead>
             <tr>
@@ -794,7 +757,7 @@ const Reimbursements = () => {
             )}
           </tbody>
         </table>
-      </div>
+      </TableRegion>
 
       {filteredRequests.length >
         REQUESTS_PER_PAGE && (
@@ -848,7 +811,7 @@ const Reimbursements = () => {
 
       {showModal && (
         <div className="modal-overlay">
-          <div
+          <ModalFrame onClose={() => { if (!(submitting)) (closeRequestModal)(); }}
             className="modal-card reimbursement-modal"
             role="dialog"
             aria-modal="true"
@@ -879,7 +842,7 @@ const Reimbursements = () => {
                   {formError}
                 </div>
               )}
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="reimbursement-receipts">
                   Upload Receipt /
                   Invoice
@@ -900,7 +863,7 @@ const Reimbursements = () => {
                   }
                   required={!editingRequest?.receiptFiles?.length}
                 />
-              </div>
+              </FormField>
               {editingRequest?.receiptFiles?.length > 0 && formData.receiptFiles.length === 0 && (
                 <div className="alert alert-info" role="status">
                   {editingRequest.receiptFiles.length} existing receipt(s) will be preserved. Select new files only to replace them.
@@ -911,14 +874,14 @@ const Reimbursements = () => {
                   style={{
                     marginTop: "8px",
                     fontSize: "13px",
-                    color: "#64748b",
+                    color: "var(--text-muted)",
                   }}
                 >
                   {formData.receiptFiles.length} receipt(s) selected
                 </p>
               )}
               <div className="grid-2">
-                <div className="input-group">
+                <FormField className="input-group">
                   <label htmlFor="reimbursement-expense-from">
                     Expense From
                   </label>
@@ -936,9 +899,9 @@ const Reimbursements = () => {
                     }
                     required
                   />
-                </div>
+                </FormField>
 
-                <div className="input-group">
+                <FormField className="input-group">
                   <label htmlFor="reimbursement-expense-to">
                     Expense To
                   </label>
@@ -957,10 +920,10 @@ const Reimbursements = () => {
                     }
                     required
                   />
-                </div>
+                </FormField>
               </div>
 
-              <div className="input-group">
+              <FormField className="input-group">
                 <label htmlFor="reimbursement-business-purpose">
                   Business Purpose
                 </label>
@@ -978,7 +941,7 @@ const Reimbursements = () => {
                   }
                   required
                 />
-              </div>
+              </FormField>
 
               <div className="reimbursement-toolbar">
                 <h4>
@@ -997,7 +960,7 @@ const Reimbursements = () => {
                 </button>
               </div>
 
-              <div className="table-wrapper">
+              <TableRegion label="Reimbursements records" className="table-wrapper">
                 <table className="custom-table">
                   <thead>
                     <tr>
@@ -1046,49 +1009,16 @@ const Reimbursements = () => {
                           </td>
 
                           <td>
-                            <select
-                              className="table-input"
-                              value={
-                                item.category
-                              }
-                              onChange={(
-                                e
-                              ) =>
-                                handleCategoryChange(
-                                  index,
-                                  e
-                                    .target
-                                    .value
-                                )
-                              }
-                              required
-                            >
-                              {categories.map(
-                                (
-                                  category
-                                ) => (
-                                  <option
-                                    key={
-                                      category
-                                    }
-                                    value={
-                                      category
-                                    }
-                                  >
-                                    {
-                                      category
-                                    }
-                                  </option>
-                                )
-                              )}
-
-                              <option value="__custom__">
-                                +
-                                Add
-                                Custom
-                                Category
-                              </option>
-                            </select>
+                            <input className="table-input" list="reimbursement-categories"
+                              aria-label={`Category for expense ${index + 1}`}
+                              placeholder="Choose or type a category"
+                              value={item.category}
+                              onChange={event => handleCategoryChange(index, event.target.value)}
+                              onBlur={() => {
+                                const category = item.category.trim();
+                                if (category && !categories.includes(category)) setCategories(current => [...current, category]);
+                                handleItemChange(index, "category", category);
+                              }} required />
                           </td>
 
                           <td>
@@ -1133,7 +1063,7 @@ const Reimbursements = () => {
                     )}
                   </tbody>
                 </table>
-              </div>
+              </TableRegion>
 
               <div className="reimbursement-summary">
                 <div>
@@ -1196,7 +1126,7 @@ const Reimbursements = () => {
                   : (editingRequest ? "Save Changes" : "Submit Reimbursement")}
               </button>
             </form>
-          </div>
+          </ModalFrame>
         </div>
       )}
       <ConfirmDialog
@@ -1210,7 +1140,8 @@ const Reimbursements = () => {
       />
       {showReasonModal && (
         <div className="modal-overlay">
-          <div
+          <ModalFrame onClose={() => { (() =>
+                  setShowReasonModal(false))(); }}
             className="modal-card"
             role="dialog"
             aria-modal="true"
@@ -1244,7 +1175,7 @@ const Reimbursements = () => {
             >
               {selectedReason}
             </div>
-          </div>
+          </ModalFrame>
         </div>
       )}
     </div>

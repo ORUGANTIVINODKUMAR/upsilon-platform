@@ -1,5 +1,9 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import {
+  isAllowedDuringPasswordChange,
+  PASSWORD_CHANGE_REQUIRED_CODE,
+} from "../services/passwordChangePolicy.js";
 
 export const protect = async (req, res, next) => {
   try {
@@ -29,6 +33,20 @@ export const protect = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message: "Your account is inactive",
+      });
+    }
+
+    if (
+      req.user.mustChangePassword &&
+      !isAllowedDuringPasswordChange({
+        method: req.method,
+        path: `${req.baseUrl}${req.path}`,
+      })
+    ) {
+      return res.status(403).json({
+        success: false,
+        code: PASSWORD_CHANGE_REQUIRED_CODE,
+        message: "Please change your temporary password before continuing.",
       });
     }
 

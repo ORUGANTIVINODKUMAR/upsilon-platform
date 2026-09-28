@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import PageHeader from "../components/ui/PageHeader";
+import { useState } from "react";
 import { Bell, CheckCircle, Search } from "lucide-react";
 import api from "../api/api";
 import {
@@ -7,67 +8,13 @@ import {
   LoadingState,
 } from "../components/ui/StatePanel";
 
-const loadNotifications = async () => {
-  const { data } = await api.get("/notifications");
-
-  return data.notifications || [];
-};
-
-const Notifications = () => {
-  const [notifications, setNotifications] = useState([]);
+const Notifications = ({ notifications, setNotifications, loading, loadError, onReload, onOpenNotification }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [actionError, setError] = useState("");
+  const error = actionError || loadError;
   const [updatingId, setUpdatingId] = useState(null);
   const [markingAll, setMarkingAll] = useState(false);
-
-  const fetchNotifications = async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      setNotifications(await loadNotifications());
-    } catch (error) {
-      console.error("FETCH NOTIFICATIONS ERROR:", error.response?.data);
-      setError(
-        error.response?.data?.message ||
-        "Unable to load notifications."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    let isCurrent = true;
-
-    loadNotifications()
-      .then((notificationItems) => {
-        if (isCurrent) {
-          setNotifications(notificationItems);
-        }
-      })
-      .catch((error) => {
-        console.error("FETCH NOTIFICATIONS ERROR:", error.response?.data);
-
-        if (isCurrent) {
-          setError(
-            error.response?.data?.message ||
-            "Unable to load notifications."
-          );
-        }
-      })
-      .finally(() => {
-        if (isCurrent) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, []);
 
   const markAsRead = async (id) => {
     try {
@@ -141,15 +88,7 @@ const Notifications = () => {
 
   return (
     <div aria-busy={loading || markingAll || Boolean(updatingId)}>
-      <div className="section-header">
-        <div>
-          <h2 className="card-title">Notifications</h2>
-          <p className="section-subtitle">
-            View all system updates, approvals and alerts.
-          </p>
-        </div>
-
-        <button
+      <PageHeader title={<>Notifications</>} description={<>View all system updates, approvals and alerts.</>} actions={<><button
           type="button"
           className="btn btn-primary"
           onClick={markAllAsRead}
@@ -158,8 +97,7 @@ const Notifications = () => {
           }
         >
           {markingAll ? "Marking all…" : "Mark All Read"}
-        </button>
-      </div>
+        </button></>} />
 
       {error && !loading && (
         <ErrorState
@@ -173,7 +111,7 @@ const Notifications = () => {
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={fetchNotifications}
+              onClick={() => { setError(""); onReload(); }}
             >
               {notifications.length === 0 ? "Try again" : "Reload"}
             </button>
@@ -200,13 +138,12 @@ const Notifications = () => {
       </div>
 
       <div className="notification-tools">
-        <div className="notification-filter-tabs" role="tablist" aria-label="Filter notifications">
+        <div className="notification-filter-tabs" role="group" aria-label="Filter notifications">
           {notificationFilters.map((filter) => (
             <button
               key={filter.label}
               type="button"
-              role="tab"
-              aria-selected={activeFilter === filter.label}
+              aria-pressed={activeFilter === filter.label}
               className={activeFilter === filter.label ? "active" : ""}
               onClick={() => setActiveFilter(filter.label)}
             >
@@ -250,6 +187,13 @@ const Notifications = () => {
                   <time dateTime={item.createdAt}>
                     {new Date(item.createdAt).toLocaleString()}
                   </time>
+                  <button
+                    type="button"
+                    className="notification-open-link"
+                    onClick={() => onOpenNotification(item)}
+                  >
+                    View request
+                  </button>
                 </div>
 
                 {!item.isRead && (

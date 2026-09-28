@@ -1,3 +1,6 @@
+import TableRegion from "../components/ui/TableRegion";
+import ModalFrame from "../components/ui/ModalFrame";
+import FormField from "../components/ui/FormField";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -1048,7 +1051,7 @@ const LeaveRequests = () => {
         ))}
       </div>
 
-      <div className="table-wrapper modern-table-wrapper">
+      <TableRegion label="Leave Requests records" className="table-wrapper modern-table-wrapper">
         <table className="custom-table">
           <thead>
             <tr>
@@ -1221,7 +1224,7 @@ const LeaveRequests = () => {
 
                           <div
                             style={{
-                              color: "#64748b",
+                              color: "var(--text-muted)",
                               marginTop: "4px",
                             }}
                           >
@@ -1310,7 +1313,7 @@ const LeaveRequests = () => {
                             0) && (
                             <span
                               style={{
-                                color: "#64748b",
+                                color: "var(--text-muted)",
                                 fontSize: "13px",
                               }}
                             >
@@ -1350,7 +1353,7 @@ const LeaveRequests = () => {
               )}
           </tbody>
         </table>
-      </div>
+      </TableRegion>
 
       {filteredRequests.length >
         REQUESTS_PER_PAGE && (
@@ -1423,7 +1426,7 @@ const LeaveRequests = () => {
         )}
       {showFormModal && (
         <div className="modal-overlay leave-request-modal-overlay">
-          <div
+          <ModalFrame onClose={() => { if (!(isSubmitting)) (closeFormModal)(); }}
             className="modal-card leave-request-modal"
             role="dialog"
             aria-modal="true"
@@ -1465,14 +1468,14 @@ const LeaveRequests = () => {
                   padding: "12px 14px",
                   borderRadius: "10px",
                   background: isEditingApprovedRequest
-                    ? "#fff7ed"
-                    : "#f8fafc",
+                    ? "var(--warning-50)"
+                    : "var(--neutral-50)",
                   border: isEditingApprovedRequest
                     ? "1px solid #fdba74"
-                    : "1px solid #e2e8f0",
+                    : "1px solid var(--neutral-200)",
                   color: isEditingApprovedRequest
                     ? "#9a3412"
-                    : "#475569",
+                    : "var(--text-secondary)",
                   fontSize: "13px",
                   lineHeight: 1.6,
                 }}
@@ -1500,7 +1503,7 @@ const LeaveRequests = () => {
                 )}
 
               <div className="grid-2">
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>Leave Type</label>
 
                   <select
@@ -1521,9 +1524,9 @@ const LeaveRequests = () => {
                       )
                     )}
                   </select>
-                </div>
+                </FormField>
 
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>
                     Working Days Preview
                   </label>
@@ -1536,11 +1539,11 @@ const LeaveRequests = () => {
                     }
                     disabled
                   />
-                </div>
+                </FormField>
               </div>
 
               <div className="grid-2">
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>Start Date</label>
 
                   <input
@@ -1555,9 +1558,9 @@ const LeaveRequests = () => {
                   <small className="leave-date-help">
                     Past leave is accepted from {formatDisplayDate(earliestPastDate)} onward.
                   </small>
-                </div>
+                </FormField>
 
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>End Date</label>
 
                   <input
@@ -1574,10 +1577,10 @@ const LeaveRequests = () => {
                     onChange={handleChange}
                     required
                   />
-                </div>
+                </FormField>
               </div>
 
-              <div className="input-group">
+              <FormField className="input-group">
                 <label>Reason</label>
 
                 <textarea
@@ -1589,9 +1592,9 @@ const LeaveRequests = () => {
                   disabled={isSubmitting}
                   required
                 />
-              </div>
+              </FormField>
 
-              <div className="input-group">
+              <FormField className="input-group">
                 <label>
                   Leave Explanation
                 </label>
@@ -1606,10 +1609,10 @@ const LeaveRequests = () => {
                   onChange={handleChange}
                   disabled={isSubmitting}
                 />
-              </div>
+              </FormField>
 
               {editingRequest && (
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>
                     Edit Remarks
                   </label>
@@ -1624,10 +1627,10 @@ const LeaveRequests = () => {
                     onChange={handleChange}
                     disabled={isSubmitting}
                   />
-                </div>
+                </FormField>
               )}
 
-              <div className="input-group">
+              <FormField className="input-group">
                 <label>
                   Proof File
                 </label>
@@ -1643,7 +1646,7 @@ const LeaveRequests = () => {
                 <small
                   style={{
                     marginTop: "6px",
-                    color: "#64748b",
+                    color: "var(--text-muted)",
                   }}
                 >
                   Optional. PDF, JPG, JPEG, or PNG.
@@ -1655,7 +1658,7 @@ const LeaveRequests = () => {
                     <small
                       style={{
                         marginTop: "5px",
-                        color: "#475569",
+                        color: "var(--text-secondary)",
                       }}
                     >
                       Existing proof file will be kept
@@ -1671,7 +1674,7 @@ const LeaveRequests = () => {
                       alignItems: "center",
                       gap: "8px",
                       fontSize: "13px",
-                      color: "#475569",
+                      color: "var(--text-secondary)",
                     }}
                   >
                     <Upload size={14} />
@@ -1679,7 +1682,7 @@ const LeaveRequests = () => {
                     {formData.proofFile.name}
                   </div>
                 )}
-              </div>
+              </FormField>
 
               </div>
 
@@ -1711,13 +1714,13 @@ const LeaveRequests = () => {
                 </button>
               </div>
             </form>
-          </div>
+          </ModalFrame>
         </div>
       )}
 
       {showReasonModal && (
         <div className="modal-overlay">
-          <div
+          <ModalFrame onClose={() => { (closeReasonModal)(); }}
             className="modal-card"
             style={{
               maxWidth: "500px",
@@ -1727,7 +1730,7 @@ const LeaveRequests = () => {
             <div className="modal-header">
               <h3>{modalTitle}</h3>
 
-              <button
+              <button aria-label="Close dialog"
                 type="button"
                 onClick={closeReasonModal}
               >
@@ -1747,7 +1750,7 @@ const LeaveRequests = () => {
             >
               {modalContent}
             </div>
-          </div>
+          </ModalFrame>
         </div>
       )}
 
@@ -1766,7 +1769,7 @@ const LeaveRequests = () => {
       {showHistoryModal &&
         selectedHistoryRequest && (
           <div className="modal-overlay">
-            <div
+            <ModalFrame onClose={() => { (closeHistoryModal)(); }}
               className="modal-card"
               style={{
                 maxWidth: "900px",
@@ -1782,7 +1785,7 @@ const LeaveRequests = () => {
                   <p
                     style={{
                       margin: "4px 0 0",
-                      color: "#64748b",
+                      color: "var(--text-muted)",
                       fontSize: "13px",
                     }}
                   >
@@ -1791,7 +1794,7 @@ const LeaveRequests = () => {
                   </p>
                 </div>
 
-                <button
+                <button aria-label="Close dialog"
                   type="button"
                   onClick={closeHistoryModal}
                 >
@@ -1840,7 +1843,7 @@ const LeaveRequests = () => {
                               }
                               style={{
                                 border:
-                                  "1px solid #e2e8f0",
+                                  "1px solid var(--neutral-200)",
                                 borderRadius:
                                   "12px",
                                 overflow:
@@ -1853,10 +1856,10 @@ const LeaveRequests = () => {
                                     "12px 14px",
                                   background:
                                     historyEntry.requiredReapproval
-                                      ? "#fff7ed"
-                                      : "#f8fafc",
+                                      ? "var(--warning-50)"
+                                      : "var(--neutral-50)",
                                   borderBottom:
-                                    "1px solid #e2e8f0",
+                                    "1px solid var(--neutral-200)",
                                 }}
                               >
                                 <div
@@ -1881,7 +1884,7 @@ const LeaveRequests = () => {
                                   <span
                                     style={{
                                       color:
-                                        "#64748b",
+                                        "var(--text-muted)",
                                       fontSize:
                                         "13px",
                                     }}
@@ -1917,7 +1920,7 @@ const LeaveRequests = () => {
                                         fontSize:
                                           "13px",
                                         color:
-                                          "#475569",
+                                          "var(--text-secondary)",
                                       }}
                                     >
                                       {
@@ -1928,7 +1931,7 @@ const LeaveRequests = () => {
                                 </div>
                               </div>
 
-                              <div
+                              <TableRegion label="Leave Requests records"
                                 className="table-wrapper"
                                 style={{
                                   margin: 0,
@@ -2004,7 +2007,7 @@ const LeaveRequests = () => {
                                     )}
                                   </tbody>
                                 </table>
-                              </div>
+                              </TableRegion>
                             </div>
                           );
                         }
@@ -2016,7 +2019,7 @@ const LeaveRequests = () => {
                   </p>
                 )}
               </div>
-            </div>
+            </ModalFrame>
           </div>
         )}
     </>

@@ -1,3 +1,5 @@
+import PageHeader from "../components/ui/PageHeader";
+import TableRegion from "../components/ui/TableRegion";
 import { useEffect, useState } from "react";
 import {
   CalendarCheck,
@@ -114,15 +116,7 @@ const FinanceLeaves = () => {
 
   return (
     <div aria-busy={loading}>
-      <div className="section-header">
-        <div>
-          <h2 className="card-title">Finance Leave Records</h2>
-
-          <p className="section-subtitle">
-            Approved employee leave records for finance tracking.
-          </p>
-        </div>
-      </div>
+      <PageHeader title={<>Finance Leave Records</>} description={<>Approved employee leave records for finance tracking.</>}  />
 
       {error && !loading && (
         <ErrorState
@@ -169,7 +163,7 @@ const FinanceLeaves = () => {
         />
       </div>
 
-      <div className="table-wrapper modern-table-wrapper">
+      <TableRegion label="Finance Leaves records" className="table-wrapper modern-table-wrapper">
         <table className="custom-table">
           <thead>
             <tr>
@@ -243,7 +237,7 @@ const FinanceLeaves = () => {
             )}
           </tbody>
         </table>
-      </div>
+      </TableRegion>
 
       {filteredLeaves.length > RECORDS_PER_PAGE && (
         <div

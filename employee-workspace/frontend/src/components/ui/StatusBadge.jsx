@@ -1,36 +1,10 @@
 const getStatusTone = (status = "") => {
   const value = String(status).trim().toLowerCase();
 
-  if (
-    value.includes("approv") ||
-    value.includes("paid") ||
-    value.includes("active") ||
-    value.includes("complete") ||
-    value.includes("success")
-  ) {
-    return "success";
-  }
-
-  if (
-    value.includes("reject") ||
-    value.includes("declin") ||
-    value.includes("inactive") ||
-    value.includes("cancel") ||
-    value.includes("lop") ||
-    value.includes("unpaid") ||
-    value.includes("failed")
-  ) {
-    return "danger";
-  }
-
-  if (
-    value.includes("pending") ||
-    value.includes("await") ||
-    value.includes("review") ||
-    value.includes("hold")
-  ) {
-    return "warning";
-  }
+  // Check negative and pending states before substrings such as paid/active/approval.
+  if (/reject|declin|inactive|cancel|lop|unpaid|failed/.test(value)) return "danger";
+  if (/pending|await|review|hold/.test(value)) return "warning";
+  if (/approv|paid|active|complete|success/.test(value)) return "success";
 
   if (
     value.includes("processing") ||

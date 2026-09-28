@@ -579,14 +579,17 @@ export const createLeaveRequest = async (
             recipientId:
               approver._id,
 
+            type: "Leave",
+
             title:
               "New Leave Request",
 
             message:
               `${employee.name} submitted a ${leaveType} leave request.`,
 
-            link:
-              "/dashboard",
+            link: approver.role === "TeamLeader"
+              ? "/dashboard?page=tlApprovals"
+              : "/dashboard?page=managerApprovals",
           })
       )
     );
@@ -1080,6 +1083,8 @@ export const updateMyLeaveRequest = async (
           createNotification({
             recipientId,
 
+            type: "Leave",
+
             title:
               notificationTitle,
 
@@ -1307,6 +1312,7 @@ export const deleteMyLeaveRequest = async (req, res) => {
     ]);
     await Promise.all(recipientIds.map((recipientId) => createNotification({
       recipientId,
+      type: "Leave",
       title: "Leave Request Deleted",
       message: `${req.user.name} deleted their ${leaveRequest.leaveType} leave request.`,
       link: "/dashboard",
@@ -1650,6 +1656,8 @@ export const approveLeaveByTL = async (
       recipientId:
         leaveRequest.employeeId._id,
 
+      type: "Leave",
+
       title:
         leaveRequest.finalStatus ===
         "Pending Reapproval"
@@ -1663,7 +1671,7 @@ export const approveLeaveByTL = async (
           : "Your leave was approved by the Team Leader and is awaiting Manager or HR approval.",
 
       link:
-        "/dashboard",
+        "/dashboard?page=leave",
     });
 
     const hrUsers =
@@ -1688,6 +1696,8 @@ export const approveLeaveByTL = async (
           createNotification({
             recipientId,
 
+            type: "Leave",
+
             title:
               leaveRequest.finalStatus ===
               "Pending Reapproval"
@@ -1698,7 +1708,7 @@ export const approveLeaveByTL = async (
               `${leaveRequest.employeeId.name}'s leave request was approved by the Team Leader and requires your review.`,
 
             link:
-              "/dashboard",
+              "/dashboard?page=managerApprovals",
           })
       )
     );
@@ -1864,6 +1874,8 @@ export const rejectLeaveByTL = async (
       recipientId:
         leaveRequest.employeeId._id,
 
+      type: "Leave",
+
       title:
         "Leave Rejected by Team Leader",
 
@@ -1871,7 +1883,7 @@ export const rejectLeaveByTL = async (
         `Your leave request was rejected by the Team Leader. Reason: ${trimmedReason}.`,
 
       link:
-        "/dashboard",
+        "/dashboard?page=leave",
     });
 
     if (leaveRequest.employeeId.email) {
@@ -2355,9 +2367,10 @@ export const changeLeaveStatus = async (req, res) => {
 
     await createNotification({
       recipientId: leaveRequest.employeeId._id,
+      type: "Leave",
       title: "Leave Status Updated",
       message: `Your leave status has been changed to "${status}".`,
-      link: "/dashboard",
+      link: "/dashboard?page=leave",
     });
 
     const isApprovedStatus =

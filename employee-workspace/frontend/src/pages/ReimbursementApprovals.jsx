@@ -1,3 +1,6 @@
+import TableRegion from "../components/ui/TableRegion";
+import ModalFrame from "../components/ui/ModalFrame";
+import FormField from "../components/ui/FormField";
 import { useEffect, useState } from "react";
 import {
   CheckCircle,
@@ -442,7 +445,7 @@ const ReimbursementApprovals = () => {
         ))}
       </div>
 
-      <div className="table-wrapper modern-table-wrapper">
+      <TableRegion label="Reimbursement Approvals records" className="table-wrapper modern-table-wrapper">
         <table className="custom-table">
           <thead>
             <tr>
@@ -639,7 +642,7 @@ const ReimbursementApprovals = () => {
               )}
           </tbody>
         </table>
-      </div>
+      </TableRegion>
 
       {filteredRequests.length >
         REQUESTS_PER_PAGE && (
@@ -706,7 +709,7 @@ const ReimbursementApprovals = () => {
         )}
       {showReasonModal && (
         <div className="modal-overlay">
-          <div
+          <ModalFrame onClose={() => { (() => setShowReasonModal(false))(); }}
             className="modal-card"
             role="dialog"
             aria-modal="true"
@@ -723,12 +726,12 @@ const ReimbursementApprovals = () => {
             <div className="modal-copy">
               {modalContent}
             </div>
-          </div>
+          </ModalFrame>
         </div>
       )}
       {rejectionModal && (
         <div className="modal-overlay">
-          <div
+          <ModalFrame onClose={() => { (() => setRejectionModal(false))(); }}
             className="modal-card"
             role="dialog"
             aria-modal="true"
@@ -742,7 +745,7 @@ const ReimbursementApprovals = () => {
               </button>
             </div>
 
-            <div className="input-group">
+            <FormField className="input-group">
               <label htmlFor="reimbursement-rejection-reason">Reason for rejection</label>
               <textarea
                 id="reimbursement-rejection-reason"
@@ -761,8 +764,8 @@ const ReimbursementApprovals = () => {
               >
                 {actionRequestId === rejectRequestId ? "Saving..." : "Submit rejection"}
               </button>
-            </div>
-          </div>
+            </FormField>
+          </ModalFrame>
         </div>
       )}
 

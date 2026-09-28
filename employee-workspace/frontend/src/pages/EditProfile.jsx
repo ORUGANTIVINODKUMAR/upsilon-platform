@@ -1,3 +1,5 @@
+import PageHeader from "../components/ui/PageHeader";
+import FormField from "../components/ui/FormField";
 import { useEffect, useRef, useState } from "react";
 import {
   Camera,
@@ -19,13 +21,13 @@ const ALLOWED_PROFILE_PHOTO_TYPES = [
 ];
 
 const compactCardStyle = {
-  padding: "18px",
-  borderRadius: "14px",
+  padding: "var(--card-padding)",
+  borderRadius: "var(--radius-md)",
 };
 
 const compactInputStyle = {
-  minHeight: "42px",
-  padding: "10px 12px",
+  minHeight: "var(--control-height)",
+  padding: "8px 11px",
 };
 
 const EditProfile = ({ onSuccess }) => {
@@ -557,23 +559,8 @@ const EditProfile = ({ onSuccess }) => {
         paddingBottom: "20px",
       }}
     >
-      <div
-        className="section-header"
-        style={{
-          marginBottom: "14px",
-        }}
-      >
-        <div>
-          <h2 className="card-title">
-            Edit Profile
-          </h2>
-
-          <p className="section-subtitle">
-            Update your profile photo,
-            mobile number, and password.
-          </p>
-        </div>
-      </div>
+      <PageHeader title={<>Edit Profile</>} description={<>Update your profile photo,
+            mobile number, and password.</>}  />
 
       {message && (
         <div
@@ -619,8 +606,8 @@ const EditProfile = ({ onSuccess }) => {
               borderRadius: "50%",
               overflow: "hidden",
               border:
-                "2px solid #e2e8f0",
-              background: "#f8fafc",
+                "2px solid var(--neutral-200)",
+              background: "var(--neutral-50)",
               display: "flex",
               alignItems: "center",
               justifyContent:
@@ -645,7 +632,7 @@ const EditProfile = ({ onSuccess }) => {
               <User
                 size={32}
                 style={{
-                  color: "#64748b",
+                  color: "var(--text-muted)",
                 }}
               />
             )}
@@ -653,8 +640,8 @@ const EditProfile = ({ onSuccess }) => {
 
           <div
             style={{
-              flex: 1,
-              minWidth: "240px",
+              flex: "1 1 220px",
+              minWidth: 0,
             }}
           >
             <h3
@@ -670,7 +657,7 @@ const EditProfile = ({ onSuccess }) => {
               style={{
                 margin:
                   "0 0 10px",
-                color: "#64748b",
+                color: "var(--text-muted)",
                 fontSize: "13px",
               }}
             >
@@ -787,7 +774,7 @@ const EditProfile = ({ onSuccess }) => {
                   margin:
                     "8px 0 0",
                   fontSize: "12px",
-                  color: "#64748b",
+                  color: "var(--text-muted)",
                 }}
               >
                 {selectedPhoto.name}
@@ -1011,7 +998,7 @@ const EditProfile = ({ onSuccess }) => {
           onSubmit={changePassword}
         >
           <div className="password-fields-grid">
-            <div className="input-group">
+            <FormField className="input-group">
               <label htmlFor="current-password">
                 Current Password
               </label>
@@ -1039,9 +1026,9 @@ const EditProfile = ({ onSuccess }) => {
                   compactInputStyle
                 }
               />
-            </div>
+            </FormField>
 
-            <div className="input-group">
+            <FormField className="input-group">
               <label htmlFor="new-password">
                 New Password
               </label>
@@ -1068,9 +1055,9 @@ const EditProfile = ({ onSuccess }) => {
                   compactInputStyle
                 }
               />
-            </div>
+            </FormField>
 
-            <div className="input-group">
+            <FormField className="input-group">
               <label htmlFor="confirm-password">
                 Confirm Password
               </label>
@@ -1099,7 +1086,7 @@ const EditProfile = ({ onSuccess }) => {
                   compactInputStyle
                 }
               />
-            </div>
+            </FormField>
           </div>
 
           <div

@@ -1,3 +1,7 @@
+import PageHeader from "../components/ui/PageHeader";
+import TableRegion from "../components/ui/TableRegion";
+import ModalFrame from "../components/ui/ModalFrame";
+import FormField from "../components/ui/FormField";
 import {
   useEffect,
   useMemo,
@@ -1486,18 +1490,7 @@ const ManagerApprovals = () => {
   };
   return (
     <div className="manager-leave-page">
-      <div className="manager-leave-header">
-        <div>
-          <h2 className="manager-leave-title">
-            Final Leave Approvals
-          </h2>
-
-          <p className="manager-leave-subtitle">
-            Review, approve, reject, hold, and manage employee leave requests.
-          </p>
-        </div>
-
-        <button
+      <PageHeader title={<>Final Leave Approvals</>} description={<>Review, approve, reject, hold, and manage employee leave requests.</>} actions={<><button
           type="button"
           className="manager-refresh-btn"
           onClick={loadRequests}
@@ -1515,8 +1508,7 @@ const ManagerApprovals = () => {
           {isLoading
             ? "Refreshing..."
             : "Refresh"}
-        </button>
-      </div>
+        </button></>} />
 
       {message && (
         <div className="alert alert-success">
@@ -1753,7 +1745,7 @@ const ManagerApprovals = () => {
       )}
 
       <div className="leave-approval-table-card">
-        <div className="leave-approval-table-scroll">
+        <TableRegion label="Manager Approvals records" className="leave-approval-table-scroll">
           <table className="leave-approval-table responsive-card-table">
             <thead>
               <tr>
@@ -2258,11 +2250,11 @@ const ManagerApprovals = () => {
                 )}
             </tbody>
           </table>
-        </div>
+        </TableRegion>
       </div>
       {showReasonModal && (
         <div className="modal-overlay">
-          <div className="manager-leave-modal">
+          <ModalFrame onClose={() => { (closeReasonModal)(); }} className="manager-leave-modal">
             <div className="modal-header">
               <h3>{modalTitle}</h3>
 
@@ -2285,14 +2277,14 @@ const ManagerApprovals = () => {
             >
               {modalContent}
             </div>
-          </div>
+          </ModalFrame>
         </div>
       )}
 
       {showRejectModal &&
         selectedRejectRequest && (
           <div className="modal-overlay">
-            <div className="manager-leave-modal">
+            <ModalFrame onClose={() => { if (!(isSubmitting)) (closeRejectModal)(); }} className="manager-leave-modal">
               <div className="modal-header">
                 <div>
                   <h3>
@@ -2368,7 +2360,7 @@ const ManagerApprovals = () => {
                   </div>
                 )}
 
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>Rejection Reason</label>
 
                   <textarea
@@ -2383,7 +2375,7 @@ const ManagerApprovals = () => {
                     }}
                     disabled={isSubmitting}
                   />
-                </div>
+                </FormField>
 
                 <div className="manager-leave-modal-footer">
                   <button
@@ -2412,14 +2404,14 @@ const ManagerApprovals = () => {
                   </button>
                 </div>
               </div>
-            </div>
+            </ModalFrame>
           </div>
         )}
 
       {showStatusModal &&
         selectedStatusRequest && (
           <div className="modal-overlay">
-            <div className="manager-leave-modal">
+            <ModalFrame onClose={() => { if (!(isSubmitting)) (closeStatusModal)(); }} className="manager-leave-modal">
               <div className="modal-header">
                 <div>
                   <h3>Change Leave Status</h3>
@@ -2489,7 +2481,7 @@ const ManagerApprovals = () => {
                   </div>
                 )}
 
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>New Status</label>
 
                   <select
@@ -2518,9 +2510,9 @@ const ManagerApprovals = () => {
                       </option>
                     ))}
                   </select>
-                </div>
+                </FormField>
 
-                <div className="input-group">
+                <FormField className="input-group">
                   <label>Remarks</label>
 
                   <textarea
@@ -2536,7 +2528,7 @@ const ManagerApprovals = () => {
                     disabled={isSubmitting}
                     required
                   />
-                </div>
+                </FormField>
 
                 <div className="manager-leave-modal-footer">
                   <button
@@ -2562,14 +2554,14 @@ const ManagerApprovals = () => {
                   </button>
                 </div>
               </div>
-            </div>
+            </ModalFrame>
           </div>
         )}
 
       {showEditHistoryModal &&
         selectedEditHistoryRequest && (
           <div className="modal-overlay">
-            <div className="manager-leave-modal manager-leave-modal-wide">
+            <ModalFrame onClose={() => { (closeEditHistoryModal)(); }} className="manager-leave-modal manager-leave-modal-wide">
               <div className="modal-header">
                 <div>
                   <h3>Leave Edit History</h3>
@@ -2644,7 +2636,7 @@ const ManagerApprovals = () => {
                                 borderRadius:
                                   "14px",
                                 background:
-                                  "#ffffff",
+                                  "var(--surface)",
                               }}
                             >
                               <div
@@ -2722,7 +2714,7 @@ const ManagerApprovals = () => {
                                 )}
                               </div>
 
-                              <div className="leave-approval-table-scroll">
+                              <TableRegion label="Manager Approvals records" className="leave-approval-table-scroll">
                                 <table className="leave-approval-table">
                                   <thead>
                                     <tr>
@@ -2776,7 +2768,7 @@ const ManagerApprovals = () => {
                                     )}
                                   </tbody>
                                 </table>
-                              </div>
+                              </TableRegion>
                             </div>
                           );
                         }
@@ -2798,14 +2790,14 @@ const ManagerApprovals = () => {
                   </div>
                 )}
               </div>
-            </div>
+            </ModalFrame>
           </div>
         )}
 
       {showStatusHistoryModal &&
         selectedStatusHistoryRequest && (
           <div className="modal-overlay">
-            <div className="manager-leave-modal manager-leave-modal-wide">
+            <ModalFrame onClose={() => { (closeStatusHistoryModal)(); }} className="manager-leave-modal manager-leave-modal-wide">
               <div className="modal-header">
                 <div>
                   <h3>Leave Status History</h3>
@@ -2847,7 +2839,7 @@ const ManagerApprovals = () => {
                   selectedStatusHistoryRequest.statusHistory
                     .length > 0 ? (
                   <div className="leave-approval-table-card">
-                    <div className="leave-approval-table-scroll">
+                    <TableRegion label="Manager Approvals records" className="leave-approval-table-scroll">
                       <table className="leave-approval-table">
                         <thead>
                           <tr>
@@ -2918,7 +2910,7 @@ const ManagerApprovals = () => {
                             )}
                         </tbody>
                       </table>
-                    </div>
+                    </TableRegion>
                   </div>
                 ) : (
                   <div className="leave-empty-state">
@@ -2936,7 +2928,7 @@ const ManagerApprovals = () => {
                   </div>
                 )}
               </div>
-            </div>
+            </ModalFrame>
           </div>
         )}
     </div>
